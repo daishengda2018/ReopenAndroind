@@ -5,10 +5,15 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import com.dsd.baccarat.data.InputViewModel
 import com.dsd.baccarat.ui.page.BppcTableAndChart
 import com.dsd.baccarat.ui.page.InputButtons
@@ -23,7 +28,12 @@ class MainActivity : ComponentActivity() {
         setContent {
             ReopenAndroidTheme {
                 Scaffold { innerPadding ->
-                    Column(modifier = Modifier.padding(innerPadding)) {
+                    Column(
+                        modifier = Modifier
+                            .padding(innerPadding)
+                            .fillMaxHeight()
+                            .fillMaxWidth()
+                    ) {
                         BppcTableAndChart(viewModel)
                         InputButtons(viewModel)
                     }

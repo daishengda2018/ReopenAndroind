@@ -2,12 +2,10 @@ package com.dsd.baccarat.data
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dsd.baccarat.ui.page.MIN_COUNT
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlin.collections.plus
 
 class InputViewModel : ViewModel() {
     private var mInputItemOfOpen: MutableList<InputType> = mutableListOf()

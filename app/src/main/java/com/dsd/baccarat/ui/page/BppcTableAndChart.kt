@@ -1,12 +1,12 @@
 package com.dsd.baccarat.ui.page
 
+import android.R.attr.fontWeight
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -23,8 +23,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -39,9 +42,8 @@ val TOTLE_HEIGHT = (TABLE_HEIGHT * 4) + (ITEM_SIZE_HALF * 3)
 val PADDING_CHAT_TITLE = ITEM_SIZE * 3 + ITEM_SIZE_HALF
 const val MIN_COUNT = 25
 val BORDER = 0.3.dp
-const val MAX_BAR = 8
+const val MAX_VALUE = 8
 
-@Preview(showBackground = true)
 @Composable
 private fun Demo() {
     val items = listOf(
@@ -70,16 +72,17 @@ private fun InternalTableAndChart(displayItems: List<BppcDisplayItem>) {
     LaunchedEffect(displayItems.size) {
         if (displayItems.size > MIN_COUNT) listState.scrollToItem(displayItems.lastIndex)
     }
+
     Row(
         Modifier
             .fillMaxWidth(0.5f)
             .height(TOTLE_HEIGHT)
     ) {
         TableTitle()
-        Spacer(Modifier.width(ITEM_SIZE_HALF))
         TableLazyRow(displayItems, listState)
     }
 }
+
 
 @Composable
 private fun TableTitle() {
@@ -138,12 +141,13 @@ fun VerticalBar(value: Int) {
             .width(ITEM_SIZE)
             .height(TABLE_HEIGHT)
     ) {
+        val textMeasurer = rememberTextMeasurer()
         Canvas(Modifier.fillMaxSize()) {
             val gridColor = Color.LightGray
             val gridWidth = BORDER.toPx()
-            val interval = size.height / MAX_BAR
+            val interval = size.height / MAX_VALUE
             // 横线
-            for (i in 0..MAX_BAR) {
+            for (i in 0..MAX_VALUE) {
                 drawLine(
                     color = if (i == 4) Color.Black else gridColor,
                     start = Offset(0f, i * interval),
@@ -154,13 +158,27 @@ fun VerticalBar(value: Int) {
             // 竖线
             drawLine(gridColor, Offset(size.width, 0f), Offset(size.width, size.height), gridWidth)
             drawLine(gridColor, Offset(0f, 0f), Offset(0f, size.height), gridWidth)
+
+            val barHeight = (value.toFloat() / MAX_VALUE * size.height)
+            val color = if (value in listOf(1, 4, 6, 7)) Color.Red else Color.Black
             // 柱子
-            val barHeight = (value.toFloat() / MAX_BAR * size.height)
             drawRect(
-                color = if (value in listOf(1, 4, 6, 7)) Color.Red else Color.Black,
+                color = color,
                 topLeft = Offset(size.width / 2 - 1f, size.height - barHeight),
                 size = Size(2.dp.toPx(), barHeight)
             )
+            // 数字
+            drawText(
+                textMeasurer = textMeasurer,
+                text = AnnotatedString("$value"),
+                topLeft = Offset(10f, size.height - barHeight),
+                style = TextStyle(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 10.sp,
+                    color = color
+                )
+            )
+
             // 底边
             drawLine(
                 Color.Black,
