@@ -144,7 +144,7 @@ fun VerticalBar(value: Int) {
         val textMeasurer = rememberTextMeasurer()
         Canvas(Modifier.fillMaxSize()) {
             val gridColor = Color.LightGray
-            val gridWidth = BORDER.toPx()
+            val gridWidth = (BORDER * 2).toPx()
             val interval = size.height / MAX_VALUE
             // 横线
             for (i in 0..MAX_VALUE) {
