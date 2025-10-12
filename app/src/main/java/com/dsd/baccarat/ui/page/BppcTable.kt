@@ -10,13 +10,12 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,7 +34,7 @@ import com.dsd.baccarat.data.InputViewModel
 
 private val BCCP_ITEM_SIZE = 25.dp
 private val BCCP_TABLE_HEIGH = BCCP_ITEM_SIZE * 4
-private const val MIN_DISPLY_COUNT = 5  // 最小显示列数
+private const val MIN_DISPLY_COUNT = 25  // 最小显示列数
 
 // 示例：生成测试数据并使用列表
 @Preview(showBackground = true)
@@ -58,7 +57,8 @@ private fun Demo() {
             .map { BppcDisplayItem.Real(it) } // 实际数据转换为 Real 项
             .plus(List(emptyCount) { BppcDisplayItem.Empty }) // 补充 Empty 占位项
 
-        BppcCompose(innerPadding, mixedList)
+        val listState = rememberLazyListState()
+        BppcCompose(innerPadding, mixedList, listState)
     }
 }
 
@@ -75,21 +75,34 @@ fun BppcTable(innerPadding: PaddingValues, viewModel: InputViewModel) {
         .map { BppcDisplayItem.Real(it) } // 实际数据转换为DisplayItem.Real
         .plus(List(emptyCount) { BppcDisplayItem.Empty }) // 补充空占位项
 
-    BppcCompose(innerPadding, displayItems)
+    // 创建并记住 LazyListState（管理滚动状态）
+    val listState = rememberLazyListState()
+    // 监听数据变化，数据更新时滚动到最后一项
+    LaunchedEffect(realDataList.value.size) {  // 当 items 变化时，触发该块
+        if (realDataList.value.size >= MIN_DISPLY_COUNT) {
+            // 滚动到最后一个元素（索引为 items.lastIndex）
+            listState.scrollToItem(index = realDataList.value.lastIndex)
+        }
+    }
+    BppcCompose(innerPadding, displayItems, listState)
 }
 
 @Composable
-private fun BppcCompose(innerPadding: PaddingValues, displayItem: List<BppcDisplayItem>) {
+private fun BppcCompose(
+    innerPadding: PaddingValues,
+    displayItem: List<BppcDisplayItem>,
+    listState: LazyListState
+) {
     Row(
         modifier = Modifier
             .padding(innerPadding)
             .height(BCCP_TABLE_HEIGH)
-            .fillMaxWidth(0.1f)
+            .fillMaxWidth(0.5f)
     )
     {
         Title()
         // 渲染横向列表
-        BppcTable(itemList = displayItem)
+        BppcLazyRow(itemList = displayItem, listState)
     }
 }
 
@@ -113,17 +126,7 @@ private fun Title() {
  * @param itemList 列数据集合（每一项对应一列的完整数据）
  */
 @Composable
-private fun BppcTable(itemList: List<BppcDisplayItem>) {
-    // 创建并记住 LazyListState（管理滚动状态）
-    val listState = rememberLazyListState()
-    // 监听数据变化，数据更新时滚动到最后一项
-    LaunchedEffect(itemList) {  // 当 items 变化时，触发该块
-        if (itemList.isNotEmpty()) {
-            // 滚动到最后一个元素（索引为 items.lastIndex）
-            listState.scrollToItem(index = itemList.lastIndex)
-        }
-    }
-
+private fun BppcLazyRow(itemList: List<BppcDisplayItem>, listState: LazyListState) {
     // 横向懒加载容器：包裹4行内容，整体横向滚动
     LazyRow(
         state = listState,
