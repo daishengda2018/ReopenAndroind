@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Modifier
 import com.dsd.baccarat.data.InputViewModel
-import com.dsd.baccarat.ui.page.BppcTable
+import com.dsd.baccarat.ui.page.BppcTableAndChart
 import com.dsd.baccarat.ui.page.InputButtons
 import com.dsd.baccarat.ui.theme.ReopenAndroidTheme
 
@@ -24,7 +24,7 @@ class MainActivity : ComponentActivity() {
             ReopenAndroidTheme {
                 Scaffold { innerPadding ->
                     Column(modifier = Modifier.padding(innerPadding)) {
-                        BppcTable(innerPadding, viewModel)
+                        BppcTableAndChart(innerPadding, viewModel)
                         InputButtons(innerPadding, viewModel)
                     }
                 }
