@@ -2,18 +2,22 @@ package com.dsd.baccarat.data
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.dsd.baccarat.ui.page.MIN_COUNT
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlin.collections.plus
 
 class InputViewModel : ViewModel() {
     private var mInputItemOfOpen: MutableList<InputType> = mutableListOf()
 
     // 私有可变 StateFlow（仅 ViewModel 内部可修改）
-    private val mBppcTableMutableStateFlow = MutableStateFlow<List<BppcItem>>(emptyList())
-
+    private val mBppcTableMutableStateFlow = MutableStateFlow<List<BppcDisplayItem>>(
+        List(MIN_COUNT) { BppcDisplayItem.Empty } // 初始总长度 = MIN_COUNT
+    )
     // 暴露给 UI 的不可变 StateFlow
-    val bppcTableStateFlow: StateFlow<List<BppcItem>> = mBppcTableMutableStateFlow.asStateFlow()
+    val bppcTableStateFlow: StateFlow<List<BppcDisplayItem>> = mBppcTableMutableStateFlow.asStateFlow()
 
     fun openB() {
         performBppcTableLogic(InputType.B)
@@ -39,18 +43,36 @@ class InputViewModel : ViewModel() {
 
         // 3. 高效更新 BppcItem 列表
         mBppcTableMutableStateFlow.value = mBppcTableMutableStateFlow.value
-            .toMutableList()
+            .toMutableList() // 创建可变副本（触发 StateFlow 状态更新）
             .apply {
-                if (isEmpty()) {
-                    add(BppcItem())
-                }
-                val lastItem = last()
-                when {
-                    // 用 copy 创建新对象，替换旧对象
-                    lastItem.dataA == 0 -> this[lastIndex] = lastItem.copy(dataA = result)
-                    lastItem.dataB == 0 -> this[lastIndex] = lastItem.copy(dataB = result)
-                    lastItem.dataC == 0 -> this[lastIndex] = lastItem.copy(dataC = result)
-                    else -> add(BppcItem(dataA = result))
+                // 1. 找到列表中最后一个 "Real" 实际项（跳过末尾的 Empty 占位项）
+                val lastRealIndex = indexOfLast { it is BppcDisplayItem.Real }
+                val lastRealItem = if (lastRealIndex != -1) this[lastRealIndex] as BppcDisplayItem.Real else null
+
+                if (lastRealItem != null) {
+                    // 2. 存在 Real 项，且其 dataA/dataB/dataC 有未填充的字段（值为 0）
+                    val updatedRealItem = when {
+                        lastRealItem.data.dataA == 0 -> lastRealItem.data.copy(dataA = result)
+                        lastRealItem.data.dataB == 0 -> lastRealItem.data.copy(dataB = result)
+                        lastRealItem.data.dataC == 0 -> lastRealItem.data.copy(dataC = result)
+                        else -> null // 三个字段都已填充，需要新增 Real 项
+                    }
+
+                    if (updatedRealItem != null) {
+                        // 2.1 更新现有 Real 项
+                        this[lastRealIndex] = BppcDisplayItem.Real(updatedRealItem)
+                    } else {
+                        // 2.2 新增 Real 项（插入到最后一个 Real 项后面，占位项前面）
+                        val insertIndex = lastRealIndex + 1
+                        this.add(insertIndex, BppcDisplayItem.Real(BppcItem(dataA = result)))
+                        // 确保列表总长度不超过 MIN_COUNT（若超过则删除末尾的 Empty 项）
+                        if (size > MIN_COUNT && last() is BppcDisplayItem.Empty) {
+                            removeLastOrNull()
+                        }
+                    }
+                } else {
+                    // 3. 列表中没有 Real 项（全是 Empty），替换第一个 Empty 为 Real 项
+                    this[0] = BppcDisplayItem.Real(BppcItem(dataA = result))
                 }
             }
     }
