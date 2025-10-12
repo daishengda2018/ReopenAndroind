@@ -24,8 +24,8 @@ class MainActivity : ComponentActivity() {
             ReopenAndroidTheme {
                 Scaffold { innerPadding ->
                     Column(modifier = Modifier.padding(innerPadding)) {
-                        BppcTableAndChart(innerPadding, viewModel)
-                        InputButtons(innerPadding, viewModel)
+                        BppcTableAndChart(viewModel)
+                        InputButtons(viewModel)
                     }
                 }
             }
