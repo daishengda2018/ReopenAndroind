@@ -6,6 +6,10 @@ data class BppcItem(
     val dataC: Int = 0        // 数据C
 )
 
+data class BpCounter(
+    var bCount: Int = 0,       // B计数
+    var pCount: Int = 0        // P计数
+)
 
 // 密封类：区分实际数据项和空占位项
 sealed class BppcDisplayItem {

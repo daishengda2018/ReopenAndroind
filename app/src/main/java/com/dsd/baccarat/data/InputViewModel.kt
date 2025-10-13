@@ -14,8 +14,12 @@ class InputViewModel : ViewModel() {
     private val mBppcTableMutableStateFlow = MutableStateFlow<List<BppcDisplayItem>>(
         List(MIN_COUNT) { BppcDisplayItem.Empty } // 初始总长度 = MIN_COUNT
     )
+
     // 暴露给 UI 的不可变 StateFlow
     val bppcTableStateFlow: StateFlow<List<BppcDisplayItem>> = mBppcTableMutableStateFlow.asStateFlow()
+
+    private val mBpCounterMutableStateFlow = MutableStateFlow(BpCounter(0, 0))
+    val bpCounterStateFlow: StateFlow<BpCounter> = mBpCounterMutableStateFlow.asStateFlow()
 
     fun openB() {
         performBppcTableLogic(InputType.B)
@@ -25,12 +29,19 @@ class InputViewModel : ViewModel() {
         performBppcTableLogic(InputType.P)
     }
 
-    private fun performBppcTableLogic(inputType: InputType = InputType.NONE) {
+    private fun performBppcTableLogic(inputType: InputType) {
         // 1. 添加输入类型并获取最近3次输入（提取逻辑以提升可读性）
         mInputItemOfOpen.add(inputType)
         val last3Inputs = mInputItemOfOpen.takeLast(3)
         if (last3Inputs.size < 3) {
             return
+        }
+
+        val current = mBpCounterMutableStateFlow.value
+        when (last3Inputs.last()) {
+            InputType.B -> mBpCounterMutableStateFlow.value = current.copy(bCount = current.bCount + 1)
+            InputType.P -> mBpCounterMutableStateFlow.value = current.copy(pCount = current.pCount + 1)
+            else -> {}
         }
 
         Log.d("InputViewModel", "Current Inputs: $last3Inputs")

@@ -1,20 +1,13 @@
 package com.dsd.baccarat.ui.page
 
-import android.R.attr.fontWeight
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -28,81 +21,116 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.dsd.baccarat.data.BpCounter
 import com.dsd.baccarat.data.BppcDisplayItem
 import com.dsd.baccarat.data.BppcItem
-import com.dsd.baccarat.data.InputViewModel
+import kotlin.collections.indexOfLast
 
 val ITEM_SIZE = 25.dp
-val ITEM_SIZE_HALF = ITEM_SIZE / 2
+val TABLE_SPACE = 5.dp
 val TABLE_HEIGHT = ITEM_SIZE * 4
-val TOTLE_HEIGHT = (TABLE_HEIGHT * 4) + (ITEM_SIZE_HALF * 3)
-val PADDING_CHAT_TITLE = ITEM_SIZE * 3 + ITEM_SIZE_HALF
+val TOTLE_HEIGHT = (TABLE_HEIGHT * 4) + (TABLE_SPACE * 3)
 const val MIN_COUNT = 25
 val BORDER = 0.3.dp
 const val MAX_VALUE = 8
 
+val TEXT_COLOR_B = Color.Red
+val TEXT_COLOR_P = Color.Blue
+
+@Preview(showBackground = true)
 @Composable
 private fun Demo() {
     val items = listOf(
         BppcItem(1, 2, 3),
         BppcItem(4, 5, 6),
-        BppcItem(7, 8, 9),
+        BppcItem(7, 8, 1),
     )
     val emptyCount = (MIN_COUNT - items.size).coerceAtLeast(0)
     val displayItems: List<BppcDisplayItem> = items
         .map { BppcDisplayItem.Real(it) } // 实际数据转换为 Real 项
         .plus(List(emptyCount) { BppcDisplayItem.Empty }) // 补充 Empty 占位项
+    val counter = BpCounter(12, 13)
 
-    InternalTableAndChart(displayItems)
+    Scaffold { innerPadding ->
+        Column(
+            modifier = Modifier
+                .padding(innerPadding)
+                .fillMaxHeight()
+                .fillMaxWidth()
+        ) {
+            BppcTableAndChart(displayItems, counter)
+        }
+    }
 }
 
 @Composable
-fun BppcTableAndChart(viewModel: InputViewModel) {
-    // 1. 收集ViewModel中的实际数据（随生命周期自动管理）
-    val displayItems = viewModel.bppcTableStateFlow.collectAsStateWithLifecycle().value
-    InternalTableAndChart(displayItems)
-}
-
-@Composable
-private fun InternalTableAndChart(displayItems: List<BppcDisplayItem>) {
+fun BppcTableAndChart(displayItems: List<BppcDisplayItem>, counter: BpCounter) {
     val listState = rememberLazyListState()
-    LaunchedEffect(displayItems.size) {
-        if (displayItems.size > MIN_COUNT) listState.scrollToItem(displayItems.lastIndex)
+    LaunchedEffect(displayItems) {
+        // 自动滚动到最后一个实际数据项，确保最新数据可见
+        val visibleCount = listState.layoutInfo.visibleItemsInfo.size
+        // 找到最后一个 Real 项的索引
+        val lastRealIndex = displayItems.indexOfLast { it is BppcDisplayItem.Real }
+        // 只有当最后一个 Real 项不在可见范围内时才滚动
+        if ((lastRealIndex + 1) > visibleCount) {
+            listState.scrollToItem(displayItems.lastIndex)
+        }
     }
 
-    Row(
+    Column(
         Modifier
             .fillMaxWidth(0.5f)
-            .height(TOTLE_HEIGHT)
-    ) {
-        TableTitle()
-        Spacer(Modifier.width(ITEM_SIZE_HALF))
-        TableLazyRow(displayItems, listState)
+            .padding(horizontal = 5.dp)
+    )
+    {
+        Counter(counter)
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .height(TOTLE_HEIGHT)
+        ) {
+            Titles()
+            Spacer(Modifier.width(TABLE_SPACE))
+            TableAndChart(displayItems, listState)
+        }
     }
 }
 
+@Composable
+fun Counter(counter: BpCounter) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .height(ITEM_SIZE)
+    ) {
+        TextItem("B${counter.bCount}", TEXT_COLOR_B, width = (ITEM_SIZE + TABLE_SPACE), fontWeight = FontWeight.Normal)
+        TextItem("P${counter.pCount}", Color.Blue, width = ITEM_SIZE * 2, fontWeight = FontWeight.Normal)
+        TextItem("Total ${counter.bCount + counter.pCount}", Color.Black, width = ITEM_SIZE * 3, fontWeight = FontWeight.Normal)
+    }
+}
 
 @Composable
-private fun TableTitle() {
+private fun Titles() {
     Column(Modifier.width(ITEM_SIZE)) {
         listOf("\\", "A", "B", "C").forEach {
             TextItem(it, Color.Gray)
         }
 
-        Spacer(Modifier.height(ITEM_SIZE_HALF))
+        Spacer(Modifier.height(5.dp))
 
         listOf("A", "B", "C").forEach {
             TextItem(it, Color.Gray)
-            Spacer(Modifier.height(PADDING_CHAT_TITLE))
+            Spacer(Modifier.height(ITEM_SIZE * 3 + TABLE_SPACE))
         }
     }
 }
 
 @Composable
-private fun TableLazyRow(items: List<BppcDisplayItem>, listState: LazyListState) {
+private fun TableAndChart(items: List<BppcDisplayItem>, listState: LazyListState) {
     LazyRow(
         state = listState,
         modifier = Modifier.fillMaxWidth()
@@ -118,7 +146,7 @@ private fun TableLazyRow(items: List<BppcDisplayItem>, listState: LazyListState)
                 ).forEach { data ->
                     TextItem(
                         if (data == 0) "" else "$data",
-                        if (data in listOf(1, 4, 6, 7)) Color.Red else Color.Black
+                        if (data in listOf(1, 4, 6, 7)) TEXT_COLOR_B else TEXT_COLOR_P
                     )
                 }
 
@@ -127,7 +155,7 @@ private fun TableLazyRow(items: List<BppcDisplayItem>, listState: LazyListState)
                     if (item is BppcDisplayItem.Real) item.data.dataB else 0,
                     if (item is BppcDisplayItem.Real) item.data.dataC else 0
                 ).forEach { data ->
-                    Spacer(Modifier.height(ITEM_SIZE_HALF))
+                    Spacer(Modifier.height(TABLE_SPACE))
                     VerticalBar(data)
                 }
             }
@@ -161,7 +189,7 @@ fun VerticalBar(value: Int) {
             drawLine(gridColor, Offset(0f, 0f), Offset(0f, size.height), gridWidth)
 
             val barHeight = (value.toFloat() / MAX_VALUE * size.height)
-            val color = if (value in listOf(1, 4, 6, 7)) Color.Red else Color.Black
+            val color = if (value in listOf(1, 4, 6, 7)) TEXT_COLOR_B else TEXT_COLOR_P
             // 柱子
             drawRect(
                 color = color,
@@ -196,11 +224,12 @@ fun VerticalBar(value: Int) {
 fun TextItem(
     text: String,
     color: Color,
+    width: Dp = ITEM_SIZE,
     fontWeight: FontWeight = FontWeight.Normal
 ) {
     Box(
         Modifier
-            .fillMaxWidth()
+            .width(width)
             .height(ITEM_SIZE)
             .border(BORDER, Color.LightGray),
         contentAlignment = Alignment.Center

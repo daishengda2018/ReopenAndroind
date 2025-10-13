@@ -5,15 +5,14 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dsd.baccarat.data.InputViewModel
 import com.dsd.baccarat.ui.page.BppcTableAndChart
 import com.dsd.baccarat.ui.page.InputButtons
@@ -27,14 +26,16 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             ReopenAndroidTheme {
+                val bppcItems = viewModel.bppcTableStateFlow.collectAsStateWithLifecycle().value
+                val counter = viewModel.bpCounterStateFlow.collectAsStateWithLifecycle().value
                 Scaffold { innerPadding ->
-                    Column(
+                    Row(
                         modifier = Modifier
                             .padding(innerPadding)
                             .fillMaxHeight()
                             .fillMaxWidth()
                     ) {
-                        BppcTableAndChart(viewModel)
+                        BppcTableAndChart(bppcItems, counter)
                         InputButtons(viewModel)
                     }
                 }
