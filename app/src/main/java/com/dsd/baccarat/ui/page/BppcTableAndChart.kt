@@ -79,6 +79,7 @@ private fun InternalTableAndChart(displayItems: List<BppcDisplayItem>) {
             .height(TOTLE_HEIGHT)
     ) {
         TableTitle()
+        Spacer(Modifier.width(ITEM_SIZE_HALF))
         TableLazyRow(displayItems, listState)
     }
 }
