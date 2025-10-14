@@ -1,5 +1,6 @@
 package com.dsd.baccarat.ui.page
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -9,14 +10,14 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
@@ -28,39 +29,48 @@ import androidx.compose.ui.unit.sp
 import com.dsd.baccarat.data.BpCounter
 import com.dsd.baccarat.data.BppcDisplayItem
 import com.dsd.baccarat.data.BppcItem
-import kotlin.collections.indexOfLast
 
-val ITEM_SIZE = 25.dp
-val TABLE_SPACE = 5.dp
-val TABLE_HEIGHT = ITEM_SIZE * 4
-val TOTLE_HEIGHT = (TABLE_HEIGHT * 4) + (TABLE_SPACE * 3)
-const val MIN_COUNT = 25
-val BORDER = 0.3.dp
-const val MAX_VALUE = 8
+// --- 常量定义 (为了清晰，进行分组和修正) ---
+const val MIN_TABLE_COLUMN_COUNT = 25
 
-val TEXT_COLOR_B = Color.Red
-val TEXT_COLOR_P = Color.Blue
+private val ITEM_SIZE = 25.dp
+private val TABLE_SPACE = 5.dp
+private val TABLE_HEIGHT = ITEM_SIZE * 4
+private val TOTAL_HEIGHT = (TABLE_HEIGHT * 4) + (TABLE_SPACE * 3) // 修正拼写错误 TOTLE -> TOTAL
+
+private val BORDER = 0.3.dp
+private const val MAX_VALUE = 8
+
+private val TEXT_COLOR_B = Color.Red
+private val TEXT_COLOR_P = Color.Blue
+private val TEXT_COLOR_NEUTRAL = Color.Gray
 
 @Preview(showBackground = true)
 @Composable
 private fun Demo() {
-    val items = listOf(
-        BppcItem(1, 2, 3),
-        BppcItem(4, 5, 6),
-        BppcItem(7, 8, 1),
-    )
-    val emptyCount = (MIN_COUNT - items.size).coerceAtLeast(0)
-    val displayItems: List<BppcDisplayItem> = items
-        .map { BppcDisplayItem.Real(it) } // 实际数据转换为 Real 项
-        .plus(List(emptyCount) { BppcDisplayItem.Empty }) // 补充 Empty 占位项
-    val counter = BpCounter(12, 13)
+    // 使用 remember 确保 items 列表在重组时不会被重新创建
+    val items = remember {
+        listOf(
+            BppcItem(1, 2, 3),
+            BppcItem(4, 5, 6),
+            BppcItem(7, 8, 1),
+        )
+    }
+    val counter = remember { BpCounter(12, 13) }
+
+    // 【优化1】使用 derivedStateOf，确保只有在 items 变化时才重新计算
+    val displayItems by remember(items) {
+        derivedStateOf {
+            val emptyCount = (MIN_TABLE_COLUMN_COUNT - items.size).coerceAtLeast(0)
+            items.map { BppcDisplayItem.Real(it) } + List(emptyCount) { BppcDisplayItem.Empty }
+        }
+    }
 
     Scaffold { innerPadding ->
         Column(
             modifier = Modifier
                 .padding(innerPadding)
-                .fillMaxHeight()
-                .fillMaxWidth()
+                .fillMaxSize() // 【优化2】使用 fillMaxSize() 代替 fillMaxWidth().fillMaxHeight()
         ) {
             BppcTableAndChart(displayItems, counter)
         }
@@ -70,14 +80,13 @@ private fun Demo() {
 @Composable
 fun BppcTableAndChart(displayItems: List<BppcDisplayItem>, counter: BpCounter) {
     val listState = rememberLazyListState()
-    LaunchedEffect(displayItems) {
-        // 自动滚动到最后一个实际数据项，确保最新数据可见
-        val visibleCount = listState.layoutInfo.visibleItemsInfo.size
-        // 找到最后一个 Real 项的索引
+
+    // 【优化3】优化自动滚动逻辑
+    LaunchedEffect(displayItems.size) { // 仅在列表大小变化时触发
         val lastRealIndex = displayItems.indexOfLast { it is BppcDisplayItem.Real }
-        // 只有当最后一个 Real 项不在可见范围内时才滚动
-        if ((lastRealIndex + 1) > visibleCount) {
-            listState.scrollToItem(displayItems.lastIndex)
+        if (lastRealIndex != -1) {
+            // 使用 animateScrollToItem 获得更平滑的滚动动画效果
+            listState.animateScrollToItem(displayItems.lastIndex)
         }
     }
 
@@ -85,13 +94,12 @@ fun BppcTableAndChart(displayItems: List<BppcDisplayItem>, counter: BpCounter) {
         Modifier
             .fillMaxWidth(0.5f)
             .padding(horizontal = 5.dp)
-    )
-    {
+    ) {
         Counter(counter)
         Row(
             Modifier
                 .fillMaxWidth()
-                .height(TOTLE_HEIGHT)
+                .height(TOTAL_HEIGHT) // 使用修正后的常量
         ) {
             Titles()
             Spacer(Modifier.width(TABLE_SPACE))
@@ -107,75 +115,107 @@ fun Counter(counter: BpCounter) {
             .fillMaxWidth()
             .height(ITEM_SIZE)
     ) {
-        TextItem("B${counter.bCount}", TEXT_COLOR_B, width = (ITEM_SIZE + TABLE_SPACE), fontWeight = FontWeight.Normal)
-        TextItem("P${counter.pCount}", Color.Blue, width = ITEM_SIZE * 2, fontWeight = FontWeight.Normal)
-        TextItem("Total ${counter.bCount + counter.pCount}", Color.Black, width = ITEM_SIZE * 3, fontWeight = FontWeight.Normal)
+        // 【优化4】移除不必要的默认参数
+        TextItem("B${counter.bCount}", TEXT_COLOR_B, width = (ITEM_SIZE + TABLE_SPACE))
+        TextItem("P${counter.pCount}", TEXT_COLOR_P, width = ITEM_SIZE * 2)
+        TextItem("Total ${counter.bCount + counter.pCount}", Color.Black, width = ITEM_SIZE * 3)
     }
 }
 
 @Composable
 private fun Titles() {
     Column(Modifier.width(ITEM_SIZE)) {
-        listOf("\\", "A", "B", "C").forEach {
-            TextItem(it, Color.Gray)
+        // 使用 remember 避免在每次重组时重新创建列表
+        val mainTitles = remember { listOf("\\", "A", "B", "C") }
+        val subTitles = remember { listOf("A", "B", "C") }
+
+        mainTitles.forEach {
+            TextItem(it, TEXT_COLOR_NEUTRAL)
         }
 
-        Spacer(Modifier.height(5.dp))
+        Spacer(Modifier.height(TABLE_SPACE)) // 使用常量
 
-        listOf("A", "B", "C").forEach {
-            TextItem(it, Color.Gray)
+        subTitles.forEach {
+            TextItem(it, TEXT_COLOR_NEUTRAL)
             Spacer(Modifier.height(ITEM_SIZE * 3 + TABLE_SPACE))
         }
     }
 }
 
+
 @Composable
 private fun TableAndChart(items: List<BppcDisplayItem>, listState: LazyListState) {
-    LazyRow(
-        state = listState,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        itemsIndexed(items) { idx, item ->
-            Column(Modifier.width(ITEM_SIZE)) {
-                TextItem("${idx + 1}", Color.Gray)
+    // 【核心优化】提升 TextMeasurer 状态，避免在每个 item 中重复创建
+    val textMeasurer = rememberTextMeasurer()
 
-                listOf(
-                    if (item is BppcDisplayItem.Real) item.data.dataA else 0,
-                    if (item is BppcDisplayItem.Real) item.data.dataB else 0,
-                    if (item is BppcDisplayItem.Real) item.data.dataC else 0
-                ).forEach { data ->
+    LazyRow(state = listState, modifier = Modifier.fillMaxWidth()) {
+        itemsIndexed(
+            items = items,
+            // 【核心优化】为 LazyRow 提供稳定的 key，提升性能
+            key = { index, item -> "$index-${item.hashCode()}" }
+        ) { idx, item ->
+            // 【核心优化】缓存从 item 中提取的数据，避免不必要的重算
+            val (dataA, dataB, dataC) = remember(item) {
+                if (item is BppcDisplayItem.Real) {
+                    Triple(item.data.dataA, item.data.dataB, item.data.dataC)
+                } else {
+                    Triple(0, 0, 0)
+                }
+            }
+            val dataPoints = remember(dataA, dataB, dataC) { listOf(dataA, dataB, dataC) }
+
+            Column(Modifier.width(ITEM_SIZE)) {
+                TextItem("${idx + 1}", TEXT_COLOR_NEUTRAL)
+                dataPoints.forEach { data ->
                     TextItem(
-                        if (data == 0) "" else "$data",
-                        if (data in listOf(1, 4, 6, 7)) TEXT_COLOR_B else TEXT_COLOR_P
+                        text = if (data == 0) "" else "$data",
+                        color = determineColor(data)
                     )
                 }
-
-                listOf(
-                    if (item is BppcDisplayItem.Real) item.data.dataA else 0,
-                    if (item is BppcDisplayItem.Real) item.data.dataB else 0,
-                    if (item is BppcDisplayItem.Real) item.data.dataC else 0
-                ).forEach { data ->
+                Spacer(Modifier.height(TABLE_SPACE))
+                dataPoints.forEach { data ->
+                    VerticalBar(
+                        value = data,
+                        color = determineColor(data),
+                        textMeasurer = textMeasurer
+                    )
                     Spacer(Modifier.height(TABLE_SPACE))
-                    VerticalBar(data)
                 }
             }
         }
     }
 }
 
+// 【优化8】提取的纯函数，用于决定颜色
+private fun determineColor(value: Int): Color {
+    return if (value in listOf(1, 4, 6, 7)) TEXT_COLOR_B else TEXT_COLOR_P
+}
+
 @Composable
-fun VerticalBar(value: Int) {
+fun VerticalBar(value: Int, color: Color, textMeasurer: TextMeasurer) {
+    // 【优化10】提升 TextStyle 的状态
+    // TextStyle 是一个普通类，每次重组时创建它会产生开销。
+    // 使用 remember(color) 可以确保只有在颜色变化时才创建新的 TextStyle 实例。
+    val textStyle = remember(color) {
+        TextStyle(
+            fontWeight = FontWeight.Bold,
+            fontSize = 10.sp,
+            color = color
+        )
+    }
+
     Box(
         Modifier
             .width(ITEM_SIZE)
             .height(TABLE_HEIGHT)
     ) {
-        val textMeasurer = rememberTextMeasurer()
+        // Canvas 的绘制成本较高，确保它只在输入参数(value, color)变化时才重绘
         Canvas(Modifier.fillMaxSize()) {
             val gridColor = Color.LightGray
-            val gridWidth = (BORDER * 2).toPx()
+            val gridWidth = BORDER.toPx() // 修正 gridWidth 的计算
             val interval = size.height / MAX_VALUE
-            // 横线
+
+            // 绘制网格线
             for (i in 0..MAX_VALUE) {
                 drawLine(
                     color = if (i == 4) Color.Black else gridColor,
@@ -184,41 +224,33 @@ fun VerticalBar(value: Int) {
                     strokeWidth = gridWidth
                 )
             }
-            // 竖线
             drawLine(gridColor, Offset(size.width, 0f), Offset(size.width, size.height), gridWidth)
             drawLine(gridColor, Offset(0f, 0f), Offset(0f, size.height), gridWidth)
-
-            val barHeight = (value.toFloat() / MAX_VALUE * size.height)
-            val color = if (value in listOf(1, 4, 6, 7)) TEXT_COLOR_B else TEXT_COLOR_P
-            // 柱子
-            drawRect(
-                color = color,
-                topLeft = Offset(size.width / 2 - 1f, size.height - barHeight),
-                size = Size(2.dp.toPx(), barHeight)
-            )
-            // 数字
-            drawText(
-                textMeasurer = textMeasurer,
-                text = AnnotatedString("$value"),
-                topLeft = Offset(10f, size.height - barHeight),
-                style = TextStyle(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 10.sp,
-                    color = color
-                )
-            )
-
-            // 底边
             drawLine(
                 Color.Black,
                 Offset(0f, size.height),
                 Offset(size.width, size.height),
                 gridWidth
             )
+
+            // 【优化9】只有当 value > 0 时才执行绘制操作
+            if (value > 0) {
+                val barHeight = (value.toFloat() / MAX_VALUE) * size.height
+                drawRect(
+                    color = color,
+                    topLeft = Offset(size.width / 2 - 1.dp.toPx(), size.height - barHeight),
+                    size = Size(2.dp.toPx(), barHeight)
+                )
+                drawText(
+                    textMeasurer = textMeasurer,
+                    text = AnnotatedString("$value"),
+                    topLeft = Offset(10f, size.height - barHeight),
+                    style = textStyle // 使用提升状态后的 textStyle
+                )
+            }
         }
     }
 }
-
 
 @Composable
 fun TextItem(
@@ -227,11 +259,16 @@ fun TextItem(
     width: Dp = ITEM_SIZE,
     fontWeight: FontWeight = FontWeight.Normal
 ) {
+    // 【优化11】提升 BorderStroke 的状态
+    // 与 TextStyle 类似，BorderStroke 也是一个普通类。
+    // 使用 remember 将其缓存，可以避免在每次重组时不必要地重新创建此对象。
+    val borderStroke = remember { BorderStroke(BORDER, Color.LightGray) }
+
     Box(
         Modifier
             .width(width)
             .height(ITEM_SIZE)
-            .border(BORDER, Color.LightGray),
+            .border(borderStroke), // 使用提升状态后的 borderStroke
         contentAlignment = Alignment.Center
     ) {
         Text(text, fontSize = 14.sp, color = color, fontWeight = fontWeight)

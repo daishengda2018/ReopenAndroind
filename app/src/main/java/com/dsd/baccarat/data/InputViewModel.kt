@@ -2,7 +2,7 @@ package com.dsd.baccarat.data
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
-import com.dsd.baccarat.ui.page.MIN_COUNT
+import com.dsd.baccarat.ui.page.MIN_TABLE_COLUMN_COUNT
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -12,11 +12,12 @@ class InputViewModel : ViewModel() {
 
     // 私有可变 StateFlow（仅 ViewModel 内部可修改）
     private val mBppcTableMutableStateFlow = MutableStateFlow<List<BppcDisplayItem>>(
-        List(MIN_COUNT) { BppcDisplayItem.Empty } // 初始总长度 = MIN_COUNT
+        List(MIN_TABLE_COLUMN_COUNT) { BppcDisplayItem.Empty } // 初始总长度 = MIN_COUNT
     )
 
     // 暴露给 UI 的不可变 StateFlow
-    val bppcTableStateFlow: StateFlow<List<BppcDisplayItem>> = mBppcTableMutableStateFlow.asStateFlow()
+    val bppcTableStateFlow: StateFlow<List<BppcDisplayItem>> =
+        mBppcTableMutableStateFlow.asStateFlow()
 
     private val mBpCounterMutableStateFlow = MutableStateFlow(BpCounter(0, 0))
     val bpCounterStateFlow: StateFlow<BpCounter> = mBpCounterMutableStateFlow.asStateFlow()
@@ -38,11 +39,12 @@ class InputViewModel : ViewModel() {
         }
 
         val current = mBpCounterMutableStateFlow.value
-        when (last3Inputs.last()) {
-            InputType.B -> mBpCounterMutableStateFlow.value = current.copy(bCount = current.bCount + 1)
-            InputType.P -> mBpCounterMutableStateFlow.value = current.copy(pCount = current.pCount + 1)
-            else -> {}
+        val newValue = when (last3Inputs.last()) {
+            InputType.B -> current.copy(bCount = current.bCount + 1)
+            InputType.P -> current.copy(pCount = current.pCount + 1)
+            else -> current
         }
+        mBpCounterMutableStateFlow.value = newValue
 
         Log.d("InputViewModel", "Current Inputs: $last3Inputs")
         val inputCombination = last3Inputs.joinToString("")
@@ -56,7 +58,8 @@ class InputViewModel : ViewModel() {
             .apply {
                 // 1. 找到列表中最后一个 "Real" 实际项（跳过末尾的 Empty 占位项）
                 val lastRealIndex = indexOfLast { it is BppcDisplayItem.Real }
-                val lastRealItem = if (lastRealIndex != -1) this[lastRealIndex] as BppcDisplayItem.Real else null
+                val lastRealItem =
+                    if (lastRealIndex != -1) this[lastRealIndex] as BppcDisplayItem.Real else null
 
                 if (lastRealItem != null) {
                     // 2. 存在 Real 项，且其 dataA/dataB/dataC 有未填充的字段（值为 0）
@@ -75,7 +78,7 @@ class InputViewModel : ViewModel() {
                         val insertIndex = lastRealIndex + 1
                         this.add(insertIndex, BppcDisplayItem.Real(BppcItem(dataA = result)))
                         // 确保列表总长度不超过 MIN_COUNT（若超过则删除末尾的 Empty 项）
-                        if (size > MIN_COUNT && last() is BppcDisplayItem.Empty) {
+                        if (size > MIN_TABLE_COLUMN_COUNT && last() is BppcDisplayItem.Empty) {
                             removeLastOrNull()
                         }
                     }
