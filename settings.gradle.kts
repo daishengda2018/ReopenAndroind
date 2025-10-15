@@ -21,4 +21,3 @@ dependencyResolutionManagement {
 
 rootProject.name = "ReopenAndroid"
 include(":app")
- 

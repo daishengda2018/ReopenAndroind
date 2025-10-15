@@ -1,0 +1,180 @@
+# 基础配置
+config:
+  validation: true  # 验证配置文件语法正确性
+  warningsAsErrors: false  # 不将警告视为错误（避免过度阻断开发）
+  checkExhaustiveness: false  # 不强制检测所有规则（留有余地）
+  excludes: []  # 全局排除的文件路径（支持通配符）
+
+# 处理器配置（控制分析过程中的辅助逻辑）
+processors:
+  active: true  # 启用所有处理器
+  exclude:
+    - 'DetektProgressListener'  # 排除进度监听处理器（减少日志冗余）
+
+# 控制台报告配置（终端输出的报告类型）
+console-reports:
+  active: true  # 启用控制台报告
+  exclude:
+    - 'ProjectStatisticsReport'  # 排除项目统计报告（信息冗余）
+    - 'ComplexityReport'  # 排除复杂度报告（详情在HTML中查看）
+    - 'NotificationReport'  # 排除通知式报告（重复信息）
+
+# 输出报告配置（生成的文件报告类型）
+output-reports:
+  active: true  # 启用文件报告
+    # 保留常用报告格式，按需注释
+    - 'XmlOutputReport'  # 生成XML报告（CI集成用）
+    - 'HtmlOutputReport'  # 生成HTML报告（本地查看，带详情）
+    - 'MdOutputReport'  # 生成Markdown报告（简洁汇总）
+    - 'sarif'  # 生成SARIF报告（代码扫描工具兼容）
+
+# 注释相关规则（确保注释规范）
+comments:
+  active: true
+  CommentOverPrivateFunction:
+    active: true  # 私有函数需有注释（避免团队协作时理解成本）
+    excludes: ['**/test/**', '**/androidTest/**']  # 测试代码放宽要求
+  InvalidComment:
+    active: true  # 禁止无效注释（如TODO未说明内容）
+  MissingComment:
+    active: true  # 公共类/函数需有注释（如Activity、ViewModel）
+    excludedClasses: ['*Test', '*Activity', '*Fragment']  # 组件类允许无注释（逻辑直观）
+  TodoComment:
+    active: true  # 检测 TODO注释（提醒及时处理）
+    severity: Warning  # TODO作为警告而非错误
+
+# 复杂度相关规则（控制代码可维护性）
+complexity:
+  active: true
+  CyclomaticComplexity:
+    active: true  # 检测循环复杂度（条件分支过多）
+    threshold: 12  # Android业务逻辑较复杂，从10放宽到12
+  NestedBlockDepth:
+    active: true  # 检测代码块嵌套深度
+    threshold: 4  # 允许4层嵌套（如if-else+循环+lambda）
+  LargeClass:
+    active: true  # 检测大类（代码行数过多）
+    allowedLines: 800  # Android组件（如Activity）代码较多，从600放宽到800
+  LongMethod:
+    active: true  # 检测长函数
+    threshold: 120  # 从100放宽到120（适配复杂业务函数）
+  TooManyFunctions:
+    active: true  # 检测类中函数过多
+    thresholdInClasses: 25  # 类中最多25个函数（Android类功能较集中）
+    thresholdInInterfaces: 15  # 接口中最多15个函数
+  ComplexCondition:
+    active: true  # 禁止复杂条件判断（如多个&&/||嵌套）
+    threshold: 3  # 最多3个条件组合
+
+# 协程相关规则（Android协程最佳实践）
+coroutines:
+  active: true
+  InjectDispatcher:
+    active: true  # 禁止直接使用Dispatcher（建议通过DI注入，方便测试）
+    dispatcherNames:
+      - 'IO'
+      - 'Default'
+      - 'Unconfined'
+      - 'Main'  # 包含Android主线程Dispatcher（如Dispatchers.Main）
+  CoroutineLaunchedInTestWithoutRunTest:
+    active: true  # 测试中必须用runTest启动协程（避免测试不稳定）
+  RedundantSuspendModifier:
+    active: true  # 禁止冗余suspend修饰符（无协程操作的函数）
+  SuspendFunWithFlowReturnType:
+    active: true  # Flow返回值函数无需suspend（Flow本身是冷流）
+
+# 异常相关规则（避免异常处理不当）
+exceptions:
+  active: true
+  PrintStackTrace:
+    active: true  # 禁止printStackTrace（Android应使用Log类输出）
+  ThrowingExceptionFromFinally:
+    active: true  # 禁止在finally中抛异常（覆盖原异常）
+  ThrowingRuntimeException:
+    active: true  # 禁止直接抛RuntimeException（应使用具体异常类）
+  UnnecessaryNotNullAssertionAfterTryCatch:
+    active: true  # try-catch后无需!!（已处理空情况）
+
+# 命名规范（统一Android代码风格）
+naming:
+  active: true
+  ClassNaming:
+    active: true
+    pattern: '^[A-Z][a-zA-Z0-9]*$'  # 类名PascalCase（如MainActivity、UserViewModel）
+  FunctionNaming:
+    active: true
+#    pattern: '^[a-z][a-zA-Z0-9]*$'  # 函数名camelCase（如loadUserData）
+  VariableNaming:
+    active: true
+    pattern: '^[a-z][a-zA-Z0-9]*$'  # 变量名camelCase
+    ignoreOverridden: true  # 忽略重写方法的参数（如onCreate的savedInstanceState）
+  PrivatePropertyNaming:
+    active: true
+    pattern: '^_?[a-z][a-zA-Z0-9]*$'  # 私有变量可加下划线（如_viewModel）
+  EnumNaming:
+    active: true
+    pattern: '^[A-Z_]*$'  # 枚举值UPPER_SNAKE_CASE（如STATE_LOADING）
+  ResourceIdNaming:
+    active: true  # 检测Android资源ID命名（如R.id.tv_username）
+    pattern: '^[a-z][a-z0-9_]*$'  # 小写+下划线（符合Android资源规范）
+
+# 性能相关规则（优化Android运行效率）
+performance:
+  active: true
+  ForEachOnRange:
+    active: true  # 禁止Range.forEach（性能差于for循环）
+    excludes: ['**/test/**', '**/androidTest/**']  # 测试代码允许（影响小）
+  UnnecessaryTemporaryInstantiation:
+    active: true  # 禁止不必要的临时对象（如String拼接用buildString）
+  SpreadOperator:
+    active: true  # 谨慎使用展开运算符*（数组复制性能差）
+  ReplaceSafeCallChainWithElvis:
+    active: true  # 用?:简化连续?.调用（如a?.b?.c ?: default）
+
+# 潜在bug规则（提前规避Android常见问题）
+potential-bugs:
+  active: true
+  MissingSuperCall:
+    active: true  # 检测生命周期方法漏调super（如onCreate未调super.onCreate）
+    mustInvokeSuperAnnotations:
+      - 'androidx.annotation.CallSuper'  # 强制@CallSuper注解的方法调用super
+      - 'javax.annotation.OverridingMethodsMustInvokeSuper'
+  LateinitUsage:
+    active: true  # 检测lateinit未初始化风险
+    excludes: ['**/test/**', '**/androidTest/**']
+    ignoreOnClassesPattern: '.*Fragment$|.*Activity$'  # 允许组件类用lateinit（视图绑定常见）
+  Deprecation:
+    active: true  # 检测使用废弃API（如AsyncTask、ActionBar）
+    severity: Warning  # 废弃API作为警告（允许临时兼容）
+  UnsafeCallOnNullableType:
+    active: true  # 禁止!!（强制非空，可能崩溃）
+  NullableToStringCall:
+    active: true  # 禁止可空类型直接toString（可能返回"null"）
+
+# 代码风格规则（保持Android代码整洁）
+style:
+  active: true
+  MaxLineLength:
+    active: true  # 控制单行长度
+    maxLineLength: 120  # Android代码常含长包名，从100放宽到120
+    ignorePatterns: ['^import ', '^package ', 'http[s]?://']  # 忽略导入、URL
+  UnusedImport:
+    active: true  # 禁止未使用的导入（Android项目易冗余）
+  TrailingWhitespace:
+    active: true  # 禁止行尾空格
+  EmptyLineBetweenDeclarationsWithAnnotations:
+    active: true  # 带注解的声明间空行（如@Composable函数）
+  ForbiddenMethodCall:
+    active: true  # 禁止Android不推荐的方法
+    methods:
+      - reason: '用Log替代'
+        value: 'kotlin.io.print'
+      - reason: '用Log替代'
+        value: 'kotlin.io.println'
+      - reason: 'AsyncTask已废弃，用协程'
+        value: 'android.os.AsyncTask.execute'
+      - reason: '用android.util.Log替代'
+        value: 'java.lang.System.out.println'
+  MagicNumber:
+    active: true  # 禁止魔法值（需定义为常量）
+    ignoreNumbers: [0, 1, -1, 2, 3]  # 允许常见小数值直接使用

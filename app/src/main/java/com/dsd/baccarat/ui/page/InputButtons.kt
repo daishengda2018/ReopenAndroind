@@ -13,23 +13,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dsd.baccarat.data.InputViewModel
 
-
 @Composable
 fun InputButtons(viewModel: InputViewModel) {
     Row(
         modifier = Modifier
             .fillMaxWidth(0.5f)
-    )
-    {
-        Column() {
+    ) {
+        Column {
             Button(
                 modifier = Modifier
                     .padding(16.dp) // 边距
                     .size(width = 100.dp, height = 50.dp), // 宽高
 
                 onClick = { viewModel.openB() }
-            )
-            {
+            ) {
                 Text(text = "押 B", fontSize = 14.sp)
             }
 
@@ -38,8 +35,7 @@ fun InputButtons(viewModel: InputViewModel) {
                     .padding(16.dp) // 边距
                     .size(width = 100.dp, height = 50.dp), // 宽高
                 onClick = { viewModel.openP() }
-            )
-            {
+            ) {
                 Text(text = "押 P")
             }
 
@@ -48,20 +44,18 @@ fun InputButtons(viewModel: InputViewModel) {
                     .padding(16.dp) // 边距
                     .size(width = 100.dp, height = 50.dp), // 宽高
                 onClick = { viewModel.openP() }
-            )
-            {
+            ) {
                 Text(text = "撤销")
             }
         }
-        Column() {
+        Column {
             Button(
                 modifier = Modifier
                     .padding(16.dp) // 边距
                     .size(width = 100.dp, height = 50.dp), // 宽高
 
                 onClick = { viewModel.openB() }
-            )
-            {
+            ) {
                 Text(text = "Open B")
             }
 
@@ -70,8 +64,7 @@ fun InputButtons(viewModel: InputViewModel) {
                     .padding(16.dp) // 边距
                     .size(width = 100.dp, height = 50.dp), // 宽高
                 onClick = { viewModel.openP() }
-            )
-            {
+            ) {
                 Text(text = "Open P")
             }
 
@@ -80,13 +73,9 @@ fun InputButtons(viewModel: InputViewModel) {
                     .padding(16.dp) // 边距
                     .size(width = 100.dp, height = 50.dp), // 宽高
                 onClick = { viewModel.openP() }
-            )
-            {
+            ) {
                 Text(text = "撤销")
             }
         }
     }
 }
-
-
-
