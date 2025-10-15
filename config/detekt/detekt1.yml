@@ -1,0 +1,131 @@
+config:
+  validation: true
+  warningsAsErrors: false # 禁止将警告视为错误，减少不必要的中断
+  checkExhaustiveness: false # 不检查枚举的穷举性
+  excludes: []
+
+processors:
+  active: true
+  exclude:
+    - 'DetektProgressListener' # 排除不必要的进度监听器
+  # 排除一些统计信息的处理器，这些通常不需要在 Android 项目中使用
+  # - 'KtFileCountProcessor'
+  # - 'PackageCountProcessor'
+  # - 'ClassCountProcessor'
+  # - 'FunctionCountProcessor'
+
+console-reports:
+  active: true
+  exclude:
+    - 'ProjectStatisticsReport' # 排除统计报告
+    - 'ComplexityReport' # 排除复杂度报告
+    - 'IssuesReport' # 排除问题报告
+
+output-reports:
+  active: true
+  exclude:
+    # - 'HtmlOutputReport'
+   - 'XmlOutputReport'
+   - 'MdOutputReport'
+   - 'sarif'
+
+comments:
+  active: true
+  AbsentOrWrongFileLicense:
+    active: false # 禁用文件缺少许可证注释的警告
+  CommentOverPrivateFunction:
+    active: false # 禁用私有函数上的注释检查
+  CommentOverPrivateProperty:
+    active: false # 禁用私有属性上的注释检查
+  UndocumentedPublicClass:
+    active: true # 启用未文档化公共类的检查
+
+complexity:
+  active: true
+  ComplexCondition:
+    active: true
+    allowedConditions: 3 # 允许的条件数量设置为 3
+  CyclomaticComplexMethod:
+    active: true
+    allowedComplexity: 14 # 允许的圈复杂度设置为 14
+  LargeClass:
+    active: true
+    allowedLines: 600 # 类的最大行数为 600
+  LongMethod:
+    active: true
+    allowedLines: 60 # 方法的最大行数为 60
+
+coroutines:
+  active: true
+  InjectDispatcher:
+    active: true
+    dispatcherNames:
+      - 'IO' # 确保 IO 操作使用合适的调度器
+      - 'Default' # 默认调度器
+  RedundantSuspendModifier:
+    active: true # 禁用冗余的 suspend 修饰符
+
+empty-blocks:
+  active: true
+  EmptyCatchBlock:
+    active: true # 启用空 catch 块的检查
+
+exceptions:
+  active: true
+  PrintStackTrace:
+    active: true # 禁用直接打印堆栈跟踪，建议使用日志记录
+
+naming:
+  active: true
+  ClassNaming:
+    active: true
+    classPattern: '[A-Z][a-zA-Z0-9]*' # 类名应以大写字母开头
+  FunctionNaming:
+    active: true
+    functionPattern: '[a-z][a-zA-Z0-9]*' # 函数名应以小写字母开头
+  VariableNaming:
+    active: true
+    variablePattern: '[a-z][A-Za-z0-9]*' # 变量名应以小写字母开头
+
+performance:
+  active: true
+  UnnecessaryTemporaryInstantiation:
+    active: true # 禁用不必要的临时对象实例化
+
+potential-bugs:
+  active: true
+  AvoidReferentialEquality:
+    active: true
+    forbiddenTypePatterns:
+      - 'kotlin.String' # 禁止对字符串类型使用引用相等性检查（==），应该使用内容比较
+  MapGetWithNotNullAssertionOperator:
+    active: true # 禁止使用 Map 的 get 操作符与强制非空断言一起使用
+
+style:
+  active: true
+  AbstractClassCanBeConcreteClass:
+    active: true # 启用检查：抽象类可以被替换为具体类
+  CanBeNonNullable:
+    active: false # 禁用允许空类型的检查
+  RedundantConstructorKeyword:
+    active: false # 禁用冗余的构造函数关键字检查
+  MaxLineLength:
+    active: true
+    maxLineLength: 120 # 最大行长设置为 120 字符，符合大部分 Android 开发规范
+  NoTabs:
+    active: true # 强制不使用制表符（Tab）
+
+Compose:
+  ComposableAnnotationNaming:
+    active: true # 启用 composable 注解命名规则
+  ComposableNaming:
+    active: true # 启用 composable 函数命名规则
+  ModifierClickableOrder:
+    active: true # 检查 Modifier 可点击顺序
+  ModifierComposed:
+    active: true # 检查 Modifier 是否正确组合
+  ModifierNaming:
+    active: true # 检查 Modifier 的命名规范
+  ModifierNotUsedAtRoot:
+    active: true # 确保 Modifier 不用于根级别 composable
+

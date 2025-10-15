@@ -15,7 +15,6 @@ class InputViewModel : ViewModel() {
         List(MIN_TABLE_COLUMN_COUNT) { BppcDisplayItem.Empty } // 初始总长度 = MIN_COUNT
     )
 
-    // TODO:
     // 暴露给 UI 的不可变 StateFlow
     val bppcTableStateFlow: StateFlow<List<BppcDisplayItem>> =
         mBppcTableMutableStateFlow.asStateFlow()
