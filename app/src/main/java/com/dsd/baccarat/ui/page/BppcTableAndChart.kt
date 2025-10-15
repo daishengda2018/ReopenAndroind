@@ -33,10 +33,10 @@ import com.dsd.baccarat.data.BppcItem
 // --- 常量定义 (为了清晰，进行分组和修正) ---
 const val MIN_TABLE_COLUMN_COUNT = 25
 
-private val ITEM_SIZE = 25.dp
-private val TABLE_SPACE = 5.dp
+private val ITEM_SIZE = 22.dp
+private val SPACE_SIZE = 5.dp
 private val TABLE_HEIGHT = ITEM_SIZE * 4
-private val TOTAL_HEIGHT = (TABLE_HEIGHT * 4) + (TABLE_SPACE * 3) // 修正拼写错误 TOTLE -> TOTAL
+private val TOTAL_HEIGHT = (TABLE_HEIGHT * 4) + (SPACE_SIZE * 3) // 修正拼写错误 TOTLE -> TOTAL
 
 private val BORDER = 0.3.dp
 private const val MAX_VALUE = 8
@@ -45,7 +45,7 @@ private val TEXT_COLOR_B = Color.Red
 private val TEXT_COLOR_P = Color.Blue
 private val TEXT_COLOR_NEUTRAL = Color.Gray
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, device = "id:pixel_tablet")
 @Composable
 private fun Demo() {
     // 使用 remember 确保 items 列表在重组时不会被重新创建
@@ -96,15 +96,16 @@ fun BppcTableAndChart(displayItems: List<BppcDisplayItem>, counter: BpCounter) {
             .padding(horizontal = 5.dp)
     ) {
         Counter(counter)
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .height(TOTAL_HEIGHT) // 使用修正后的常量
-        ) {
+        Row(Modifier.fillMaxWidth()) // 使用修正后的常量
+        {
             Titles()
-            Spacer(Modifier.width(TABLE_SPACE))
+            Spacer(Modifier.width(SPACE_SIZE))
             TableAndChart(displayItems, listState)
         }
+
+        Strategy(listOf("A","12", "56"), displayItems, listState)
+        Strategy(listOf("B","12", "56"), displayItems, listState)
+        Strategy(listOf("C","12", "56"), displayItems, listState)
     }
 }
 
@@ -116,7 +117,7 @@ fun Counter(counter: BpCounter) {
             .height(ITEM_SIZE)
     ) {
         // 【优化4】移除不必要的默认参数
-        TextItem("B${counter.bCount}", TEXT_COLOR_B, width = (ITEM_SIZE + TABLE_SPACE))
+        TextItem("B${counter.bCount}", TEXT_COLOR_B, width = (ITEM_SIZE + SPACE_SIZE))
         TextItem("P${counter.pCount}", TEXT_COLOR_P, width = ITEM_SIZE * 2)
         TextItem("Total ${counter.bCount + counter.pCount}", Color.Black, width = ITEM_SIZE * 3)
     }
@@ -133,11 +134,11 @@ private fun Titles() {
             TextItem(it, TEXT_COLOR_NEUTRAL)
         }
 
-        Spacer(Modifier.height(TABLE_SPACE)) // 使用常量
+        Spacer(Modifier.height(SPACE_SIZE)) // 使用常量
 
         subTitles.forEach {
             TextItem(it, TEXT_COLOR_NEUTRAL)
-            Spacer(Modifier.height(ITEM_SIZE * 3 + TABLE_SPACE))
+            Spacer(Modifier.height(ITEM_SIZE * 3 + SPACE_SIZE))
         }
     }
 }
@@ -165,6 +166,7 @@ private fun TableAndChart(items: List<BppcDisplayItem>, listState: LazyListState
             val dataPoints = remember(dataA, dataB, dataC) { listOf(dataA, dataB, dataC) }
 
             Column(Modifier.width(ITEM_SIZE)) {
+
                 TextItem("${idx + 1}", TEXT_COLOR_NEUTRAL)
                 dataPoints.forEach { data ->
                     TextItem(
@@ -172,14 +174,15 @@ private fun TableAndChart(items: List<BppcDisplayItem>, listState: LazyListState
                         color = determineColor(data)
                     )
                 }
-                Spacer(Modifier.height(TABLE_SPACE))
+
+                Spacer(Modifier.height(SPACE_SIZE))
                 dataPoints.forEach { data ->
                     VerticalBar(
                         value = data,
                         color = determineColor(data),
                         textMeasurer = textMeasurer
                     )
-                    Spacer(Modifier.height(TABLE_SPACE))
+                    Spacer(Modifier.height(SPACE_SIZE))
                 }
             }
         }
@@ -253,16 +256,78 @@ fun VerticalBar(value: Int, color: Color, textMeasurer: TextMeasurer) {
 }
 
 @Composable
+fun Strategy(title: List<String>, items: List<BppcDisplayItem>, listState: LazyListState) {
+    Spacer(Modifier.width(SPACE_SIZE))
+    Row(Modifier.fillMaxWidth()) {
+        StrategyTitles(title[0])
+        Spacer(Modifier.width(SPACE_SIZE))
+        Column {
+            Row {
+                TextItem(title[1], width = ITEM_SIZE * 2)
+                TextItem(title[2], width = ITEM_SIZE * 2)
+            }
+            StrategyMap(listState, items)
+            Spacer(Modifier.height(SPACE_SIZE))
+        }
+    }
+}
+
+@Composable
+private fun StrategyMap(
+    listState: LazyListState,
+    items: List<BppcDisplayItem>
+) {
+    LazyRow(state = listState, modifier = Modifier.fillMaxWidth()) {
+        itemsIndexed(
+            items = items,
+            // 【核心优化】为 LazyRow 提供稳定的 key，提升性能
+            key = { index, item -> "$index-${item.hashCode()}" }
+        ) { idx, item ->
+            // 【核心优化】缓存从 item 中提取的数据，避免不必要的重算
+            val (dataA, dataB, dataC) = remember(item) {
+                if (item is BppcDisplayItem.Real) {
+                    Triple(item.data.dataA, item.data.dataB, item.data.dataC)
+                } else {
+                    Triple(0, 0, 0)
+                }
+            }
+            val dataPoints = remember(dataA, dataB, dataC) { listOf(dataA, dataB, dataC) }
+
+            Column(Modifier.width(ITEM_SIZE)) {
+                TextItem("${idx + 1}", TEXT_COLOR_NEUTRAL)
+                TextItem(
+                    text = if (dataPoints[0] == 0) "" else "${dataPoints[0]}",
+                    color = determineColor(dataPoints[0])
+                )
+
+                TextItem(
+                    text = if (dataPoints[1] == 0) "" else "${dataPoints[1]}",
+                    color = determineColor(dataPoints[1])
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun StrategyTitles(title: String) {
+    Column(Modifier.width(ITEM_SIZE)) {
+        Spacer(Modifier.height(ITEM_SIZE + SPACE_SIZE)) // 使用常量
+        TextItem(title, TEXT_COLOR_NEUTRAL)
+    }
+}
+
+@Composable
 fun TextItem(
     text: String,
-    color: Color,
+    color: Color = Color.Black,
     width: Dp = ITEM_SIZE,
     fontWeight: FontWeight = FontWeight.Normal
 ) {
     // 【优化11】提升 BorderStroke 的状态
     // 与 TextStyle 类似，BorderStroke 也是一个普通类。
     // 使用 remember 将其缓存，可以避免在每次重组时不必要地重新创建此对象。
-    val borderStroke = remember { BorderStroke(BORDER, Color.LightGray) }
+    val borderStroke = remember { BorderStroke(BORDER , Color.LightGray) }
 
     Box(
         Modifier
