@@ -40,7 +40,7 @@ private val SPACE_SIZE = 5.dp
 private val TABLE_HEIGHT = ITEM_SIZE * 4
 private val TITLE_WIDTH_SHORT = ITEM_SIZE * 3
 private val TITLE_WIDTH_LONG = ITEM_SIZE * 4
-private val BORDER = 0.4.dp
+private val BORDER = 0.3.dp
 private const val MAX_VALUE = 8
 
 private val TEXT_COLOR_B = Color.Red
@@ -77,7 +77,7 @@ private fun Demo() {
                 LeftSide(displayItems, counter, listState)
                 RightSide(displayItems, counter, listState)
                 {
-
+                    InputButtons(null)
                 }
             }
         }
@@ -263,7 +263,7 @@ fun VerticalBar(value: Int, color: Color, textMeasurer: TextMeasurer) {
             val gridColor = Color.LightGray
             val gridWidth = BORDER.toPx()
             val interval = size.height / MAX_VALUE
-
+            // 绘制网格线
             for (i in 0..MAX_VALUE) {
                 drawLine(
                     color = if (i == 4) Color.Black else gridColor,
@@ -272,8 +272,21 @@ fun VerticalBar(value: Int, color: Color, textMeasurer: TextMeasurer) {
                     strokeWidth = gridWidth
                 )
             }
-            drawLine(gridColor, Offset(size.width, 0f), Offset(size.width, size.height), gridWidth)
-            drawLine(gridColor, Offset(0f, 0f), Offset(0f, size.height), gridWidth)
+            // 绘制边框
+            drawLine(
+                gridColor,
+                Offset(size.width, 0f),
+                Offset(size.width, size.height),
+                gridWidth * 1.8f
+            )
+            drawLine(
+                gridColor,
+                Offset(0f, 0f),
+                Offset(0f, size.height),
+                gridWidth * 1.8f
+            )
+
+            // 底部边框加粗
             drawLine(
                 Color.Black,
                 Offset(0f, size.height),
@@ -291,7 +304,7 @@ fun VerticalBar(value: Int, color: Color, textMeasurer: TextMeasurer) {
                 drawText(
                     textMeasurer = textMeasurer,
                     text = AnnotatedString("$value"),
-                    topLeft = Offset(10f, size.height - barHeight),
+                    topLeft = Offset(6f, size.height - barHeight),
                     style = textStyle
                 )
             }
