@@ -30,82 +30,109 @@ import com.dsd.baccarat.data.BpCounter
 import com.dsd.baccarat.data.BppcDisplayItem
 import com.dsd.baccarat.data.BppcItem
 
-// --- 常量定义 (为了清晰，进行分组和修正) ---
-const val MIN_TABLE_COLUMN_COUNT = 25
+const val MIN_TABLE_COLUMN_COUNT = 30
 
 private val ITEM_SIZE = 22.dp
 private val SPACE_SIZE = 5.dp
 private val TABLE_HEIGHT = ITEM_SIZE * 4
-private val TOTAL_HEIGHT = (TABLE_HEIGHT * 4) + (SPACE_SIZE * 3) // 修正拼写错误 TOTLE -> TOTAL
 
-private val BORDER = 0.3.dp
+private val BORDER = 0.4.dp
 private const val MAX_VALUE = 8
 
 private val TEXT_COLOR_B = Color.Red
 private val TEXT_COLOR_P = Color.Blue
 private val TEXT_COLOR_NEUTRAL = Color.Gray
 
+private val RED_COLOR_VALUES = setOf(1, 4, 6, 7)
+
 @Preview(showBackground = true, device = "id:pixel_tablet")
 @Composable
 private fun Demo() {
-    // 使用 remember 确保 items 列表在重组时不会被重新创建
-    val items = remember {
-        listOf(
+    val counter = remember { BpCounter(12, 13) }
+
+    val displayItems = remember {
+        // 1. 初始化原始 items 列表
+        val originalItems = listOf(
             BppcItem(1, 2, 3),
             BppcItem(4, 5, 6),
             BppcItem(7, 8, 1),
         )
-    }
-    val counter = remember { BpCounter(12, 13) }
+        // 2. 基于原始 items 计算 displayItems
+        val emptyCount = (MIN_TABLE_COLUMN_COUNT - originalItems.size).coerceAtLeast(0)
+        val derivedDisplayItems = originalItems
+            .map { BppcDisplayItem.Real(it) } + List(emptyCount) { BppcDisplayItem.Empty }
 
-    // 【优化1】使用 derivedStateOf，确保只有在 items 变化时才重新计算
-    val displayItems by remember(items) {
-        derivedStateOf {
-            val emptyCount = (MIN_TABLE_COLUMN_COUNT - items.size).coerceAtLeast(0)
-            items.map { BppcDisplayItem.Real(it) } + List(emptyCount) { BppcDisplayItem.Empty }
-        }
+        // 3. 返回组合结果（Pair）
+        derivedDisplayItems
     }
 
+    val listState = rememberLazyListState()
     Scaffold { innerPadding ->
-        Column(
-            modifier = Modifier
-                .padding(innerPadding)
-                .fillMaxSize() // 【优化2】使用 fillMaxSize() 代替 fillMaxWidth().fillMaxHeight()
-        ) {
-            BppcTableAndChart(displayItems, counter)
+        Column(modifier = Modifier.padding(innerPadding)) {
+            Row(Modifier.fillMaxSize()) {
+                LeftSide(displayItems, counter, listState)
+                RightSide(displayItems, counter, listState)
+            }
         }
     }
 }
 
 @Composable
-fun BppcTableAndChart(displayItems: List<BppcDisplayItem>, counter: BpCounter) {
-    val listState = rememberLazyListState()
-
-    // 【优化3】优化自动滚动逻辑
-    LaunchedEffect(displayItems.size) { // 仅在列表大小变化时触发
-        val lastRealIndex = displayItems.indexOfLast { it is BppcDisplayItem.Real }
-        if (lastRealIndex != -1) {
-            // 使用 animateScrollToItem 获得更平滑的滚动动画效果
-            listState.animateScrollToItem(displayItems.lastIndex)
-        }
-    }
-
+fun LeftSide(
+    items: List<BppcDisplayItem>,
+    counter: BpCounter,
+    listState: LazyListState
+) {
     Column(
         Modifier
             .fillMaxWidth(0.5f)
             .padding(horizontal = 5.dp)
     ) {
         Counter(counter)
-        Row(Modifier.fillMaxWidth()) // 使用修正后的常量
-        {
+        Row(Modifier.fillMaxWidth()) {
             Titles()
             Spacer(Modifier.width(SPACE_SIZE))
-            TableAndChart(displayItems, listState)
+            TableAndChart(items, listState)
         }
 
-        Strategy(listOf("A","12", "56"), displayItems, listState)
-        Strategy(listOf("B","12", "56"), displayItems, listState)
-        Strategy(listOf("C","12", "56"), displayItems, listState)
+        val strategyA = remember { listOf("A", "12", "56") }
+        val strategyB = remember { listOf("B", "12", "56") }
+        val strategyC = remember { listOf("C", "12", "56") }
+
+        Strategy(strategyA, items, listState)
+        Strategy(strategyB, items, listState)
+        Strategy(strategyC, items, listState)
+    }
+}
+
+@Composable
+fun RightSide(
+    items: List<BppcDisplayItem>,
+    counter: BpCounter,
+    listState: LazyListState
+) {
+    Column(Modifier.padding(horizontal = 5.dp)) {
+        Counter(counter)
+        BppcLazyRow(
+            items = items,
+            listState = listState,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = SPACE_SIZE)
+        ) { index, dataPoints ->
+            TextItem("${index + 1}", TEXT_COLOR_NEUTRAL)
+            dataPoints.forEach { data ->
+                TextItem(
+                    text = if (data == 0) "" else "$data",
+                    color = determineColor(data)
+                )
+            }
+        }
+
+        val strategy = remember { listOf("", "12", "56") }
+        Strategy(strategy, items, listState)
+        Strategy(strategy, items, listState)
+        Strategy(strategy, items, listState)
     }
 }
 
@@ -116,7 +143,6 @@ fun Counter(counter: BpCounter) {
             .fillMaxWidth()
             .height(ITEM_SIZE)
     ) {
-        // 【优化4】移除不必要的默认参数
         TextItem("B${counter.bCount}", TEXT_COLOR_B, width = (ITEM_SIZE + SPACE_SIZE))
         TextItem("P${counter.pCount}", TEXT_COLOR_P, width = ITEM_SIZE * 2)
         TextItem("Total ${counter.bCount + counter.pCount}", Color.Black, width = ITEM_SIZE * 3)
@@ -126,16 +152,11 @@ fun Counter(counter: BpCounter) {
 @Composable
 private fun Titles() {
     Column(Modifier.width(ITEM_SIZE)) {
-        // 使用 remember 避免在每次重组时重新创建列表
         val mainTitles = remember { listOf("\\", "A", "B", "C") }
         val subTitles = remember { listOf("A", "B", "C") }
 
-        mainTitles.forEach {
-            TextItem(it, TEXT_COLOR_NEUTRAL)
-        }
-
-        Spacer(Modifier.height(SPACE_SIZE)) // 使用常量
-
+        mainTitles.forEach { TextItem(it, TEXT_COLOR_NEUTRAL) }
+        Spacer(Modifier.height(SPACE_SIZE))
         subTitles.forEach {
             TextItem(it, TEXT_COLOR_NEUTRAL)
             Spacer(Modifier.height(ITEM_SIZE * 3 + SPACE_SIZE))
@@ -143,68 +164,43 @@ private fun Titles() {
     }
 }
 
-
 @Composable
 private fun TableAndChart(items: List<BppcDisplayItem>, listState: LazyListState) {
-    // 【核心优化】提升 TextMeasurer 状态，避免在每个 item 中重复创建
-    val textMeasurer = rememberTextMeasurer()
+    BppcLazyRow(
+        items = items,
+        listState = listState,
+        modifier = Modifier.fillMaxWidth()
+    ) { index, dataPoints ->
 
-    LazyRow(state = listState, modifier = Modifier.fillMaxWidth()) {
-        itemsIndexed(
-            items = items,
-            // 【核心优化】为 LazyRow 提供稳定的 key，提升性能
-            key = { index, item -> "$index-${item.hashCode()}" }
-        ) { idx, item ->
-            // 【核心优化】缓存从 item 中提取的数据，避免不必要的重算
-            val (dataA, dataB, dataC) = remember(item) {
-                if (item is BppcDisplayItem.Real) {
-                    Triple(item.data.dataA, item.data.dataB, item.data.dataC)
-                } else {
-                    Triple(0, 0, 0)
-                }
-            }
-            val dataPoints = remember(dataA, dataB, dataC) { listOf(dataA, dataB, dataC) }
+        TextItem("${index + 1}", TEXT_COLOR_NEUTRAL)
 
-            Column(Modifier.width(ITEM_SIZE)) {
+        dataPoints.forEach { data ->
+            TextItem(
+                text = if (data == 0) "" else "$data",
+                color = determineColor(data)
+            )
+        }
 
-                TextItem("${idx + 1}", TEXT_COLOR_NEUTRAL)
-                dataPoints.forEach { data ->
-                    TextItem(
-                        text = if (data == 0) "" else "$data",
-                        color = determineColor(data)
-                    )
-                }
-
-                Spacer(Modifier.height(SPACE_SIZE))
-                dataPoints.forEach { data ->
-                    VerticalBar(
-                        value = data,
-                        color = determineColor(data),
-                        textMeasurer = textMeasurer
-                    )
-                    Spacer(Modifier.height(SPACE_SIZE))
-                }
-            }
+        Spacer(Modifier.height(SPACE_SIZE))
+        dataPoints.forEach { data ->
+            VerticalBar(
+                value = data,
+                color = determineColor(data),
+                textMeasurer = rememberTextMeasurer()
+            )
+            Spacer(Modifier.height(SPACE_SIZE))
         }
     }
 }
 
-// 【优化8】提取的纯函数，用于决定颜色
 private fun determineColor(value: Int): Color {
-    return if (value in listOf(1, 4, 6, 7)) TEXT_COLOR_B else TEXT_COLOR_P
+    return if (value in RED_COLOR_VALUES) TEXT_COLOR_B else TEXT_COLOR_P
 }
 
 @Composable
 fun VerticalBar(value: Int, color: Color, textMeasurer: TextMeasurer) {
-    // 【优化10】提升 TextStyle 的状态
-    // TextStyle 是一个普通类，每次重组时创建它会产生开销。
-    // 使用 remember(color) 可以确保只有在颜色变化时才创建新的 TextStyle 实例。
     val textStyle = remember(color) {
-        TextStyle(
-            fontWeight = FontWeight.Bold,
-            fontSize = 10.sp,
-            color = color
-        )
+        TextStyle(fontWeight = FontWeight.Bold, fontSize = 10.sp, color = color)
     }
 
     Box(
@@ -212,13 +208,11 @@ fun VerticalBar(value: Int, color: Color, textMeasurer: TextMeasurer) {
             .width(ITEM_SIZE)
             .height(TABLE_HEIGHT)
     ) {
-        // Canvas 的绘制成本较高，确保它只在输入参数(value, color)变化时才重绘
         Canvas(Modifier.fillMaxSize()) {
             val gridColor = Color.LightGray
-            val gridWidth = BORDER.toPx() // 修正 gridWidth 的计算
+            val gridWidth = BORDER.toPx()
             val interval = size.height / MAX_VALUE
 
-            // 绘制网格线
             for (i in 0..MAX_VALUE) {
                 drawLine(
                     color = if (i == 4) Color.Black else gridColor,
@@ -236,7 +230,6 @@ fun VerticalBar(value: Int, color: Color, textMeasurer: TextMeasurer) {
                 gridWidth
             )
 
-            // 【优化9】只有当 value > 0 时才执行绘制操作
             if (value > 0) {
                 val barHeight = (value.toFloat() / MAX_VALUE) * size.height
                 drawRect(
@@ -248,7 +241,7 @@ fun VerticalBar(value: Int, color: Color, textMeasurer: TextMeasurer) {
                     textMeasurer = textMeasurer,
                     text = AnnotatedString("$value"),
                     topLeft = Offset(10f, size.height - barHeight),
-                    style = textStyle // 使用提升状态后的 textStyle
+                    style = textStyle
                 )
             }
         }
@@ -259,7 +252,10 @@ fun VerticalBar(value: Int, color: Color, textMeasurer: TextMeasurer) {
 fun Strategy(title: List<String>, items: List<BppcDisplayItem>, listState: LazyListState) {
     Spacer(Modifier.width(SPACE_SIZE))
     Row(Modifier.fillMaxWidth()) {
-        StrategyTitles(title[0])
+        if (title[0].isNotEmpty()) {
+            StrategyTitles(title[0])
+        }
+
         Spacer(Modifier.width(SPACE_SIZE))
         Column {
             Row {
@@ -273,46 +269,31 @@ fun Strategy(title: List<String>, items: List<BppcDisplayItem>, listState: LazyL
 }
 
 @Composable
-private fun StrategyMap(
-    listState: LazyListState,
-    items: List<BppcDisplayItem>
-) {
-    LazyRow(state = listState, modifier = Modifier.fillMaxWidth()) {
-        itemsIndexed(
-            items = items,
-            // 【核心优化】为 LazyRow 提供稳定的 key，提升性能
-            key = { index, item -> "$index-${item.hashCode()}" }
-        ) { idx, item ->
-            // 【核心优化】缓存从 item 中提取的数据，避免不必要的重算
-            val (dataA, dataB, dataC) = remember(item) {
-                if (item is BppcDisplayItem.Real) {
-                    Triple(item.data.dataA, item.data.dataB, item.data.dataC)
-                } else {
-                    Triple(0, 0, 0)
-                }
-            }
-            val dataPoints = remember(dataA, dataB, dataC) { listOf(dataA, dataB, dataC) }
+private fun StrategyMap(listState: LazyListState, items: List<BppcDisplayItem>) {
+    BppcLazyRow(
+        items = items,
+        listState = listState,
+        modifier = Modifier.fillMaxWidth()
+    ) { index, dataPoints ->
+        val dataA = dataPoints[0]
+        val dataB = dataPoints[1]
 
-            Column(Modifier.width(ITEM_SIZE)) {
-                TextItem("${idx + 1}", TEXT_COLOR_NEUTRAL)
-                TextItem(
-                    text = if (dataPoints[0] == 0) "" else "${dataPoints[0]}",
-                    color = determineColor(dataPoints[0])
-                )
-
-                TextItem(
-                    text = if (dataPoints[1] == 0) "" else "${dataPoints[1]}",
-                    color = determineColor(dataPoints[1])
-                )
-            }
-        }
+        TextItem("${index + 1}", TEXT_COLOR_NEUTRAL)
+        TextItem(
+            text = if (dataA == 0) "" else "$dataA",
+            color = determineColor(dataA)
+        )
+        TextItem(
+            text = if (dataB == 0) "" else "$dataB",
+            color = determineColor(dataB)
+        )
     }
 }
 
 @Composable
 fun StrategyTitles(title: String) {
     Column(Modifier.width(ITEM_SIZE)) {
-        Spacer(Modifier.height(ITEM_SIZE + SPACE_SIZE)) // 使用常量
+        Spacer(Modifier.height(ITEM_SIZE + SPACE_SIZE))
         TextItem(title, TEXT_COLOR_NEUTRAL)
     }
 }
@@ -324,18 +305,43 @@ fun TextItem(
     width: Dp = ITEM_SIZE,
     fontWeight: FontWeight = FontWeight.Normal
 ) {
-    // 【优化11】提升 BorderStroke 的状态
-    // 与 TextStyle 类似，BorderStroke 也是一个普通类。
-    // 使用 remember 将其缓存，可以避免在每次重组时不必要地重新创建此对象。
-    val borderStroke = remember { BorderStroke(BORDER , Color.LightGray) }
+    val borderStroke = remember { BorderStroke(BORDER, Color.LightGray) }
 
     Box(
         Modifier
             .width(width)
             .height(ITEM_SIZE)
-            .border(borderStroke), // 使用提升状态后的 borderStroke
+            .border(borderStroke),
         contentAlignment = Alignment.Center
     ) {
-        Text(text, fontSize = 14.sp, color = color, fontWeight = fontWeight)
+        Text(
+            text = text,
+            fontSize = 14.sp,
+            color = color,
+            fontWeight = fontWeight
+        )
+    }
+}
+
+@Composable
+private fun BppcLazyRow(
+    items: List<BppcDisplayItem>,
+    listState: LazyListState,
+    modifier: Modifier = Modifier,
+    itemContent: @Composable ColumnScope.(index: Int, dataPoints: List<Int>) -> Unit
+) {
+    LazyRow(state = listState, modifier = modifier) {
+        itemsIndexed(
+            items = items,
+            key = { index, item -> "$index-${item.hashCode()}" }
+        ) { idx, item ->
+            val dataPoints = (item as? BppcDisplayItem.Real)?.data?.let {
+                listOf(it.dataA, it.dataB, it.dataC)
+            } ?: listOf(0, 0, 0)
+
+            Column(Modifier.width(ITEM_SIZE)) {
+                itemContent(idx, dataPoints)
+            }
+        }
     }
 }
