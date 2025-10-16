@@ -5,18 +5,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dsd.baccarat.data.BppcDisplayItem
 import com.dsd.baccarat.data.InputViewModel
-import com.dsd.baccarat.ui.page.LeftSide
-import com.dsd.baccarat.ui.page.RightSide
+import com.dsd.baccarat.ui.page.UI
 import com.dsd.baccarat.ui.theme.ReopenAndroidTheme
 
 class MainActivity : ComponentActivity() {
@@ -28,7 +22,6 @@ class MainActivity : ComponentActivity() {
         setContent {
             val listState = rememberLazyListState()
             val items = viewModel.bppcTableStateFlow.collectAsStateWithLifecycle().value
-            val counter = viewModel.bpCounterStateFlow.collectAsStateWithLifecycle().value
 
             // 【优化3】优化自动滚动逻辑
             LaunchedEffect(items.size) { // 仅在列表大小变化时触发
@@ -40,16 +33,7 @@ class MainActivity : ComponentActivity() {
             }
 
             ReopenAndroidTheme {
-                Scaffold { innerPadding ->
-                    Row(
-                        modifier = Modifier
-                            .padding(innerPadding)
-                            .fillMaxSize()
-                    ) {
-                        LeftSide(items, counter, listState)
-                        RightSide(items, counter, listState)
-                    }
-                }
+                UI(viewModel, listState)
             }
         }
     }

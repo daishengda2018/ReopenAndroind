@@ -24,24 +24,28 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dsd.baccarat.data.BpCounter
 import com.dsd.baccarat.data.BppcDisplayItem
 import com.dsd.baccarat.data.BppcItem
+import com.dsd.baccarat.data.InputViewModel
 
 const val MIN_TABLE_COLUMN_COUNT = 30
 
 private val ITEM_SIZE = 22.dp
 private val SPACE_SIZE = 5.dp
 private val TABLE_HEIGHT = ITEM_SIZE * 4
-
+private val TITLE_WIDTH_SHORT = ITEM_SIZE * 3
+private val TITLE_WIDTH_LONG = ITEM_SIZE * 4
 private val BORDER = 0.4.dp
 private const val MAX_VALUE = 8
 
 private val TEXT_COLOR_B = Color.Red
 private val TEXT_COLOR_P = Color.Blue
-private val TEXT_COLOR_NEUTRAL = Color.Gray
+private val TEXT_COLOR_NEUTRAL = Color.Black
 
 private val RED_COLOR_VALUES = setOf(1, 4, 6, 7)
 
@@ -72,13 +76,35 @@ private fun Demo() {
             Row(Modifier.fillMaxSize()) {
                 LeftSide(displayItems, counter, listState)
                 RightSide(displayItems, counter, listState)
+                {
+
+                }
             }
         }
     }
 }
 
 @Composable
-fun LeftSide(
+fun UI(viewModel: InputViewModel, listState: LazyListState) {
+    Scaffold { innerPadding ->
+        val items = viewModel.bppcTableStateFlow.collectAsStateWithLifecycle().value
+        val counter = viewModel.bpCounterStateFlow.collectAsStateWithLifecycle().value
+        Row(
+            modifier = Modifier
+                .padding(innerPadding)
+                .fillMaxSize()
+        ) {
+            LeftSide(items, counter, listState)
+            RightSide(items, counter, listState)
+            {
+                InputButtons(viewModel)
+            }
+        }
+    }
+}
+
+@Composable
+private fun LeftSide(
     items: List<BppcDisplayItem>,
     counter: BpCounter,
     listState: LazyListState
@@ -88,7 +114,7 @@ fun LeftSide(
             .fillMaxWidth(0.5f)
             .padding(horizontal = 5.dp)
     ) {
-        Counter(counter)
+        BPPCounter(counter)
         Row(Modifier.fillMaxWidth()) {
             Titles()
             Spacer(Modifier.width(SPACE_SIZE))
@@ -109,10 +135,11 @@ fun LeftSide(
 fun RightSide(
     items: List<BppcDisplayItem>,
     counter: BpCounter,
-    listState: LazyListState
+    listState: LazyListState,
+    itemContent: @Composable ColumnScope.() -> Unit
 ) {
     Column(Modifier.padding(horizontal = 5.dp)) {
-        Counter(counter)
+        WLCounter(counter)
         BppcLazyRow(
             items = items,
             listState = listState,
@@ -120,7 +147,7 @@ fun RightSide(
                 .fillMaxWidth()
                 .padding(start = SPACE_SIZE)
         ) { index, dataPoints ->
-            TextItem("${index + 1}", TEXT_COLOR_NEUTRAL)
+            TextItem("${index + 1}", TEXT_COLOR_NEUTRAL, fontSize = 10.sp)
             dataPoints.forEach { data ->
                 TextItem(
                     text = if (data == 0) "" else "$data",
@@ -129,23 +156,47 @@ fun RightSide(
             }
         }
 
+
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(TABLE_HEIGHT * 3 + SPACE_SIZE * 4)
+        ) {
+            // 占位，保持布局对齐
+        }
         val strategy = remember { listOf("", "12", "56") }
         Strategy(strategy, items, listState)
         Strategy(strategy, items, listState)
         Strategy(strategy, items, listState)
+        itemContent()
     }
 }
 
 @Composable
-fun Counter(counter: BpCounter) {
+fun BPPCounter(counter: BpCounter) {
     Row(
         Modifier
             .fillMaxWidth()
+            .padding(start = ITEM_SIZE + SPACE_SIZE)
             .height(ITEM_SIZE)
     ) {
-        TextItem("B${counter.bCount}", TEXT_COLOR_B, width = (ITEM_SIZE + SPACE_SIZE))
-        TextItem("P${counter.pCount}", TEXT_COLOR_P, width = ITEM_SIZE * 2)
-        TextItem("Total ${counter.bCount + counter.pCount}", Color.Black, width = ITEM_SIZE * 3)
+        TextItem("B${counter.bCount}", TEXT_COLOR_B, width = TITLE_WIDTH_SHORT)
+        TextItem("P${counter.pCount}", TEXT_COLOR_P, width = TITLE_WIDTH_SHORT)
+        TextItem("Total ${counter.bCount + counter.pCount}", Color.Black, width = TITLE_WIDTH_LONG)
+    }
+}
+
+@Composable
+fun WLCounter(counter: BpCounter) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 5.dp)
+            .height(ITEM_SIZE)
+    ) {
+        TextItem("W${counter.bCount}", TEXT_COLOR_B, width = TITLE_WIDTH_SHORT)
+        TextItem("L${counter.pCount}", TEXT_COLOR_P, width = TITLE_WIDTH_SHORT)
+        TextItem("Total ${counter.bCount + counter.pCount}", Color.Black, width = TITLE_WIDTH_LONG)
     }
 }
 
@@ -172,7 +223,7 @@ private fun TableAndChart(items: List<BppcDisplayItem>, listState: LazyListState
         modifier = Modifier.fillMaxWidth()
     ) { index, dataPoints ->
 
-        TextItem("${index + 1}", TEXT_COLOR_NEUTRAL)
+        TextItem("${index + 1}", TEXT_COLOR_NEUTRAL, fontSize = 10.sp)
 
         dataPoints.forEach { data ->
             TextItem(
@@ -278,7 +329,6 @@ private fun StrategyMap(listState: LazyListState, items: List<BppcDisplayItem>) 
         val dataA = dataPoints[0]
         val dataB = dataPoints[1]
 
-        TextItem("${index + 1}", TEXT_COLOR_NEUTRAL)
         TextItem(
             text = if (dataA == 0) "" else "$dataA",
             color = determineColor(dataA)
@@ -303,6 +353,7 @@ fun TextItem(
     text: String,
     color: Color = Color.Black,
     width: Dp = ITEM_SIZE,
+    fontSize: TextUnit = 14.sp,
     fontWeight: FontWeight = FontWeight.Normal
 ) {
     val borderStroke = remember { BorderStroke(BORDER, Color.LightGray) }
@@ -316,7 +367,7 @@ fun TextItem(
     ) {
         Text(
             text = text,
-            fontSize = 14.sp,
+            fontSize = fontSize,
             color = color,
             fontWeight = fontWeight
         )
