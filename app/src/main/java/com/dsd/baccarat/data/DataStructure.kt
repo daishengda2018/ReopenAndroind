@@ -6,15 +6,26 @@ data class BppcItem(
     val dataC: Int = 0        // 数据C
 )
 
+// 密封类：区分实际数据项和空占位项
+sealed class BppcDisplayItem {
+    data class Real(val data: BppcItem) : BppcDisplayItem() // 实际数据包装
+    object Empty : BppcDisplayItem() // 空占位项
+}
+
 data class BpCounter(
     var bCount: Int = 0,       // B计数
     var pCount: Int = 0        // P计数
 )
 
+data class StrategyItem(
+    val data1: Int = 0,       // 数据1
+    val data2: Int = 0,       // 数据2
+)
+
 // 密封类：区分实际数据项和空占位项
-sealed class BppcDisplayItem {
-    data class Real(val data: BppcItem) : BppcDisplayItem() // 实际数据包装
-    object Empty : BppcDisplayItem() // 空占位项
+sealed class StrategeDisplayItem {
+    data class Real(val data: StrategyItem) : StrategeDisplayItem() // 实际数据包装
+    object Empty : StrategeDisplayItem() // 空占位项
 }
 
 enum class InputType {
