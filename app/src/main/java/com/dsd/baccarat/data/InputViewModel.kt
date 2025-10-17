@@ -104,48 +104,47 @@ class InputViewModel : ViewModel() {
     }
 
     private fun calculateBppcStrategyData(last3Inputs: List<InputType>) {
-        val value = when {
-            // 对对
-            (last3Inputs[0] == last3Inputs[1] && last3Inputs[1] == last3Inputs[2]) -> 1
-            // 错错
-            (last3Inputs[0] != last3Inputs[1] && last3Inputs[1] != last3Inputs[2]) -> 2
-            // 对对
-            (last3Inputs[0] == last3Inputs[1] && last3Inputs[1] != last3Inputs[2]) -> 3
-            // 错对
-            (last3Inputs[0] != last3Inputs[1] && last3Inputs[1] == last3Inputs[2]) -> 4
-            else -> 0
-        }
+        if (last3Inputs.size < 3) return
 
-        if (value == 0) return
+        val eq01 = last3Inputs[0] == last3Inputs[1]
+        val eq12 = last3Inputs[1] == last3Inputs[2]
+
+        val value = when {
+            eq01 && eq12 -> 1  // 对对
+            !eq01 && !eq12 -> 2 // 错错
+            eq01 && !eq12 -> 3  // 对错
+            else -> 4  // 错对
+        }
 
         mStrategy12StateFlow.value = mStrategy12StateFlow.value
             .toMutableList()
             .apply {
                 val lastRealIndex = indexOfLast { it is StrategeDisplayItem.Real }
-                val lastRealItem = if (lastRealIndex != -1) this[lastRealIndex] as StrategeDisplayItem.Real else null
+                val lastRealItem = (if (lastRealIndex != -1) this[lastRealIndex] as StrategeDisplayItem.Real else null)
 
-                if (lastRealItem != null) {
-                    // 存在 Real 项，且其 data1/data2 有未填充的
-                    val updatedRealItem = when {
-                        lastRealItem.data.data1 == 0 -> lastRealItem.data.copy(data1 = value)
-                        lastRealItem.data.data2 == 0 -> lastRealItem.data.copy(data2 = value)
-                        else -> null // 两个字段都已填充，需要新增 Real 项
-                    }
-                    if (updatedRealItem != null) {
-                        // 更新现有 Real 项
-                        this[lastRealIndex] = StrategeDisplayItem.Real(updatedRealItem)
-                    } else {
-                        // 新增 Real 项（插入到最后一个 Real 项后面，占位项前面）
-                        val insertIndex = lastRealIndex + 1
-                        this.add(insertIndex, StrategeDisplayItem.Real(StrategyItem(data1 = value)))
-                        // 确保列表总长度不超过 MIN_COUNT（若超过则删除末尾的 Empty 项）
-                        if (size > MIN_TABLE_COLUMN_COUNT && last() is StrategeDisplayItem.Empty) {
-                            removeLastOrNull()
-                        }
-                    }
-                } else {
-                    // 列表中没有 Real 项（全是 Empty），替换第一个 Empty 为 Real 项
+                if (lastRealItem == null) {
+                    // 全是 Empty，直接替换第一个占位
                     this[0] = StrategeDisplayItem.Real(StrategyItem(data1 = value))
+                    return@apply
+                }
+
+                val updated = when {
+                    lastRealItem.data.data1 == 0 -> lastRealItem.data.copy(data1 = value)
+                    lastRealItem.data.data2 == 0 -> lastRealItem.data.copy(data2 = value)
+                    else -> null
+                }
+
+                if (updated != null) {
+                    // 更新最后一个 Real 项的空位
+                    this[lastRealIndex] = StrategeDisplayItem.Real(updated)
+                } else {
+                    // 最后一个 Real 已满，插入新 Real 项
+                    val insertIndex = lastRealIndex + 1
+                    this.add(insertIndex, StrategeDisplayItem.Real(StrategyItem(data1 = value)))
+                    // 保持列表长度与原逻辑一致：若超长并且末尾是占位则移除末尾
+                    if (size > MIN_TABLE_COLUMN_COUNT && last() is StrategeDisplayItem.Empty) {
+                        removeLastOrNull()
+                    }
                 }
             }
     }
