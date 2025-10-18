@@ -48,6 +48,7 @@ import com.dsd.baccarat.data.BppcDisplayItem
 import com.dsd.baccarat.data.BppcItem
 import com.dsd.baccarat.data.InputViewModel
 import com.dsd.baccarat.data.StrategeDisplayItem
+import com.dsd.baccarat.data.StrategyData
 import com.dsd.baccarat.data.StrategyItem
 
 const val MIN_TABLE_COLUMN_COUNT = 30
@@ -69,7 +70,6 @@ private val RED_COLOR_VALUES = setOf(1, 4, 6, 7)
 @Composable
 private fun Demo() {
     val counter = remember { BpCounter(12, 13) }
-
     val bppcDisplayList = remember {
         // 1. 初始化原始 items 列表
         val originalItems = listOf(
@@ -88,9 +88,10 @@ private fun Demo() {
 
     val strategyDisplayList = remember {
         // 1. 初始化原始 items 列表
+        val strategyData = StrategyData(1, 2, 3, 4)
         val originalItems = listOf(
-            StrategyItem(1, 2),
-            StrategyItem(3, 4),
+            StrategyItem(strategyData, strategyData),
+            StrategyItem(strategyData, strategyData),
         )
         // 2. 基于原始 items 计算 displayItems
         val emptyCount = (MIN_TABLE_COLUMN_COUNT - originalItems.size).coerceAtLeast(0)
@@ -124,8 +125,8 @@ private fun Demo() {
 @Composable
 fun Screen(viewModel: InputViewModel, listState: LazyListState) {
     Scaffold { innerPadding ->
-        val bppcDisplayItems = viewModel.bppcTableStateFlow.collectAsStateWithLifecycle().value
-        val strategy12DisplayItems = viewModel.strategy12StateFlow.collectAsStateWithLifecycle().value
+        val bppcDataList = viewModel.bppcTableStateFlow.collectAsStateWithLifecycle().value
+        val strategeDataList = viewModel.aStrategyStateFlow.collectAsStateWithLifecycle().value
         val bppcCounter = viewModel.bppcCounterStateFlow.collectAsStateWithLifecycle().value
 
         Row(
@@ -133,8 +134,8 @@ fun Screen(viewModel: InputViewModel, listState: LazyListState) {
                 .padding(innerPadding)
                 .fillMaxSize()
         ) {
-            LeftSide(bppcDisplayItems, strategy12DisplayItems, bppcCounter)
-            RightSide(bppcDisplayItems, strategy12DisplayItems, bppcCounter)
+            LeftSide(bppcDataList, strategeDataList, bppcCounter)
+            RightSide(bppcDataList, strategeDataList, bppcCounter)
             {
                 InputButtons(viewModel)
             }
@@ -400,7 +401,7 @@ private fun StrategyMap(listState: LazyListState, items: List<StrategeDisplayIte
             key = { index, item -> "$index-${item.hashCode()}" }
         ) { idx, item ->
             val dataPoints = (item as? StrategeDisplayItem.Real)?.data?.let {
-                listOf(it.data1, it.data2)
+                listOf(it.strategy1, it.strategy2)
             } ?: listOf(0, 0)
 
             Column(Modifier.width(ITEM_SIZE)) {

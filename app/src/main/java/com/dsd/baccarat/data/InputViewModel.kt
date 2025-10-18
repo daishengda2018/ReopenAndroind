@@ -21,12 +21,23 @@ class InputViewModel : ViewModel() {
     private val mBpCounterStateFlow = MutableStateFlow(BpCounter(0, 0))
     val bppcCounterStateFlow: StateFlow<BpCounter> = mBpCounterStateFlow.asStateFlow()
 
-    // 在 InputViewModel 类中添加新的 StateFlow 来存储 '12' 策略的结果
-    private val mStrategy12StateFlow = MutableStateFlow<List<StrategeDisplayItem>>(
+
+    /* 三路策略*/
+    // 在 InputViewModel 类中添加新的 StateFlow 来存储策略的结果
+    private val mAStrategyStateFlow = MutableStateFlow<List<StrategeDisplayItem>>(
         List(MIN_TABLE_COLUMN_COUNT) { StrategeDisplayItem.Empty } // 初始总长度 = MIN_COUNT)
     )
-    val strategy12StateFlow: StateFlow<List<StrategeDisplayItem>> =
-        mStrategy12StateFlow.asStateFlow()
+    val aStrategyStateFlow: StateFlow<List<StrategeDisplayItem>> = mAStrategyStateFlow.asStateFlow()
+
+    private val mBStrategyStateFlow = MutableStateFlow<List<StrategeDisplayItem>>(
+        List(MIN_TABLE_COLUMN_COUNT) { StrategeDisplayItem.Empty } // 初始总长度 = MIN_COUNT)
+    )
+    val bStrategyStateFlow: StateFlow<List<StrategeDisplayItem>> = mAStrategyStateFlow.asStateFlow()
+
+    private val mCStrategyStateFlow = MutableStateFlow<List<StrategeDisplayItem>>(
+        List(MIN_TABLE_COLUMN_COUNT) { StrategeDisplayItem.Empty } // 初始总长度 = MIN_COUNT)
+    )
+    val cStrategyStateFlow: StateFlow<List<StrategeDisplayItem>> = mAStrategyStateFlow.asStateFlow()
 
     fun openB() {
         performBppcTableLogic(InputType.B)
@@ -46,9 +57,8 @@ class InputViewModel : ViewModel() {
 
         calculateBppcCounter(last3Inputs)
         calculateBppcTableData(last3Inputs)
-        calculateBppcStrategyData(last3Inputs)
+        calculateStrategyData(last3Inputs)
     }
-
 
     private fun calculateBppcCounter(last3Inputs: List<InputType>) {
         val current = mBpCounterStateFlow.value
@@ -68,87 +78,125 @@ class InputViewModel : ViewModel() {
         val result = inputCombinationToResult[inputCombination] ?: return
 
         // 3. 高效更新 BppcItem 列表
-        mBppcTableStateFlow.value = mBppcTableStateFlow.value
-            .toMutableList() // 创建可变副本（触发 StateFlow 状态更新）
-            .apply {
-                // 1. 找到列表中最后一个 "Real" 实际项（跳过末尾的 Empty 占位项）
-                val lastRealIndex = indexOfLast { it is BppcDisplayItem.Real }
-                val lastRealItem = if (lastRealIndex != -1) this[lastRealIndex] as BppcDisplayItem.Real else null
+        val updatedList = mBppcTableStateFlow.value.toMutableList()
+        // 3.1. 找到列表中最后一个 "Real" 实际项（跳过末尾的 Empty 占位项）
+        val lastRealIndex = updatedList.indexOfLast { it is BppcDisplayItem.Real }
+        val lastRealItem = if (lastRealIndex != -1) updatedList[lastRealIndex] as BppcDisplayItem.Real else null
 
-                if (lastRealItem != null) {
-                    // 2. 存在 Real 项，且其 dataA/dataB/dataC 有未填充的字段（值为 0）
-                    val updatedRealItem = when {
-                        lastRealItem.data.dataA == 0 -> lastRealItem.data.copy(dataA = result)
-                        lastRealItem.data.dataB == 0 -> lastRealItem.data.copy(dataB = result)
-                        lastRealItem.data.dataC == 0 -> lastRealItem.data.copy(dataC = result)
-                        else -> null // 三个字段都已填充，需要新增 Real 项
-                    }
+        if (lastRealItem == null) {
+            // 3.2. 列表中没有 Real 项（全是 Empty），替换第一个 Empty 为 Real 项
+            updatedList[0] = BppcDisplayItem.Real(BppcItem(dataA = result))
 
-                    if (updatedRealItem != null) {
-                        // 2.1 更新现有 Real 项
-                        this[lastRealIndex] = BppcDisplayItem.Real(updatedRealItem)
-                    } else {
-                        // 2.2 新增 Real 项（插入到最后一个 Real 项后面，占位项前面）
-                        val insertIndex = lastRealIndex + 1
-                        this.add(insertIndex, BppcDisplayItem.Real(BppcItem(dataA = result)))
-                        // 确保列表总长度不超过 MIN_COUNT（若超过则删除末尾的 Empty 项）
-                        if (size > MIN_TABLE_COLUMN_COUNT && last() is BppcDisplayItem.Empty) {
-                            removeLastOrNull()
-                        }
-                    }
-                } else {
-                    // 3. 列表中没有 Real 项（全是 Empty），替换第一个 Empty 为 Real 项
-                    this[0] = BppcDisplayItem.Real(BppcItem(dataA = result))
+        } else {
+            // 3.3. 存在 Real 项，且其 dataA/dataB/dataC 有未填充的字段（值为 0）
+            val updatedRealItem = when {
+                lastRealItem.data.dataA == 0 -> lastRealItem.data.copy(dataA = result)
+                lastRealItem.data.dataB == 0 -> lastRealItem.data.copy(dataB = result)
+                lastRealItem.data.dataC == 0 -> lastRealItem.data.copy(dataC = result)
+                else -> null // 三个字段都已填充，需要新增 Real 项
+            }
+
+            if (updatedRealItem != null) {
+                // 3.3.1 更新现有 Real 项
+                updatedList[lastRealIndex] = BppcDisplayItem.Real(updatedRealItem)
+            } else {
+                // 3.3.2 新增 Real 项（插入到最后一个 Real 项后面，占位项前面）
+                val insertIndex = lastRealIndex + 1
+                updatedList.add(insertIndex, BppcDisplayItem.Real(BppcItem(dataA = result)))
+                // 确保列表总长度不超过 MIN_COUNT（若超过则删除末尾的 Empty 项）
+                if (updatedList.size > MIN_TABLE_COLUMN_COUNT && updatedList.last() is BppcDisplayItem.Empty) {
+                    updatedList.removeLastOrNull()
                 }
             }
-    }
-
-    private fun calculateBppcStrategyData(last3Inputs: List<InputType>) {
-        if (last3Inputs.size < 3) return
-
-        val eq01 = last3Inputs[0] == last3Inputs[1]
-        val eq12 = last3Inputs[1] == last3Inputs[2]
-
-        val value = when {
-            eq01 && eq12 -> 1  // 对对
-            !eq01 && !eq12 -> 2 // 错错
-            eq01 && !eq12 -> 3  // 对错
-            else -> 4  // 错对
         }
 
-        mStrategy12StateFlow.value = mStrategy12StateFlow.value
-            .toMutableList()
-            .apply {
-                val lastRealIndex = indexOfLast { it is StrategeDisplayItem.Real }
-                val lastRealItem = (if (lastRealIndex != -1) this[lastRealIndex] as StrategeDisplayItem.Real else null)
-
-                if (lastRealItem == null) {
-                    // 全是 Empty，直接替换第一个占位
-                    this[0] = StrategeDisplayItem.Real(StrategyItem(data1 = value))
-                    return@apply
-                }
-
-                val updated = when {
-                    lastRealItem.data.data1 == 0 -> lastRealItem.data.copy(data1 = value)
-                    lastRealItem.data.data2 == 0 -> lastRealItem.data.copy(data2 = value)
-                    else -> null
-                }
-
-                if (updated != null) {
-                    // 更新最后一个 Real 项的空位
-                    this[lastRealIndex] = StrategeDisplayItem.Real(updated)
-                } else {
-                    // 最后一个 Real 已满，插入新 Real 项
-                    val insertIndex = lastRealIndex + 1
-                    this.add(insertIndex, StrategeDisplayItem.Real(StrategyItem(data1 = value)))
-                    // 保持列表长度与原逻辑一致：若超长并且末尾是占位则移除末尾
-                    if (size > MIN_TABLE_COLUMN_COUNT && last() is StrategeDisplayItem.Empty) {
-                        removeLastOrNull()
-                    }
-                }
-            }
+        mBppcTableStateFlow.value = updatedList
     }
 
+    private fun calculateStrategyData(last3Inputs: List<InputType>) {
+        if (last3Inputs.size < 3) return
+
+        val strategyData = computeStrategyData(last3Inputs)
+
+        val updateItems = mAStrategyStateFlow.value.toMutableList()
+        val lastRealIndex = updateItems.indexOfLast { it is StrategeDisplayItem.Real }
+        val lastRealItem = (if (lastRealIndex != -1) updateItems[lastRealIndex] as StrategeDisplayItem.Real else null)
+
+        if (lastRealItem == null) {
+            // 全是 Empty，直接替换第一个占位
+            updateItems[0] = StrategeDisplayItem.Real(StrategyItem(strategyData))
+        } else {
+            val lastRealItem = (updateItems[lastRealIndex] as StrategeDisplayItem.Real)
+            val updated = when {
+                lastRealItem.data.strategy1.isEmpty() -> lastRealItem.data.copy(strategy1 = strategyData)
+                lastRealItem.data.strategy2.isEmpty() -> lastRealItem.data.copy(strategy2 = strategyData)
+                else -> null
+            }
+
+            if (updated != null) {
+                // 更新最后一个 Real 项的空位
+                updateItems[lastRealIndex] = StrategeDisplayItem.Real(updated)
+            } else {
+                // 最后一个 Real 已满，插入新 Real 项
+                val insertIndex = lastRealIndex + 1
+                updateItems.add(insertIndex, StrategeDisplayItem.Real(StrategyItem(strategyData)))
+                // 保持列表长度与原逻辑一致：若超长并且末尾是占位则移除末尾
+                if (updateItems.size > MIN_TABLE_COLUMN_COUNT && updateItems.last() is StrategeDisplayItem.Empty) {
+                    updateItems.removeLastOrNull()
+                }
+            }
+        }
+
+        mAStrategyStateFlow.value = updateItems;
+    }
+
+
+    private fun computeStrategyData(last3Inputs: List<InputType>): StrategyData {
+        val eq01 = last3Inputs[0] == last3Inputs[1]
+        val eq12 = last3Inputs[1] == last3Inputs[2]
+        val pair = Pair(eq01, eq12)
+
+        // 对对=1/错错=2，对错=3/错对=4；
+
+        // 押注方向12：第2位与第1位相同，第3位与第2位相同；
+        val strategy12 = when (pair) {
+            Pair(true, true) -> 1
+            Pair(false, false) -> 2
+            Pair(true, false) -> 3
+            else -> 4
+        }
+
+        // 押注方向56：第2位与第1位相反，第3位与第2位相反；
+        val strategy56 = when (pair) {
+            Pair(false, false) -> 1
+            Pair(true, true) -> 2
+            Pair(false, true) -> 3
+            else -> 4
+        }
+
+        //  押注方向34：第2位与第1位相反，第3位与第2位相同；
+        val strategy34 = when (pair) {
+            Pair(false, true) -> 1
+            Pair(true, true) -> 2
+            Pair(false, false) -> 3
+            else -> 4
+        }
+
+        // 押注方向78：第2位与第1位相同，第3位与第2位相反；
+        val strategy78 = when (pair) {
+            Pair(true, false) -> 1
+            Pair(false, true) -> 2
+            Pair(true, true) -> 3
+            else -> 4
+        }
+
+        return StrategyData(
+            strategy12 = strategy12,
+            strategy34 = strategy34,
+            strategy56 = strategy56,
+            strategy78 = strategy78
+        )
+    }
 
     fun betB() {
         mInputItemOfOpen.add(InputType.BET_B)

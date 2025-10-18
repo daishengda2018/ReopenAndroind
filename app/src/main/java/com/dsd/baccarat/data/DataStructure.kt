@@ -17,9 +17,22 @@ data class BpCounter(
     var pCount: Int = 0        // P计数
 )
 
+// 策略数据类，包含 ‘12’，‘34‘， ’56‘， ’78‘ 策略
+data class StrategyData(
+    val strategy12: Int = 0,  // 策略12
+    val strategy34: Int = 0,  // 策略34
+    val strategy56: Int = 0,  // 策略56
+    val strategy78: Int = 0   // 策略78
+) {
+    // 表示当前策略数据是否全部为零
+    fun isEmpty(): Boolean {
+        return strategy12 == 0 && strategy34 == 0 && strategy56 == 0 && strategy78 == 0
+    }
+}
+
 data class StrategyItem(
-    val data1: Int = 0,       // 数据1
-    val data2: Int = 0,       // 数据2
+    val strategy1: StrategyData = StrategyData(),       // 数据1
+    val strategy2: StrategyData = StrategyData()        // 数据2
 )
 
 // 密封类：区分实际数据项和空占位项
