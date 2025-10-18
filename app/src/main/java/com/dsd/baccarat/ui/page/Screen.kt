@@ -2,6 +2,7 @@ package com.dsd.baccarat.ui.page
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -431,14 +432,14 @@ fun TextItem(
         Modifier
             .width(width)
             .height(ITEM_SIZE)
-            .border(BorderStroke(BORDER, Color.LightGray)),
+            .border(BorderStroke(BORDER, Color.LightGray))
+            .clickable {
+                onClick?.invoke()
+            },
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = text, fontSize = fontSize, color = color, fontWeight = fontWeight,
-            modifier = Modifier.clickable {
-                onClick?.invoke()
-            }
+            text = text, fontSize = fontSize, color = color, fontWeight = fontWeight
         )
     }
 }
