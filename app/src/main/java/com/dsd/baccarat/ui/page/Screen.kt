@@ -126,16 +126,19 @@ private fun Demo() {
 fun Screen(viewModel: InputViewModel, listState: LazyListState) {
     Scaffold { innerPadding ->
         val bppcDataList = viewModel.bppcTableStateFlow.collectAsStateWithLifecycle().value
-        val strategeDataList = viewModel.aStrategyStateFlow.collectAsStateWithLifecycle().value
         val bppcCounter = viewModel.bppcCounterStateFlow.collectAsStateWithLifecycle().value
+        val aStrategeDataList = viewModel.aStrategyStateFlow.collectAsStateWithLifecycle().value
+        val bStrategeDataList = viewModel.bStrategyStateFlow.collectAsStateWithLifecycle().value
+        val cStrategeDataList = viewModel.cStrategyStateFlow.collectAsStateWithLifecycle().value
+
 
         Row(
             modifier = Modifier
                 .padding(innerPadding)
                 .fillMaxSize()
         ) {
-            LeftSide(bppcDataList, strategeDataList, bppcCounter)
-            RightSide(bppcDataList, strategeDataList, bppcCounter)
+            LeftSide(bppcDataList, bppcCounter, aStrategeDataList, bStrategeDataList, cStrategeDataList)
+            RightSide(bppcDataList, bppcCounter, aStrategeDataList, bStrategeDataList, cStrategeDataList)
             {
                 InputButtons(viewModel)
             }
@@ -146,8 +149,10 @@ fun Screen(viewModel: InputViewModel, listState: LazyListState) {
 @Composable
 private fun LeftSide(
     bppcDisplayList: List<BppcDisplayItem>,
-    strategyList: List<StrategeDisplayItem>,
     bppcCounter: BpCounter,
+    aStrategyList: List<StrategeDisplayItem>,
+    bStrategyList: List<StrategeDisplayItem>,
+    cStrategyList: List<StrategeDisplayItem>,
     listState: LazyListState = rememberLazyListState()
 ) {
     Column(
@@ -166,61 +171,70 @@ private fun LeftSide(
         val strategyB = remember { listOf("B", "12", "56") }
         val strategyC = remember { listOf("C", "12", "56") }
 
-        Strategy(strategyA, strategyList)
-        Strategy(strategyB, strategyList)
-        Strategy(strategyC, strategyList)
+        Strategy(strategyA, aStrategyList)
+        Strategy(strategyB, bStrategyList)
+        Strategy(strategyC, cStrategyList)
     }
 }
 
 @Composable
 fun RightSide(
     bppcDisplayList: List<BppcDisplayItem>,
-    strategyList: List<StrategeDisplayItem>,
     bppcCounter: BpCounter,
+    aStrategyList: List<StrategeDisplayItem>,
+    bStrategyList: List<StrategeDisplayItem>,
+    cStrategyList: List<StrategeDisplayItem>,
     listState: LazyListState = rememberLazyListState(),
     itemContent: @Composable (ColumnScope.() -> Unit)
 ) {
     Column(Modifier.padding(horizontal = 5.dp)) {
         WLCounter(bppcCounter)
-        LazyRow(
-            state = listState,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = SPACE_SIZE)
-        ) {
-            itemsIndexed(
-                items = bppcDisplayList,
-                key = { index, item -> "$index-${item.hashCode()}" }
-            ) { idx, item ->
-                val dataPoints = (item as? BppcDisplayItem.Real)?.data?.let {
-                    listOf(it.dataA, it.dataB, it.dataC)
-                } ?: listOf(0, 0, 0)
+        WsrTable(listState, bppcDisplayList)
 
-                Column(Modifier.width(ITEM_SIZE)) {
-                    TextItem("${idx + 1}", TEXT_COLOR_NEUTRAL, fontSize = 10.sp)
-                    dataPoints.forEach { data ->
-                        TextItem(
-                            text = if (data == 0) "" else "$data",
-                            color = determineColor(data)
-                        )
-                    }
-                }
-            }
-        }
-
-
-        Box(
+        // TODO: 占位，保持布局对齐
+        Spacer(
             Modifier
                 .fillMaxWidth()
                 .height(TABLE_HEIGHT * 3 + SPACE_SIZE * 4)
-        ) {
-            // 占位，保持布局对齐
-        }
+        )
+
         val strategy = remember { listOf("", "34", "78") }
-        Strategy(strategy, strategyList)
-        Strategy(strategy, strategyList)
-        Strategy(strategy, strategyList)
+        Strategy(strategy, aStrategyList)
+        Strategy(strategy, bStrategyList)
+        Strategy(strategy, cStrategyList)
         itemContent()
+    }
+}
+
+@Composable
+private fun WsrTable(
+    listState: LazyListState,
+    bppcDisplayList: List<BppcDisplayItem>
+) {
+    LazyRow(
+        state = listState,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = SPACE_SIZE)
+    ) {
+        itemsIndexed(
+            items = bppcDisplayList,
+            key = { index, item -> "$index-${item.hashCode()}" }
+        ) { idx, item ->
+            val dataPoints = (item as? BppcDisplayItem.Real)?.data?.let {
+                listOf(it.dataA, it.dataB, it.dataC)
+            } ?: listOf(0, 0, 0)
+
+            Column(Modifier.width(ITEM_SIZE)) {
+                TextItem("${idx + 1}", TEXT_COLOR_NEUTRAL, fontSize = 10.sp)
+                dataPoints.forEach { data ->
+                    TextItem(
+                        text = if (data == 0) "" else "$data",
+                        color = determineColor(data)
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -400,13 +414,13 @@ private fun StrategyMap(listState: LazyListState, items: List<StrategeDisplayIte
             items = items,
             key = { index, item -> "$index-${item.hashCode()}" }
         ) { idx, item ->
-            val dataPoints = (item as? StrategeDisplayItem.Real)?.data?.let {
+            val dataPoints : List<StrategyData> = (item as? StrategeDisplayItem.Real)?.data?.let {
                 listOf(it.strategy1, it.strategy2)
-            } ?: listOf(0, 0)
+            } ?: listOf(StrategyData(), StrategyData())
 
             Column(Modifier.width(ITEM_SIZE)) {
                 TextItem(
-                    text = if (dataPoints[0] == 0) "" else "${dataPoints[0]}",
+                    text = if (dataPoints[0].strategy12 == 0) "" else "${dataPoints[0]}",
                     color = determineColor(dataPoints[0])
                 )
                 TextItem(
