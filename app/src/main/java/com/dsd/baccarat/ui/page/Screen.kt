@@ -7,11 +7,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -25,6 +23,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,7 +31,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
@@ -43,14 +41,13 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.dsd.baccarat.data.BpCounter
 import com.dsd.baccarat.data.BppcDisplayItem
 import com.dsd.baccarat.data.BppcItem
 import com.dsd.baccarat.data.InputViewModel
-import com.dsd.baccarat.data.StrategeDisplayItem
-import com.dsd.baccarat.data.StrategyData
+import com.dsd.baccarat.data.StrategyDisplayItem
 import com.dsd.baccarat.data.StrategyItem
 
+// [优化点] 常量在顶部统一组织，清晰明了。
 const val MIN_TABLE_COLUMN_COUNT = 30
 
 private val ITEM_SIZE = 22.dp
@@ -66,50 +63,197 @@ private val TEXT_COLOR_NEUTRAL = Color.Black
 
 private val RED_COLOR_VALUES = setOf(1, 4, 6, 7)
 
-@Preview(showBackground = true, device = "id:pixel_tablet")
+/**
+ * 应用的主屏幕可组合函数。
+ */
 @Composable
-private fun Demo() {
-    val counter = remember { BpCounter(12, 13) }
-    val bppcDisplayList = remember {
-        // 1. 初始化原始 items 列表
-        val originalItems = listOf(
-            BppcItem(1, 2, 3),
-            BppcItem(4, 5, 6),
-            BppcItem(7, 8, 1),
-        )
-        // 2. 基于原始 items 计算 displayItems
-        val emptyCount = (MIN_TABLE_COLUMN_COUNT - originalItems.size).coerceAtLeast(0)
-        val derivedDisplayItems = originalItems
-            .map { BppcDisplayItem.Real(it) } + List(emptyCount) { BppcDisplayItem.Empty }
+fun Screen(viewModel: InputViewModel) {
+    // [优化点] 在此处进行状态提升 (State Hoisting)。这个唯一的 listState 实例将被传递给所有
+    // LazyRow，从而确保它们同步滚动。这是解决同步滚动的关键。
+    val synchronizedListState = rememberLazyListState()
+    // [优化点] 在顶层统一收集所有 StateFlow 状态。
+    val bppcTableData = viewModel.bppcTableStateFlow.collectAsStateWithLifecycle().value
+    val bppcCounter = viewModel.bppcCounterStateFlow.collectAsStateWithLifecycle().value
+    val aStrategyData = viewModel.aStrategyStateFlow.collectAsStateWithLifecycle().value
+    val bStrategyData = viewModel.bStrategyStateFlow.collectAsStateWithLifecycle().value
+    val cStrategyData = viewModel.cStrategyStateFlow.collectAsStateWithLifecycle().value
 
-        // 3. 返回组合结果（Pair）
-        derivedDisplayItems
-    }
+    // 优化自动滚动逻辑
+//    LaunchedEffect(bppcTableData) { // 监听 items 的变化
+//        val lastRealIndex = bppcTableData.indexOfLast { it is BppcDisplayItem.Real }
+//        if (lastRealIndex != -1) {
+//            // 使用 animateScrollToItem 获得更平滑的滚动动画效果
+//            synchronizedListState.animateScrollToItem(bppcTableData.lastIndex)
+//        }
+//    }
 
-    val strategyDisplayList = remember {
-        // 1. 初始化原始 items 列表
-        val strategyData = StrategyData(1, 2, 3, 4)
-        val originalItems = listOf(
-            StrategyItem(strategyData, strategyData),
-            StrategyItem(strategyData, strategyData),
-        )
-        // 2. 基于原始 items 计算 displayItems
-        val emptyCount = (MIN_TABLE_COLUMN_COUNT - originalItems.size).coerceAtLeast(0)
-        val derivedDisplayItems = originalItems
-            .map { StrategeDisplayItem.Real(it) } + List(emptyCount) { StrategeDisplayItem.Empty }
-
-        // 3. 返回组合结果（Pair）
-        derivedDisplayItems
-    }
-
-    val listState = rememberLazyListState()
     Scaffold { innerPadding ->
-        Column(modifier = Modifier.padding(innerPadding)) {
-            Row(Modifier.fillMaxSize()) {
-                LeftSide(bppcDisplayList, strategyDisplayList, counter, listState)
-                RightSide(bppcDisplayList, strategyDisplayList, counter, listState)
-                {
-                    InputButtons(null)
+        Row(
+            modifier = Modifier
+                .padding(innerPadding)
+                .fillMaxSize()
+        ) {
+            // [优化点] 移除了 LeftSide 和 RightSide 这两个大型可组合函数。现在布局结构直接声明，
+            // 更易于理解和修改。
+            // 左侧列
+            Column(
+                Modifier
+                    .weight(1f) // 使用 weight 实现灵活的权重布局
+                    .padding(horizontal = 5.dp)
+            ) {
+                CounterDisplay(
+                    label1 = "B", value1 = bppcCounter.bCount, color1 = TEXT_COLOR_B,
+                    label2 = "P", value2 = bppcCounter.pCount, color2 = TEXT_COLOR_P
+                )
+                Row(Modifier.fillMaxWidth()) {
+                    BppcTableTitles()
+                    Spacer(Modifier.width(SPACE_SIZE))
+                    BppcTable(
+                        items = bppcTableData,
+                        listState = synchronizedListState,
+                        showCharts = true // 这一列显示图表
+                    )
+                }
+                // 左侧列的策略区块
+                StrategySection(
+                    titles = listOf("A", "12", "56"),
+                    displayItems1 = aStrategyData.strategy12,
+                    displayItems2 = aStrategyData.strategy56,
+                    listState = synchronizedListState
+                )
+                StrategySection(
+                    titles = listOf("B", "12", "56"),
+                    displayItems1 = bStrategyData.strategy12,
+                    displayItems2 = bStrategyData.strategy56,
+                    listState = synchronizedListState
+                )
+                StrategySection(
+                    titles = listOf("C", "12", "56"),
+                    displayItems1 = cStrategyData.strategy12,
+                    displayItems2 = cStrategyData.strategy56,
+                    listState = synchronizedListState
+                )
+            }
+
+            // 右侧列
+            Column(
+                Modifier
+                    .weight(1f) // 使用 weight 实现灵活的权重布局
+                    .padding(horizontal = 5.dp)
+            ) {
+                CounterDisplay(
+                    label1 = "W", value1 = bppcCounter.bCount, color1 = TEXT_COLOR_B,
+                    label2 = "L", value2 = bppcCounter.pCount, color2 = TEXT_COLOR_P
+                )
+                // [优化点] 复用 BppcTable 组件。
+                BppcTable(
+                    items = bppcTableData,
+                    listState = synchronizedListState,
+                    showCharts = false // 这一列不显示图表
+                )
+                // 用 Spacer 来与左侧的图表区域在布局上对齐
+                Spacer(Modifier.height(TABLE_HEIGHT * 3 + SPACE_SIZE * 3))
+
+                // 右侧列的策略区块
+                StrategySection(
+                    titles = listOf("", "34", "78"),
+                    displayItems1 = aStrategyData.strategy34,
+                    displayItems2 = aStrategyData.strategy78,
+                    listState = synchronizedListState
+                )
+                StrategySection(
+                    titles = listOf("", "34", "78"),
+                    displayItems1 = bStrategyData.strategy34,
+                    displayItems2 = bStrategyData.strategy78,
+                    listState = synchronizedListState
+                )
+                StrategySection(
+                    titles = listOf("", "34", "78"),
+                    displayItems1 = cStrategyData.strategy34,
+                    displayItems2 = cStrategyData.strategy78,
+                    listState = synchronizedListState
+                )
+
+                // 使用一个带权重的 Spacer 将按钮推到底部
+                Spacer(Modifier.weight(1f))
+                InputButtons(
+                    onOpenB = { viewModel.openB() },
+                    onOpenP = { viewModel.openP() },
+                    onBetB = { viewModel.betB() },
+                    onBetP = { viewModel.betP() }
+                )
+            }
+        }
+    }
+}
+
+/**
+ * [优化点] 将 BPPCounter 和 WLCounter 合并为一个可复用的 CounterDisplay 可组合函数。
+ */
+@Composable
+private fun CounterDisplay(
+    label1: String, value1: Int, color1: Color,
+    label2: String, value2: Int, color2: Color
+) {
+    val total = value1 + value2
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(start = ITEM_SIZE + SPACE_SIZE)
+            .height(ITEM_SIZE)
+    ) {
+        TextItem("$label1$value1", color1, width = TITLE_WIDTH_SHORT)
+        TextItem("$label2$value2", color2, width = TITLE_WIDTH_SHORT)
+        TextItem("Total $total", Color.Black, width = TITLE_WIDTH_LONG)
+    }
+}
+
+@Composable
+private fun BppcTableTitles() {
+    Column(Modifier.width(ITEM_SIZE)) {
+        listOf("\\", "A", "B", "C").forEach { TextItem(it, TEXT_COLOR_NEUTRAL) }
+    }
+}
+
+/**
+ * [优化点] 合并了 TableAndChart 和 WsrTable。现在通过参数控制是否显示图表，增强了复用性。
+ */
+@Composable
+private fun BppcTable(
+    items: List<BppcDisplayItem>,
+    listState: LazyListState,
+    showCharts: Boolean
+) {
+    LazyRow(state = listState, modifier = Modifier.fillMaxWidth()) {
+        itemsIndexed(
+            items = items,
+            key = { index, item -> "$index-${item.hashCode()}" }
+        ) { idx, item ->
+            val data = (item as? BppcDisplayItem.Real)?.data
+            Column(Modifier.width(ITEM_SIZE)) {
+                // 索引行
+                TextItem("${idx + 1}", TEXT_COLOR_NEUTRAL, fontSize = 10.sp)
+                // 数据行 (A, B, C)
+                TextItem(
+                    text = data?.dataA?.toString() ?: "",
+                    color = determineColor(data?.dataA)
+                )
+                TextItem(
+                    text = data?.dataB?.toString() ?: "",
+                    color = determineColor(data?.dataB)
+                )
+                TextItem(
+                    text = data?.dataC?.toString() ?: "",
+                    color = determineColor(data?.dataC)
+                )
+
+                if (showCharts) {
+                    Spacer(Modifier.height(SPACE_SIZE))
+                    VerticalBarChart(value = data?.dataA)
+                    Spacer(Modifier.height(SPACE_SIZE))
+                    VerticalBarChart(value = data?.dataB)
+                    Spacer(Modifier.height(SPACE_SIZE))
+                    VerticalBarChart(value = data?.dataC)
                 }
             }
         }
@@ -117,211 +261,96 @@ private fun Demo() {
 }
 
 /**
- * 表示应用主屏幕的可组合函数。
- *
- * @param viewModel The [InputViewModel] that provides the state and business logic for the screen.
- * @param listState The [LazyListState] used to manage the state of a lazy list within the UI.
+ * [修复] 一个全新的、独立的“策略区块”可组合函数，用于显示一组策略。
  */
 @Composable
-fun Screen(viewModel: InputViewModel, listState: LazyListState) {
-    Scaffold { innerPadding ->
-        val bppcDataList = viewModel.bppcTableStateFlow.collectAsStateWithLifecycle().value
-        val bppcCounter = viewModel.bppcCounterStateFlow.collectAsStateWithLifecycle().value
-        val aStrategeDataList = viewModel.aStrategyStateFlow.collectAsStateWithLifecycle().value
-        val bStrategeDataList = viewModel.bStrategyStateFlow.collectAsStateWithLifecycle().value
-        val cStrategeDataList = viewModel.cStrategyStateFlow.collectAsStateWithLifecycle().value
-
-
-        Row(
-            modifier = Modifier
-                .padding(innerPadding)
-                .fillMaxSize()
-        ) {
-            LeftSide(bppcDataList, bppcCounter, aStrategeDataList, bStrategeDataList, cStrategeDataList)
-            RightSide(bppcDataList, bppcCounter, aStrategeDataList, bStrategeDataList, cStrategeDataList)
-            {
-                InputButtons(viewModel)
-            }
-        }
-    }
-}
-
-@Composable
-private fun LeftSide(
-    bppcDisplayList: List<BppcDisplayItem>,
-    bppcCounter: BpCounter,
-    aStrategyList: List<StrategeDisplayItem>,
-    bStrategyList: List<StrategeDisplayItem>,
-    cStrategyList: List<StrategeDisplayItem>,
-    listState: LazyListState = rememberLazyListState()
-) {
-    Column(
-        Modifier
-            .fillMaxWidth(0.5f)
-            .padding(horizontal = 5.dp)
-    ) {
-        BPPCounter(bppcCounter)
-        Row(Modifier.fillMaxWidth()) {
-            Titles()
-            Spacer(Modifier.width(SPACE_SIZE))
-            TableAndChart(bppcDisplayList, listState)
-        }
-
-        val strategyA = remember { listOf("A", "12", "56") }
-        val strategyB = remember { listOf("B", "12", "56") }
-        val strategyC = remember { listOf("C", "12", "56") }
-
-        Strategy(strategyA, aStrategyList)
-        Strategy(strategyB, bStrategyList)
-        Strategy(strategyC, cStrategyList)
-    }
-}
-
-@Composable
-fun RightSide(
-    bppcDisplayList: List<BppcDisplayItem>,
-    bppcCounter: BpCounter,
-    aStrategyList: List<StrategeDisplayItem>,
-    bStrategyList: List<StrategeDisplayItem>,
-    cStrategyList: List<StrategeDisplayItem>,
-    listState: LazyListState = rememberLazyListState(),
-    itemContent: @Composable (ColumnScope.() -> Unit)
-) {
-    Column(Modifier.padding(horizontal = 5.dp)) {
-        WLCounter(bppcCounter)
-        WsrTable(listState, bppcDisplayList)
-
-        // TODO: 占位，保持布局对齐
-        Spacer(
-            Modifier
-                .fillMaxWidth()
-                .height(TABLE_HEIGHT * 3 + SPACE_SIZE * 4)
-        )
-
-        val strategy = remember { listOf("", "34", "78") }
-        Strategy(strategy, aStrategyList)
-        Strategy(strategy, bStrategyList)
-        Strategy(strategy, cStrategyList)
-        itemContent()
-    }
-}
-
-@Composable
-private fun WsrTable(
+private fun StrategySection(
+    titles: List<String>,
+    displayItems1: List<StrategyDisplayItem>,
+    displayItems2: List<StrategyDisplayItem>,
     listState: LazyListState,
-    bppcDisplayList: List<BppcDisplayItem>
 ) {
-    LazyRow(
-        state = listState,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = SPACE_SIZE)
-    ) {
-        itemsIndexed(
-            items = bppcDisplayList,
-            key = { index, item -> "$index-${item.hashCode()}" }
-        ) { idx, item ->
-            val dataPoints = (item as? BppcDisplayItem.Real)?.data?.let {
-                listOf(it.dataA, it.dataB, it.dataC)
-            } ?: listOf(0, 0, 0)
+    val selectedOption = remember { mutableIntStateOf(1) }
 
+    Spacer(Modifier.height(SPACE_SIZE))
+    Row(Modifier.fillMaxWidth()) {
+        val mainTitle = titles[0]
+        if (mainTitle.isNotEmpty()) {
             Column(Modifier.width(ITEM_SIZE)) {
-                TextItem("${idx + 1}", TEXT_COLOR_NEUTRAL, fontSize = 10.sp)
-                dataPoints.forEach { data ->
-                    TextItem(
-                        text = if (data == 0) "" else "$data",
-                        color = determineColor(data)
-                    )
+                Spacer(Modifier.height(ITEM_SIZE)) // 与标题行对齐
+                TextItem(mainTitle, TEXT_COLOR_NEUTRAL)
+            }
+        }
+
+        Spacer(Modifier.width(SPACE_SIZE))
+
+        Column {
+            Row {
+                TextItem(titles[1], width = TITLE_WIDTH_SHORT)
+                {
+                    selectedOption.intValue = 1
                 }
+                TextItem(titles[2], width = TITLE_WIDTH_SHORT)
+                {
+                    selectedOption.intValue = 2
+                }
+            }
+            // 步骤 2: 根据当前选中的状态，决定要显示哪个数据列表。
+            when (selectedOption.intValue) {
+                1 -> StrategyTable(listState, displayItems1)
+                2 -> StrategyTable(listState, displayItems2)
             }
         }
     }
 }
 
+/**
+ * [修复] 这是 StrategyMap 完全重写和修复后的版本。
+ * 它现在能够正确地显示每个数据列对应的两行策略数据。
+ */
 @Composable
-fun BPPCounter(counter: BpCounter) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(start = ITEM_SIZE + SPACE_SIZE)
-            .height(ITEM_SIZE)
-    ) {
-        TextItem("B${counter.bCount}", TEXT_COLOR_B, width = TITLE_WIDTH_SHORT)
-        TextItem("P${counter.pCount}", TEXT_COLOR_P, width = TITLE_WIDTH_SHORT)
-        TextItem("Total ${counter.bCount + counter.pCount}", Color.Black, width = TITLE_WIDTH_LONG)
-    }
-}
-
-@Composable
-fun WLCounter(counter: BpCounter) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 5.dp)
-            .height(ITEM_SIZE)
-    ) {
-        TextItem("W${counter.bCount}", TEXT_COLOR_B, width = TITLE_WIDTH_SHORT)
-        TextItem("L${counter.pCount}", TEXT_COLOR_P, width = TITLE_WIDTH_SHORT)
-        TextItem("Total ${counter.bCount + counter.pCount}", Color.Black, width = TITLE_WIDTH_LONG)
-    }
-}
-
-@Composable
-private fun Titles() {
-    Column(Modifier.width(ITEM_SIZE)) {
-        val mainTitles = remember { listOf("\\", "A", "B", "C") }
-        val subTitles = remember { listOf("A", "B", "C") }
-
-        mainTitles.forEach { TextItem(it, TEXT_COLOR_NEUTRAL) }
-        Spacer(Modifier.height(SPACE_SIZE))
-        subTitles.forEach {
-            TextItem(it, TEXT_COLOR_NEUTRAL)
-            Spacer(Modifier.height(ITEM_SIZE * 3 + SPACE_SIZE))
-        }
-    }
-}
-
-@Composable
-private fun TableAndChart(items: List<BppcDisplayItem>, listState: LazyListState) {
+private fun StrategyTable(
+    listState: LazyListState,
+    displayItems: List<StrategyDisplayItem>
+) {
     LazyRow(state = listState, modifier = Modifier.fillMaxWidth()) {
-        itemsIndexed(
-            items = items,
-            key = { index, item -> "$index-${item.hashCode()}" }
-        ) { idx, item ->
-            val dataPoints = (item as? BppcDisplayItem.Real)?.data?.let {
-                listOf(it.dataA, it.dataB, it.dataC)
-            } ?: listOf(0, 0, 0)
+        items(
+            count = displayItems.size,
+            key = { index -> index }
+        ) { idx ->
+            val item = (displayItems.getOrNull(idx) as? StrategyDisplayItem.Real)?.data
 
             Column(Modifier.width(ITEM_SIZE)) {
-                TextItem("${idx + 1}", TEXT_COLOR_NEUTRAL, fontSize = 10.sp)
-
-                dataPoints.forEach { data ->
-                    TextItem(
-                        text = if (data == 0) "" else "$data",
-                        color = determineColor(data)
-                    )
-                }
-
-                Spacer(Modifier.height(SPACE_SIZE))
-                dataPoints.forEach { data ->
-                    VerticalBar(
-                        value = data,
-                        color = determineColor(data),
-                        textMeasurer = rememberTextMeasurer()
-                    )
-                    Spacer(Modifier.height(SPACE_SIZE))
-                }
+                // 第一行 (例如 12 或 34)
+                TextItem(
+                    text = item?.strategy1?.toString() ?: "",
+                    color = determineColor(item?.strategy1)
+                )
+                TextItem(
+                    text = item?.strategy2?.toString() ?: "",
+                    color = determineColor(item?.strategy2)
+                )
             }
         }
     }
 }
 
-private fun determineColor(value: Int): Color {
+
+/**
+ * 根据数值确定文本颜色的辅助函数。已优化，可以安全处理 null 值。
+ */
+private fun determineColor(value: Int?): Color {
+    if (value == null) return TEXT_COLOR_NEUTRAL
     return if (value in RED_COLOR_VALUES) TEXT_COLOR_B else TEXT_COLOR_P
 }
 
+/**
+ * [优化点] 将 Canvas 绘制逻辑提取到独立的可组合函数中，使 BppcTable 更简洁。
+ */
 @Composable
-fun VerticalBar(value: Int, color: Color, textMeasurer: TextMeasurer) {
+fun VerticalBarChart(value: Int?) {
+    val color = determineColor(value)
+    val textMeasurer = rememberTextMeasurer()
     val textStyle = remember(color) {
         TextStyle(fontWeight = FontWeight.Bold, fontSize = 10.sp, color = color)
     }
@@ -335,7 +364,7 @@ fun VerticalBar(value: Int, color: Color, textMeasurer: TextMeasurer) {
             val gridColor = Color.LightGray
             val gridWidth = BORDER.toPx()
             val interval = size.height / MAX_VALUE
-            // 绘制网格线
+            // 绘制网格线和边框
             for (i in 0..MAX_VALUE) {
                 drawLine(
                     color = if (i == 4) Color.Black else gridColor,
@@ -366,7 +395,8 @@ fun VerticalBar(value: Int, color: Color, textMeasurer: TextMeasurer) {
                 gridWidth
             )
 
-            if (value > 0) {
+            // 如果有值，则绘制柱状图和数值文本
+            if (value != null && value > 0) {
                 val barHeight = (value.toFloat() / MAX_VALUE) * size.height
                 drawRect(
                     color = color,
@@ -384,62 +414,10 @@ fun VerticalBar(value: Int, color: Color, textMeasurer: TextMeasurer) {
     }
 }
 
-@Composable
-fun Strategy(
-    title: List<String>, items: List<StrategeDisplayItem>,
-    listState: LazyListState = rememberLazyListState()
-) {
-    Spacer(Modifier.width(SPACE_SIZE))
-    Row(Modifier.fillMaxWidth()) {
-        if (title[0].isNotEmpty()) {
-            StrategyTitles(title[0])
-        }
 
-        Spacer(Modifier.width(SPACE_SIZE))
-        Column {
-            Row {
-                TextItem(title[1], width = TITLE_WIDTH_SHORT)
-                TextItem(title[2], width = TITLE_WIDTH_SHORT)
-            }
-            StrategyMap(listState, items)
-            Spacer(Modifier.height(SPACE_SIZE))
-        }
-    }
-}
-
-@Composable
-private fun StrategyMap(listState: LazyListState, items: List<StrategeDisplayItem>) {
-    LazyRow(state = listState, modifier = Modifier.fillMaxWidth()) {
-        itemsIndexed(
-            items = items,
-            key = { index, item -> "$index-${item.hashCode()}" }
-        ) { idx, item ->
-            val dataPoints : List<StrategyData> = (item as? StrategeDisplayItem.Real)?.data?.let {
-                listOf(it.strategy1, it.strategy2)
-            } ?: listOf(StrategyData(), StrategyData())
-
-            Column(Modifier.width(ITEM_SIZE)) {
-                TextItem(
-                    text = if (dataPoints[0].strategy12 == 0) "" else "${dataPoints[0]}",
-                    color = determineColor(dataPoints[0])
-                )
-                TextItem(
-                    text = if (dataPoints[1] == 0) "" else "${dataPoints[1]}",
-                    color = determineColor(dataPoints[1])
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun StrategyTitles(title: String) {
-    Column(Modifier.width(ITEM_SIZE)) {
-        Spacer(Modifier.height(ITEM_SIZE + SPACE_SIZE))
-        TextItem(title, TEXT_COLOR_NEUTRAL)
-    }
-}
-
+/**
+ * 一个可复用的、带边框的文本项。
+ */
 @Composable
 fun TextItem(
     text: String,
@@ -449,86 +427,105 @@ fun TextItem(
     fontWeight: FontWeight = FontWeight.Normal,
     onClick: (() -> Unit)? = null
 ) {
-    val borderStroke = remember { BorderStroke(BORDER, Color.LightGray) }
-
     Box(
         Modifier
             .width(width)
             .height(ITEM_SIZE)
-            .border(borderStroke)
-            .clickable {
-                onClick?.invoke()
-            },
+            .border(BorderStroke(BORDER, Color.LightGray)),
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = text,
-            fontSize = fontSize,
-            color = color,
-            fontWeight = fontWeight
+            text = text, fontSize = fontSize, color = color, fontWeight = fontWeight,
+            modifier = Modifier.clickable {
+                onClick?.invoke()
+            }
         )
     }
 }
 
+/**
+ * [优化点] 输入按钮现在通过 lambda 表达式接收回调，从而与 ViewModel 解耦，提升了组件的独立性。
+ */
 @Composable
-fun InputButtons(viewModel: InputViewModel?) {
+fun InputButtons(
+    onOpenB: () -> Unit,
+    onOpenP: () -> Unit,
+    onBetB: () -> Unit,
+    onBetP: () -> Unit,
+    // onUndo: () -> Unit // 如果需要，后续可添加 onUndo 回调
+) {
     @Composable
-    fun RowScope.DefaultModifier(): Modifier = Modifier
+    fun RowScope.DefaultButtonModifier(): Modifier = Modifier
         .padding(3.dp)
         .height(40.dp)
         .weight(1f)
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth(0.5f)
-            .fillMaxHeight(),
-        verticalArrangement = Arrangement.SpaceAround
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row {
-            Button(
-                modifier = DefaultModifier(),
-                onClick = { viewModel?.openB() }
-            ) {
-                Text(text = "开 B")
-            }
-
-            Button(
-                modifier = DefaultModifier(),
-                onClick = { viewModel?.openP() }
-            ) {
-                Text(text = "开 P")
-            }
-
-            Button(
-                modifier = DefaultModifier(),
-                onClick = { viewModel?.openP() }
-            ) {
-                Text(text = "撤销")
-            }
+            Button(modifier = DefaultButtonModifier(), onClick = onOpenB) { Text(text = "开 B") }
+            Button(modifier = DefaultButtonModifier(), onClick = onOpenP) { Text(text = "开 P") }
+            Button(modifier = DefaultButtonModifier(), onClick = { /* TODO: 实现撤销逻辑 */ }) { Text(text = "撤销") }
         }
-
         Row {
-            Button(
-                modifier = DefaultModifier(),
-                onClick = { viewModel?.openB() }
-            ) {
-                Text(text = "押 B", fontSize = 14.sp)
-            }
-
-            Button(
-                modifier = DefaultModifier(),
-                onClick = { viewModel?.openP() }
-            ) {
-                Text(text = "押 P")
-            }
-
-            Button(
-                modifier = DefaultModifier(),
-                onClick = { viewModel?.openP() }
-            ) {
-                Text(text = "撤销")
-            }
+            Button(modifier = DefaultButtonModifier(), onClick = onBetB) { Text(text = "押 B") }
+            Button(modifier = DefaultButtonModifier(), onClick = onBetP) { Text(text = "押 P") }
+            Button(modifier = DefaultButtonModifier(), onClick = { /* TODO: 实现撤销逻辑 */ }) { Text(text = "撤销") }
         }
     }
 }
 
+// 预览1：预览计数器
+@Preview(showBackground = true)
+@Composable
+private fun CounterDisplayPreview() {
+    CounterDisplay(
+        label1 = "B", value1 = 15, color1 = TEXT_COLOR_B,
+        label2 = "P", value2 = 20, color2 = TEXT_COLOR_P
+    )
+}
+
+// 预览2：预览带图表的 Bppc 表格
+@Preview(showBackground = true)
+@Composable
+private fun BppcTableWithChartsPreview() {
+    val synchronizedListState = rememberLazyListState()
+    val mockBppcData = remember {
+        val realItems = listOf(
+            BppcDisplayItem.Real(BppcItem(dataA = 1, dataB = 2, dataC = 3)),
+            BppcDisplayItem.Real(BppcItem(dataA = 4, dataB = 5, dataC = null)),
+            BppcDisplayItem.Real(BppcItem(dataA = 7, dataB = 8, dataC = 1))
+        )
+        val emptyItems = List(MIN_TABLE_COLUMN_COUNT - realItems.size) { BppcDisplayItem.Empty }
+        realItems + emptyItems
+    }
+    BppcTable(items = mockBppcData, listState = synchronizedListState, showCharts = true)
+}
+
+
+// 预览3：预览策略区块
+@Preview(showBackground = true)
+@Composable
+private fun StrategySectionPreview() {
+    val synchronizedListState = rememberLazyListState()
+    val displayItems1 = remember {
+        listOf(
+            StrategyDisplayItem.Real(StrategyItem(strategy1 = 1, strategy2 = 2)),
+            StrategyDisplayItem.Real(StrategyItem(strategy1 = 3, strategy2 = null))
+        )
+    }
+    val displayItems2 = remember {
+        listOf(
+            StrategyDisplayItem.Real(StrategyItem(strategy1 = 3, strategy2 = 2)),
+            StrategyDisplayItem.Real(StrategyItem(strategy1 = 1, strategy2 = null))
+        )
+    }
+    StrategySection(
+        titles = listOf("A", "12", "56"),
+        displayItems1 = displayItems1,
+        displayItems2 = displayItems2,
+        listState = synchronizedListState
+    )
+}

@@ -1,67 +1,55 @@
 package com.dsd.baccarat.data
 
-enum class ColumnType(val value: Int) {
-    A(0),
-    B(1),
-    C(2);
-}
+import com.dsd.baccarat.ui.page.MIN_TABLE_COLUMN_COUNT
 
-enum class StategyType() {
-    STRATEGY_12,
-    STRATEGY_34,
-    STRATEGY_56,
-    STRATEGY_78;
-}
+// --- 数据类定义 (请确保与此一致) ---
 
+// 输入类型
+enum class InputType { B, P, BET_B, BET_P }
+
+// BP 计数器
+data class BpCounter(val bCount: Int = 0, val pCount: Int = 0)
+
+// 列类型
+enum class ColumnType { A, B, C }
+
+// 策略类型
+enum class StrategyType { STRATEGY_12, STRATEGY_34, STRATEGY_56, STRATEGY_78 }
+
+// 主列表项 (使用可空类型)
 data class BppcItem(
-    val dataA: Int = 0,       // 数据A
-    val dataB: Int = 0,       // 数据B
-    val dataC: Int = 0        // 数据C
+    val dataA: Int? = null,
+    val dataB: Int? = null,
+    val dataC: Int? = null
 )
 
-// 密封类：区分实际数据项和空占位项
-sealed class BppcDisplayItem {
-    data class Real(val data: BppcItem) : BppcDisplayItem() // 实际数据包装
-    object Empty : BppcDisplayItem() // 空占位项
-}
-
-data class BpCounter(
-    var bCount: Int = 0,       // B计数
-    var pCount: Int = 0        // P计数
-)
-
-// 策略数据类，包含 ‘12’，‘34‘， ’56‘， ’78‘ 策略
-data class StrategyData(
-    val strategy12: List<StrategeDisplayItem> = emptyList(),  // 策略12
-    val strategy34: List<StrategeDisplayItem> = emptyList(),  // 策略34
-    val strategy56: List<StrategeDisplayItem> = emptyList(),  // 策略56
-    val strategy78: List<StrategeDisplayItem> = emptyList()   // 策略78
-) {
-    // 表示当前策略数据是否全部为零
-    fun isEmpty(): Boolean {
-        return strategy12.all { it is StrategeDisplayItem.Empty } &&
-                strategy34.all { it is StrategeDisplayItem.Empty } &&
-                strategy56.all { it is StrategeDisplayItem.Empty } &&
-                strategy78.all { it is StrategeDisplayItem.Empty }
-    }
-
-}
-
+// 策略列表项 (使用可空类型)
 data class StrategyItem(
-    val strategy1: Int = 0,       // 数据1
-    val strategy2: Int = 0        // 数据2
+    val strategy1: Int? = null,
+    val strategy2: Int? = null
 )
 
-// 密封类：区分实际数据项和空占位项
-sealed class StrategeDisplayItem {
-    data class Real(val data: StrategyItem) : StrategeDisplayItem() // 实际数据包装
-    object Empty : StrategeDisplayItem() // 空占位项
+// UI 显示项的基类
+sealed class DisplayItem {
+    object Empty : DisplayItem()
 }
 
-enum class InputType {
-    NONE,
-    B,
-    P,
-    BET_B,
-    BET_P,
+// Bppc 的显示项
+sealed class BppcDisplayItem : DisplayItem() {
+    object Empty : BppcDisplayItem()
+    data class Real(val data: BppcItem) : BppcDisplayItem()
 }
+
+// 策略的显示项
+sealed class StrategyDisplayItem : DisplayItem() {
+    object Empty : StrategyDisplayItem()
+    data class Real(val data: StrategyItem) : StrategyDisplayItem()
+}
+
+// 包含四种策略的数据
+data class StrategyData(
+    val strategy12: List<StrategyDisplayItem> = List(MIN_TABLE_COLUMN_COUNT) { StrategyDisplayItem.Empty },
+    val strategy34: List<StrategyDisplayItem> = List(MIN_TABLE_COLUMN_COUNT) { StrategyDisplayItem.Empty },
+    val strategy56: List<StrategyDisplayItem> = List(MIN_TABLE_COLUMN_COUNT) { StrategyDisplayItem.Empty },
+    val strategy78: List<StrategyDisplayItem> = List(MIN_TABLE_COLUMN_COUNT) { StrategyDisplayItem.Empty }
+)
