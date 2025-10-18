@@ -23,13 +23,13 @@ class InputViewModel : ViewModel() {
 
 
     /* 三路策略*/
-    private val mAStrategyStateFlow = MutableStateFlow<StrategyData>(StrategyData())
+    private val mAStrategyStateFlow = MutableStateFlow(StrategyData())
     val aStrategyStateFlow: StateFlow<StrategyData> = mAStrategyStateFlow.asStateFlow()
 
-    private val mBStrategyStateFlow = MutableStateFlow<StrategyData>(StrategyData())
+    private val mBStrategyStateFlow = MutableStateFlow(StrategyData())
     val bStrategyStateFlow: StateFlow<StrategyData> = mBStrategyStateFlow.asStateFlow()
 
-    private val mCStrategyStateFlow = MutableStateFlow<StrategyData>(StrategyData())
+    private val mCStrategyStateFlow = MutableStateFlow(StrategyData())
     val cStrategyStateFlow: StateFlow<StrategyData> = mCStrategyStateFlow.asStateFlow()
 
     fun openB() {
@@ -80,7 +80,12 @@ class InputViewModel : ViewModel() {
 
         if (lastRealItem == null) {
             // 3.2. 列表全空，替换第一个 Empty 为 Real 并写入 dataA
-            updatedList[0] = BppcDisplayItem.Real(BppcItem(dataA = result))
+            if (updatedList.isNotEmpty()) {
+                updatedList[0] = BppcDisplayItem.Real(BppcItem(dataA = result))
+            } else {
+                updatedList.add(BppcDisplayItem.Real(BppcItem(dataA = result)))
+            }
+
             mBppcTableStateFlow.value = updatedList
             return ColumnType.A
         } else {
@@ -126,17 +131,24 @@ class InputViewModel : ViewModel() {
     ) {
         val current = flow.value
 
+        // 将每一路策略列表通过通用函数追加或更新
         val updated = StrategyData(
-            strategy12 = calcuateStrategyList(StategyType.STRATEGY_12, current.strategy12, last3Inputs),
-            strategy34 = calcuateStrategyList(StategyType.STRATEGY_34, current.strategy34, last3Inputs),
-            strategy56 = calcuateStrategyList(StategyType.STRATEGY_56, current.strategy56, last3Inputs),
-            strategy78 = calcuateStrategyList(StategyType.STRATEGY_78, current.strategy78, last3Inputs)
+            strategy12 = calculateStrategyList(StategyType.STRATEGY_12, current.strategy12, last3Inputs),
+            strategy34 = calculateStrategyList(StategyType.STRATEGY_34, current.strategy34, last3Inputs),
+            strategy56 = calculateStrategyList(StategyType.STRATEGY_56, current.strategy56, last3Inputs),
+            strategy78 = calculateStrategyList(StategyType.STRATEGY_78, current.strategy78, last3Inputs)
         )
 
         flow.value = updated
     }
 
-    fun calcuateStrategyList(
+    /**
+     * 通用追加/更新策略列的函数
+     *
+     * 说明：该函数对传入的 list 进行安全处理（list 可能最初为空），
+     * 并按规则尝试写入 strategy1 或 strategy2，若当前列已满则在其后插入新列。
+     */
+    private fun calculateStrategyList(
         type: StategyType,
         list: List<StrategeDisplayItem>,
         last3Inputs: List<InputType>
@@ -148,13 +160,17 @@ class InputViewModel : ViewModel() {
 
         if (lastRealItem == null) {
             // 列表全空，替换第一个 Empty 为 Real 并写入 strategy1
-            updated[0] = StrategeDisplayItem.Real(StrategyItem(strategy1 = strategyValue))
+            if (updated.isNotEmpty()) {
+                updated[0] = StrategeDisplayItem.Real(StrategyItem(strategy1 = strategyValue))
+            } else {
+                updated.add(StrategeDisplayItem.Real(StrategyItem(strategy1 = strategyValue)))
+            }
         } else {
             // 存在 Real 项，尝试写入 strategy1 或 strategy2
-            val existing = updated[lastRealIndex] as StrategeDisplayItem.Real
+            val existing = lastRealItem.data
             val replaced = when {
-                existing.data.strategy1 == 0 -> existing.data.copy(strategy1 = strategyValue)
-                existing.data.strategy2 == 0 -> existing.data.copy(strategy2 = strategyValue)
+                existing.strategy1 == 0 -> existing.copy(strategy1 = strategyValue)
+                existing.strategy2 == 0 -> existing.copy(strategy2 = strategyValue)
                 else -> null
             }
             if (replaced != null) {
