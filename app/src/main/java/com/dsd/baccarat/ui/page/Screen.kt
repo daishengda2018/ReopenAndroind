@@ -8,14 +8,15 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -28,6 +29,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -154,11 +156,24 @@ fun Screen(viewModel: InputViewModel) {
                     .weight(1f) // 使用 weight 实现灵活的权重布局
                     .padding(horizontal = 5.dp)
             ) {
-                CounterDisplay(
-                    label1 = "W", value1 = bppcCounter.bCount, color1 = TEXT_COLOR_B,
-                    label2 = "L", value2 = bppcCounter.pCount, color2 = TEXT_COLOR_P,
-                    true
-                )
+
+                Row(Modifier.fillMaxWidth()) {
+                    CounterDisplay(
+                        label1 = "W", value1 = bppcCounter.bCount, color1 = TEXT_COLOR_B,
+                        label2 = "L", value2 = bppcCounter.pCount, color2 = TEXT_COLOR_P,
+                        padding = 0.dp,
+                        isShowWsr = true,
+                        isHistory = false
+                    )
+                    CounterDisplay(
+                        label1 = "W", value1 = bppcCounter.bCount, color1 = TEXT_COLOR_B,
+                        label2 = "L", value2 = bppcCounter.pCount, color2 = TEXT_COLOR_P,
+                        padding = 0.dp,
+                        isShowWsr = true,
+                        isHistory = true
+                    )
+                }
+
                 // [优化点] 复用 BppcTable 组件。
                 Table(
                     items = bppcTableData,
@@ -202,8 +217,10 @@ fun Screen(viewModel: InputViewModel) {
                 InputButtons(
                     onOpenB = { viewModel.openB() },
                     onOpenP = { viewModel.openP() },
+                    onRemoveLastOpen = { viewModel.removeLasOpen() },
                     onBetB = { viewModel.betB() },
-                    onBetP = { viewModel.betP() }
+                    onBetP = { viewModel.betP() },
+                    onRemoveLastBet = { viewModel.removeLastBet() }
                 )
             }
         }
@@ -217,15 +234,30 @@ fun Screen(viewModel: InputViewModel) {
 private fun CounterDisplay(
     label1: String, value1: Int, color1: Color,
     label2: String, value2: Int, color2: Color,
-    isShowWsr: Boolean = false
+    padding: Dp = 5.dp,
+    isShowWsr: Boolean = false,
+    isHistory: Boolean = false,
 ) {
     val total = value1 + value2
     val df = remember { DecimalFormat("0.00%") }
+    val backgroundColor = remember(isHistory)
+    {
+        if (isHistory) {
+            Color.LightGray // 选中时，使用主题色的淡色作为背景
+        } else {
+            Color.Transparent // 未选中时，背景透明
+        }
+    }
+
     Row(
         Modifier
-            .fillMaxWidth()
-            .padding(start = ITEM_SIZE + SPACE_SIZE)
+            .wrapContentWidth()
+            .padding(start = ITEM_SIZE + padding)
             .height(ITEM_SIZE)
+            .alpha(if (isHistory) 0.7f else 1f)
+            .background(backgroundColor),
+        horizontalArrangement = Arrangement.Start
+
     ) {
         TextItem("$label1$value1", color1, width = TITLE_WIDTH_SHORT)
         TextItem("$label2$value2", color2, width = TITLE_WIDTH_SHORT)
@@ -509,29 +541,40 @@ fun TextItem(
 fun InputButtons(
     onOpenB: () -> Unit,
     onOpenP: () -> Unit,
+    onRemoveLastOpen: () -> Unit,
     onBetB: () -> Unit,
     onBetP: () -> Unit,
+    onRemoveLastBet: () -> Unit,
     // onUndo: () -> Unit // 如果需要，后续可添加 onUndo 回调
 ) {
     @Composable
-    fun RowScope.DefaultButtonModifier(): Modifier = Modifier
+    fun ColumnScope.DefaultButtonModifier(): Modifier = Modifier
         .padding(3.dp)
-        .height(40.dp)
+        .fillMaxWidth()
         .weight(1f)
 
-    Column(
+    Row(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Row {
-            Button(modifier = DefaultButtonModifier(), onClick = onOpenB) { Text(text = "开 B") }
-            Button(modifier = DefaultButtonModifier(), onClick = onOpenP) { Text(text = "开 P") }
-            Button(modifier = DefaultButtonModifier(), onClick = { /* TODO: 实现撤销逻辑 */ }) { Text(text = "撤销") }
-        }
-        Row {
+        Column(Modifier.weight(1f)) {
             Button(modifier = DefaultButtonModifier(), onClick = onBetB) { Text(text = "押 B") }
             Button(modifier = DefaultButtonModifier(), onClick = onBetP) { Text(text = "押 P") }
-            Button(modifier = DefaultButtonModifier(), onClick = { /* TODO: 实现撤销逻辑 */ }) { Text(text = "撤销") }
+            Button(modifier = DefaultButtonModifier(), onClick = onRemoveLastBet) { Text(text = "撤销") }
+        }
+
+        Column(Modifier.weight(1f)) {
+            Button(modifier = DefaultButtonModifier(), onClick = onOpenB) { Text(text = "开 B") }
+            Button(modifier = DefaultButtonModifier(), onClick = onOpenP) { Text(text = "开 P") }
+            Button(modifier = DefaultButtonModifier(), onClick = onRemoveLastOpen) { Text(text = "撤销") }
+        }
+
+        Spacer(Modifier.weight(2f))
+
+        Column(Modifier.weight(1f)) {
+            Button(modifier = DefaultButtonModifier(), onClick = onBetB) { Text(text = "计时") }
+            Button(modifier = DefaultButtonModifier(), onClick = onBetP) { Text(text = "保持") }
+            Button(modifier = DefaultButtonModifier(), onClick = { /* TODO: 实现撤销逻辑 */ }) { Text(text = "新牌") }
         }
     }
 }
@@ -543,7 +586,8 @@ private fun CounterDisplayPreview() {
     CounterDisplay(
         label1 = "W", value1 = 15, color1 = TEXT_COLOR_B,
         label2 = "L", value2 = 20, color2 = TEXT_COLOR_P,
-        true
+        isShowWsr = true,
+        isHistory = true
     )
 }
 

@@ -10,10 +10,10 @@ import kotlinx.coroutines.flow.update
 
 class InputViewModel : ViewModel() {
 
-    private var inputHistory: MutableList<InputType> = mutableListOf()
+    private var _opendList: MutableList<InputType> = mutableListOf()
+    private var _betList: MutableList<InputType> = mutableListOf()
 
-    private val _bppcTableStateFlow = MutableStateFlow<List<BppcDisplayItem>>(List(MIN_TABLE_COLUMN_COUNT) { BppcDisplayItem.Empty }
-    )
+    private val _bppcTableStateFlow = MutableStateFlow<List<BppcDisplayItem>>(DEFAULT_BPPCDISPLAY_LIST)
     val bppcTableStateFlow: StateFlow<List<BppcDisplayItem>> = _bppcTableStateFlow.asStateFlow()
 
     private val _bpCounterStateFlow = MutableStateFlow(BpCounter())
@@ -39,50 +39,84 @@ class InputViewModel : ViewModel() {
     val cPredictionStateFlow: StateFlow<PredictedStrategyValue> = _cPredictionStateFlow.asStateFlow()
 
     fun openB() {
-        performBppcTableLogic(InputType.B)
+        _opendList.add(InputType.B)
+        updateOpenData()
     }
 
     fun openP() {
-        performBppcTableLogic(InputType.P)
+        _opendList.add(InputType.P)
+        updateOpenData()
     }
 
-    private fun performBppcTableLogic(inputType: InputType) {
-        inputHistory.add(inputType)
+    // Kotlin
+    fun removeLasOpen() {
+        _opendList.removeLastOrNull() ?: return
 
-        val last3Inputs = inputHistory.takeLast(3)
+        // 重置展示相关状态： 数据量不大，不考虑性能，否则代码将会很复杂
+        _bppcTableStateFlow.value = DEFAULT_BPPCDISPLAY_LIST
+        _bpCounterStateFlow.value = DEFAULT_BPCOUNTER
+        _aStrategyStateFlow.value = DEFAULT_STRATEGYDATA
+        _bStrategyStateFlow.value = DEFAULT_STRATEGYDATA
+        _cStrategyStateFlow.value = DEFAULT_STRATEGYDATA
+        _aPredictionStateFlow.value = DEFAULT_PREDICTION
+        _bPredictionStateFlow.value = DEFAULT_PREDICTION
+        _cPredictionStateFlow.value = DEFAULT_PREDICTION
+
+        // 在删除最近一项后，按原来“加入时”的逻辑从头按顺序重建表格、计数器和策略
+        // 但只有在索引到达第 3 个及以后时才触发表格/策略的更新（避免不足三项时错误计算）。
+        for (i in _opendList.indices) {
+            if (i >= 2) {
+                // 取最后三项输入
+                val last3 = _opendList.subList(0, i + 1).takeLast(3)
+                // 与添加时一致：在第三项及之后才更新计数、表格与策略
+                updateBpCounter(_opendList[i])
+                val filledColumn = updateBppcTable(last3)
+                updateStrategyData(last3, filledColumn)
+            }
+        }
+
+        // 重建完成后更新预测（若不足 1 项则已置为默认）
+        if (_opendList.isNotEmpty()) {
+            updateAllPredictions()
+        }
+    }
+
+
+    private fun updateOpenData() {
+        updateAllPredictions()
+
+        val last3Inputs = _opendList.takeLast(3)
         if (last3Inputs.size >= 3) {
             Log.d("InputViewModel", "Current Inputs: $last3Inputs")
-            updateBpCounter(inputHistory.last())
+            updateBpCounter(_opendList.last())
             val filledColumn = updateBppcTable(last3Inputs)
             updateStrategyData(last3Inputs, filledColumn)
         }
-
-        updateAllPredictions()
     }
 
     /**
      * [核心优化] 结合了您的配置列表和我之前的简洁计算逻辑。
      */
     private fun updateAllPredictions() {
-        if (inputHistory.isEmpty()) return // 空列表直接返回，避免索引越界
+        if (_opendList.isEmpty()) return // 空列表直接返回，避免索引越界
 
         _aPredictionStateFlow.value = DEFAULT_PREDICTION
         _bPredictionStateFlow.value = DEFAULT_PREDICTION
         _cPredictionStateFlow.value = DEFAULT_PREDICTION
 
-        val lastIndex = inputHistory.lastIndex
+        val lastIndex = _opendList.lastIndex
         if (lastIndex % 3 == 0) {
-            if (inputHistory.size > 3) {
-                _cPredictionStateFlow.value = predictNextStrategyValue("3", inputHistory)
+            if (_opendList.size > 3) {
+                _cPredictionStateFlow.value = predictNextStrategyValue("3", _opendList)
             }
-            _aPredictionStateFlow.value = predictNextStrategyValue("2", inputHistory)
+            _aPredictionStateFlow.value = predictNextStrategyValue("2", _opendList)
 
         } else if (lastIndex % 3 == 1) {
-            _aPredictionStateFlow.value = predictNextStrategyValue("3", inputHistory)
-            _bPredictionStateFlow.value = predictNextStrategyValue("2", inputHistory)
+            _aPredictionStateFlow.value = predictNextStrategyValue("3", _opendList)
+            _bPredictionStateFlow.value = predictNextStrategyValue("2", _opendList)
         } else if (lastIndex % 3 == 2) {
-            _bPredictionStateFlow.value = predictNextStrategyValue("3", inputHistory)
-            _cPredictionStateFlow.value = predictNextStrategyValue("2", inputHistory)
+            _bPredictionStateFlow.value = predictNextStrategyValue("3", _opendList)
+            _cPredictionStateFlow.value = predictNextStrategyValue("2", _opendList)
         }
     }
 
@@ -253,15 +287,22 @@ class InputViewModel : ViewModel() {
     }
 
     fun betB() {
-        inputHistory.add(InputType.BET_B)
+        _betList.add(InputType.BET_B)
     }
 
     fun betP() {
-        inputHistory.add(InputType.BET_P)
+        _betList.add(InputType.BET_P)
+    }
+
+    fun removeLastBet() {
+        _betList.removeLastOrNull()
     }
 
     companion object {
         private val DEFAULT_PREDICTION = PredictedStrategyValue()
+        private val DEFAULT_STRATEGYDATA = StrategyData()
+        private val DEFAULT_BPCOUNTER = BpCounter()
+        private val DEFAULT_BPPCDISPLAY_LIST = List(MIN_TABLE_COLUMN_COUNT) { BppcDisplayItem.Empty }
         private val inputCombinationToResult = mapOf(
             "BBB" to 1, "PPP" to 2, "BPP" to 3, "PBB" to 4,
             "PBP" to 5, "BPB" to 6, "PPB" to 7, "BBP" to 8
