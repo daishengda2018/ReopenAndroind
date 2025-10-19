@@ -5,7 +5,16 @@ import com.dsd.baccarat.ui.page.MIN_TABLE_COLUMN_COUNT
 // --- 数据类定义 (请确保与此一致) ---
 
 // 输入类型
-enum class InputType { B, P, BET_B, BET_P }
+enum class InputType {
+    B, P, BET_B, BET_P;
+
+    override fun toString(): String = when (this) {
+        InputType.B -> "B"
+        InputType.P -> "P"
+        InputType.BET_B -> "押庄"
+        InputType.BET_P -> "押闲"
+    }
+}
 
 // BP 计数器
 data class BpCounter(val bCount: Int = 0, val pCount: Int = 0)
@@ -53,3 +62,12 @@ data class StrategyData(
     val strategy56: List<StrategyDisplayItem> = List(MIN_TABLE_COLUMN_COUNT) { StrategyDisplayItem.Empty },
     val strategy78: List<StrategyDisplayItem> = List(MIN_TABLE_COLUMN_COUNT) { StrategyDisplayItem.Empty }
 )
+
+data class PredictedStrategyValue(
+    val predictionIndex: String? = null,
+    val strategy12: String? = null,
+    val strategy34: String? = null,
+    val strategy56: String? = null,
+    val strategy78: String? = null
+)
+

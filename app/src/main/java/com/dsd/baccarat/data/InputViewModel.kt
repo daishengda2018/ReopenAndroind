@@ -1,5 +1,6 @@
 package com.dsd.baccarat.data
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import com.dsd.baccarat.ui.page.MIN_TABLE_COLUMN_COUNT
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,6 +28,16 @@ class InputViewModel : ViewModel() {
     private val _cStrategyStateFlow = MutableStateFlow(StrategyData())
     val cStrategyStateFlow: StateFlow<StrategyData> = _cStrategyStateFlow.asStateFlow()
 
+    // 新增：每列的动态预告 StateFlow（null 表示未知）
+    private val _aPredictionStateFlow = MutableStateFlow(PredictedStrategyValue())
+    val aPredictionStateFlow: StateFlow<PredictedStrategyValue> = _aPredictionStateFlow.asStateFlow()
+
+    private val _bPredictionStateFlow = MutableStateFlow(PredictedStrategyValue())
+    val bPredictionStateFlow: StateFlow<PredictedStrategyValue> = _bPredictionStateFlow.asStateFlow()
+
+    private val _cPredictionStateFlow = MutableStateFlow(PredictedStrategyValue())
+    val cPredictionStateFlow: StateFlow<PredictedStrategyValue> = _cPredictionStateFlow.asStateFlow()
+
     fun openB() {
         performBppcTableLogic(InputType.B)
     }
@@ -37,12 +48,66 @@ class InputViewModel : ViewModel() {
 
     private fun performBppcTableLogic(inputType: InputType) {
         inputHistory.add(inputType)
-        val last3Inputs = inputHistory.takeLast(3)
-        if (last3Inputs.size < 3) return
 
-        updateBpCounter(last3Inputs.last())
-        val filledColumn = updateBppcTable(last3Inputs)
-        updateStrategyData(last3Inputs, filledColumn)
+        val last3Inputs = inputHistory.takeLast(3)
+        if (last3Inputs.size >= 3) {
+            Log.d("InputViewModel", "Current Inputs: $last3Inputs")
+            updateBpCounter(inputHistory.last())
+            val filledColumn = updateBppcTable(last3Inputs)
+            updateStrategyData(last3Inputs, filledColumn)
+        }
+
+        updateAllPredictions()
+    }
+
+    /**
+     * [核心优化] 结合了您的配置列表和我之前的简洁计算逻辑。
+     */
+    private fun updateAllPredictions() {
+        if (inputHistory.isEmpty()) return // 空列表直接返回，避免索引越界
+
+        _aPredictionStateFlow.value = DEFAULT_PREDICTION
+        _bPredictionStateFlow.value = DEFAULT_PREDICTION
+        _cPredictionStateFlow.value = DEFAULT_PREDICTION
+
+        val lastIndex = inputHistory.lastIndex
+        if (lastIndex % 3 == 0) {
+            if (inputHistory.size > 3) {
+                _cPredictionStateFlow.value = predictNextStrategyValue("3", inputHistory)
+            }
+            _aPredictionStateFlow.value = predictNextStrategyValue("2", inputHistory)
+
+        } else if (lastIndex % 3 == 1) {
+            _aPredictionStateFlow.value = predictNextStrategyValue("3", inputHistory)
+            _bPredictionStateFlow.value = predictNextStrategyValue("2", inputHistory)
+        } else if (lastIndex % 3 == 2) {
+            _bPredictionStateFlow.value = predictNextStrategyValue("3", inputHistory)
+            _cPredictionStateFlow.value = predictNextStrategyValue("2", inputHistory)
+        }
+    }
+
+    /**
+     * 根据策略值预测下一次输入的函数，便于后续实现和维护。
+     */
+    private fun predictNextStrategyValue(title: String, inputHistory: MutableList<InputType>): PredictedStrategyValue {
+        val lastInput = inputHistory.last()
+        // 判断最后一个输入的索引是否为偶数
+        val isLastIndexEven = inputHistory.lastIndex % 2 == 0
+        fun flip(input: InputType) = if (input == InputType.B) InputType.P else InputType.B
+
+        // 第2位与第1位相同，第3位与第2位相同；
+        val strategy12 = lastInput.toString()
+
+        // 第2位与第1位相反，第3位与第2位相反；
+        val strategy56 = flip(lastInput).toString()
+
+        // 第2位与第1位相反，第3位与第2位相同；
+        val strategy34 = (if (isLastIndexEven) lastInput else flip(lastInput)).toString()
+
+        // 第2位与第1位相同，第3位与第2位相反；
+        val strategy78 = (if (isLastIndexEven) flip(lastInput) else lastInput).toString()
+
+        return PredictedStrategyValue(title, strategy12, strategy34, strategy56, strategy78)
     }
 
     private fun updateBpCounter(lastInput: InputType) {
@@ -56,7 +121,7 @@ class InputViewModel : ViewModel() {
     }
 
     /**
-     * [优化点] 专门负责更新 BppcTable 的函数，逻辑清晰。
+     * 专门负责更新 BppcTable 的函数，逻辑清晰。
      * 使用 .update 来保证原子性，内部逻辑简洁。
      */
     private fun updateBppcTable(last3Inputs: List<InputType>): ColumnType? {
@@ -113,7 +178,7 @@ class InputViewModel : ViewModel() {
     }
 
     /**
-     * [优化点] 将策略更新分发到正确的 StateFlow。
+     * 将策略更新分发到正确的 StateFlow。
      */
     private fun updateStrategyData(last3Inputs: List<InputType>, filledColumn: ColumnType?) {
         val targetFlow = when (filledColumn) {
@@ -134,7 +199,7 @@ class InputViewModel : ViewModel() {
     }
 
     /**
-     * [优化点] 专门负责更新单个策略列表的函数，逻辑与 updateBppcTable 类似但更简单。
+     * 专门负责更新单个策略列表的函数，逻辑与 updateBppcTable 类似但更简单。
      */
     private fun updateSingleStrategyList(
         type: StrategyType,
@@ -196,6 +261,7 @@ class InputViewModel : ViewModel() {
     }
 
     companion object {
+        private val DEFAULT_PREDICTION = PredictedStrategyValue()
         private val inputCombinationToResult = mapOf(
             "BBB" to 1, "PPP" to 2, "BPP" to 3, "PBB" to 4,
             "PBP" to 5, "BPB" to 6, "PPB" to 7, "BBP" to 8

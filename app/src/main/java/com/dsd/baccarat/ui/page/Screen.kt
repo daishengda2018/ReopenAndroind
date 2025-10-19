@@ -47,6 +47,8 @@ import com.dsd.baccarat.data.BppcItem
 import com.dsd.baccarat.data.InputViewModel
 import com.dsd.baccarat.data.StrategyDisplayItem
 import com.dsd.baccarat.data.StrategyItem
+import com.dsd.baccarat.ui.theme.PurpleGrey80
+import java.text.DecimalFormat
 
 // [优化点] 常量在顶部统一组织，清晰明了。
 const val MIN_TABLE_COLUMN_COUNT = 30
@@ -78,6 +80,9 @@ fun Screen(viewModel: InputViewModel) {
     val aStrategyData = viewModel.aStrategyStateFlow.collectAsStateWithLifecycle().value
     val bStrategyData = viewModel.bStrategyStateFlow.collectAsStateWithLifecycle().value
     val cStrategyData = viewModel.cStrategyStateFlow.collectAsStateWithLifecycle().value
+    val aPredictedValue = viewModel.aPredictionStateFlow.collectAsStateWithLifecycle().value
+    val bPredictedValue = viewModel.bPredictionStateFlow.collectAsStateWithLifecycle().value
+    val cPredictedValue = viewModel.cPredictionStateFlow.collectAsStateWithLifecycle().value
 
     // 优化自动滚动逻辑
 //    LaunchedEffect(bppcTableData) { // 监听 items 的变化
@@ -94,8 +99,6 @@ fun Screen(viewModel: InputViewModel) {
                 .padding(innerPadding)
                 .fillMaxSize()
         ) {
-            // [优化点] 移除了 LeftSide 和 RightSide 这两个大型可组合函数。现在布局结构直接声明，
-            // 更易于理解和修改。
             // 左侧列
             Column(
                 Modifier
@@ -109,7 +112,7 @@ fun Screen(viewModel: InputViewModel) {
                 Row(Modifier.fillMaxWidth()) {
                     BppcTableTitles()
                     Spacer(Modifier.width(SPACE_SIZE))
-                    BppcTable(
+                    Table(
                         items = bppcTableData,
                         listState = synchronizedListState,
                         showCharts = true // 这一列显示图表
@@ -118,21 +121,30 @@ fun Screen(viewModel: InputViewModel) {
                 // 左侧列的策略区块
                 StrategySection(
                     titles = listOf("A", "12", "56"),
+                    predictedIndex = aPredictedValue.predictionIndex,
+                    predictedValue1 = aPredictedValue.strategy12,
+                    predictedValue2 = aPredictedValue.strategy56,
                     displayItems1 = aStrategyData.strategy12,
                     displayItems2 = aStrategyData.strategy56,
                     listState = synchronizedListState
                 )
                 StrategySection(
                     titles = listOf("B", "12", "56"),
+                    predictedIndex = bPredictedValue.predictionIndex,
+                    predictedValue1 = bPredictedValue.strategy12,
+                    predictedValue2 = bPredictedValue.strategy56,
                     displayItems1 = bStrategyData.strategy12,
                     displayItems2 = bStrategyData.strategy56,
-                    listState = synchronizedListState
+                    listState = synchronizedListState,
                 )
                 StrategySection(
                     titles = listOf("C", "12", "56"),
+                    predictedIndex = cPredictedValue.predictionIndex,
+                    predictedValue1 = cPredictedValue.strategy12,
+                    predictedValue2 = cPredictedValue.strategy56,
                     displayItems1 = cStrategyData.strategy12,
                     displayItems2 = cStrategyData.strategy56,
-                    listState = synchronizedListState
+                    listState = synchronizedListState,
                 )
             }
 
@@ -144,10 +156,11 @@ fun Screen(viewModel: InputViewModel) {
             ) {
                 CounterDisplay(
                     label1 = "W", value1 = bppcCounter.bCount, color1 = TEXT_COLOR_B,
-                    label2 = "L", value2 = bppcCounter.pCount, color2 = TEXT_COLOR_P
+                    label2 = "L", value2 = bppcCounter.pCount, color2 = TEXT_COLOR_P,
+                    true
                 )
                 // [优化点] 复用 BppcTable 组件。
-                BppcTable(
+                Table(
                     items = bppcTableData,
                     listState = synchronizedListState,
                     showCharts = false // 这一列不显示图表
@@ -158,21 +171,30 @@ fun Screen(viewModel: InputViewModel) {
                 // 右侧列的策略区块
                 StrategySection(
                     titles = listOf("", "34", "78"),
+                    predictedIndex = aPredictedValue.predictionIndex,
+                    predictedValue1 = aPredictedValue.strategy12,
+                    predictedValue2 = aPredictedValue.strategy56,
                     displayItems1 = aStrategyData.strategy34,
                     displayItems2 = aStrategyData.strategy78,
-                    listState = synchronizedListState
+                    listState = synchronizedListState,
                 )
                 StrategySection(
                     titles = listOf("", "34", "78"),
+                    predictedIndex = bPredictedValue.predictionIndex,
+                    predictedValue1 = bPredictedValue.strategy12,
+                    predictedValue2 = bPredictedValue.strategy56,
                     displayItems1 = bStrategyData.strategy34,
                     displayItems2 = bStrategyData.strategy78,
-                    listState = synchronizedListState
+                    listState = synchronizedListState,
                 )
                 StrategySection(
                     titles = listOf("", "34", "78"),
+                    predictedIndex = cPredictedValue.predictionIndex,
+                    predictedValue1 = cPredictedValue.strategy12,
+                    predictedValue2 = cPredictedValue.strategy56,
                     displayItems1 = cStrategyData.strategy34,
                     displayItems2 = cStrategyData.strategy78,
-                    listState = synchronizedListState
+                    listState = synchronizedListState,
                 )
 
                 // 使用一个带权重的 Spacer 将按钮推到底部
@@ -194,9 +216,11 @@ fun Screen(viewModel: InputViewModel) {
 @Composable
 private fun CounterDisplay(
     label1: String, value1: Int, color1: Color,
-    label2: String, value2: Int, color2: Color
+    label2: String, value2: Int, color2: Color,
+    isShowWsr: Boolean = false
 ) {
     val total = value1 + value2
+    val df = remember { DecimalFormat("0.00%") }
     Row(
         Modifier
             .fillMaxWidth()
@@ -206,6 +230,10 @@ private fun CounterDisplay(
         TextItem("$label1$value1", color1, width = TITLE_WIDTH_SHORT)
         TextItem("$label2$value2", color2, width = TITLE_WIDTH_SHORT)
         TextItem("Total $total", Color.Black, width = TITLE_WIDTH_LONG)
+        if (isShowWsr) {
+            val wsr = value1 / total.toFloat()
+            TextItem("WSR ${df.format(wsr)}", Color.Magenta, width = TITLE_WIDTH_LONG)
+        }
     }
 }
 
@@ -220,7 +248,7 @@ private fun BppcTableTitles() {
  * [优化点] 合并了 TableAndChart 和 WsrTable。现在通过参数控制是否显示图表，增强了复用性。
  */
 @Composable
-private fun BppcTable(
+private fun Table(
     items: List<BppcDisplayItem>,
     listState: LazyListState,
     showCharts: Boolean
@@ -267,13 +295,18 @@ private fun BppcTable(
 @Composable
 private fun StrategySection(
     titles: List<String>,
+    predictedIndex: String?,
+    predictedValue1: String?,
+    predictedValue2: String?,
     displayItems1: List<StrategyDisplayItem>,
     displayItems2: List<StrategyDisplayItem>,
     listState: LazyListState,
-) {
+
+    ) {
     val selectedOption = remember { mutableIntStateOf(1) }
 
     Spacer(Modifier.height(SPACE_SIZE))
+
     Row(Modifier.fillMaxWidth()) {
         val mainTitle = titles[0]
         if (mainTitle.isNotEmpty()) {
@@ -287,13 +320,26 @@ private fun StrategySection(
 
         Column {
             Row {
-                TextItem(titles[1], width = TITLE_WIDTH_SHORT)
+                TextItem(titles[1], width = TITLE_WIDTH_SHORT, isSelected = (selectedOption.intValue == 1))
                 {
                     selectedOption.intValue = 1
                 }
-                TextItem(titles[2], width = TITLE_WIDTH_SHORT)
+                TextItem(titles[2], width = TITLE_WIDTH_SHORT, isSelected = (selectedOption.intValue == 2))
                 {
                     selectedOption.intValue = 2
+                }
+                when (selectedOption.intValue) {
+                    1 -> TextItem(
+                        "预测第 ${predictedIndex ?: "-"} 位为 ${predictedValue1 ?: "-"}",
+                        color = if (predictedValue1.isNullOrEmpty()) Color.Gray else Color.Magenta,
+                        width = (TITLE_WIDTH_LONG * 2)
+                    )
+
+                    2 -> TextItem(
+                        "预测第 ${predictedIndex ?: "-"} 位为 ${predictedValue2 ?: "-"}",
+                        color = if (predictedValue2.isNullOrEmpty()) Color.Gray else Color.Magenta,
+                        width = (TITLE_WIDTH_LONG * 2)
+                    )
                 }
             }
             // 步骤 2: 根据当前选中的状态，决定要显示哪个数据列表。
@@ -426,13 +472,25 @@ fun TextItem(
     width: Dp = ITEM_SIZE,
     fontSize: TextUnit = 14.sp,
     fontWeight: FontWeight = FontWeight.Normal,
+    isSelected: Boolean = false,
     onClick: (() -> Unit)? = null
 ) {
+    // 步骤 1: 根据 isSelected 状态决定背景色和文字颜色
+    val backgroundColor = remember(isSelected)
+    {
+        if (isSelected) {
+            PurpleGrey80 // 选中时，使用主题色的淡色作为背景
+        } else {
+            Color.Transparent // 未选中时，背景透明
+        }
+    }
+
     Box(
         Modifier
             .width(width)
             .height(ITEM_SIZE)
             .border(BorderStroke(BORDER, Color.LightGray))
+            .background(backgroundColor)
             .clickable {
                 onClick?.invoke()
             },
@@ -483,8 +541,9 @@ fun InputButtons(
 @Composable
 private fun CounterDisplayPreview() {
     CounterDisplay(
-        label1 = "B", value1 = 15, color1 = TEXT_COLOR_B,
-        label2 = "P", value2 = 20, color2 = TEXT_COLOR_P
+        label1 = "W", value1 = 15, color1 = TEXT_COLOR_B,
+        label2 = "L", value2 = 20, color2 = TEXT_COLOR_P,
+        true
     )
 }
 
@@ -502,7 +561,7 @@ private fun BppcTableWithChartsPreview() {
         val emptyItems = List(MIN_TABLE_COLUMN_COUNT - realItems.size) { BppcDisplayItem.Empty }
         realItems + emptyItems
     }
-    BppcTable(items = mockBppcData, listState = synchronizedListState, showCharts = true)
+    Table(items = mockBppcData, listState = synchronizedListState, showCharts = true)
 }
 
 
@@ -525,8 +584,11 @@ private fun StrategySectionPreview() {
     }
     StrategySection(
         titles = listOf("A", "12", "56"),
+        predictedIndex = "2",
+        predictedValue1 = "P",
+        predictedValue2 = "B",
         displayItems1 = displayItems1,
         displayItems2 = displayItems2,
-        listState = synchronizedListState
+        listState = synchronizedListState,
     )
 }
