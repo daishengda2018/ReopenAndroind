@@ -1,5 +1,7 @@
 package com.dsd.baccarat.ui.page
 
+import android.media.AudioManager
+import android.media.ToneGenerator
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -21,12 +23,17 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -50,7 +57,10 @@ import com.dsd.baccarat.data.InputViewModel
 import com.dsd.baccarat.data.StrategyDisplayItem
 import com.dsd.baccarat.data.StrategyItem
 import com.dsd.baccarat.ui.theme.PurpleGrey80
+import kotlinx.coroutines.delay
 import java.text.DecimalFormat
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 // [优化点] 常量在顶部统一组织，清晰明了。
 const val MIN_TABLE_COLUMN_COUNT = 30
@@ -68,11 +78,57 @@ private val TEXT_COLOR_NEUTRAL = Color.Black
 
 private val RED_COLOR_VALUES = setOf(1, 4, 6, 7)
 
+private enum class TimerStatus { Idle, Running, Paused, Finished }
+
 /**
  * 应用的主屏幕可组合函数。
  */
 @Composable
 fun Screen(viewModel: InputViewModel) {
+    // 计时器状态提升到 Screen
+    var elapsedTime by remember { mutableIntStateOf(0) } // 秒
+    var timerStatus by remember { mutableStateOf(TimerStatus.Idle) }
+    var showReminder by remember { mutableStateOf(false) }
+
+    // 启动/恢复计时逻辑：当 timerStatus 变为 Running 时启动循环；Paused/Idle 会停止循环。
+    LaunchedEffect(timerStatus) {
+        if (timerStatus == TimerStatus.Running) {
+            while (timerStatus == TimerStatus.Running && elapsedTime < 45 * 60) {
+                delay(1000)
+                elapsedTime++
+            }
+            if (elapsedTime >= 45 * 60) {
+                timerStatus = TimerStatus.Finished
+                showReminder = true
+                playNotificationSound()
+            }
+        }
+    }
+
+    // 提供给按钮的回调
+    val toggleTimer: () -> Unit = {
+        when (timerStatus) {
+            TimerStatus.Idle -> {
+                elapsedTime = 0
+                timerStatus = TimerStatus.Running
+            }
+
+            TimerStatus.Running -> timerStatus = TimerStatus.Paused
+            TimerStatus.Paused -> timerStatus = TimerStatus.Running
+            TimerStatus.Finished -> {
+                // 结束后再次点击视为重启
+                elapsedTime = 0
+                showReminder = false
+                timerStatus = TimerStatus.Running
+            }
+        }
+    }
+    val resetTimer: () -> Unit = {
+        elapsedTime = 0
+        timerStatus = TimerStatus.Idle
+        showReminder = false
+    }
+
     // [优化点] 在此处进行状态提升 (State Hoisting)。这个唯一的 listState 实例将被传递给所有
     // LazyRow，从而确保它们同步滚动。这是解决同步滚动的关键。
     val synchronizedListState = rememberLazyListState()
@@ -107,10 +163,20 @@ fun Screen(viewModel: InputViewModel) {
                     .weight(1f) // 使用 weight 实现灵活的权重布局
                     .padding(horizontal = 5.dp)
             ) {
-                CounterDisplay(
-                    label1 = "B", value1 = bppcCounter.bCount, color1 = TEXT_COLOR_B,
-                    label2 = "P", value2 = bppcCounter.pCount, color2 = TEXT_COLOR_P
-                )
+                Row {
+                    CounterDisplay(
+                        label1 = "B", value1 = bppcCounter.bCount, color1 = TEXT_COLOR_B,
+                        label2 = "P", value2 = bppcCounter.pCount, color2 = TEXT_COLOR_P
+                    )
+                    Spacer(Modifier.width(ITEM_SIZE))
+                    // 显示当前时间，需要动态更新
+                    CurrentTimeDisplay(
+                        elapsedTime = elapsedTime,
+                        timerStatus = timerStatus,
+                        showReminder = showReminder,
+                        onDismissReminder = { showReminder = false })
+                }
+
                 Row(Modifier.fillMaxWidth()) {
                     BppcTableTitles()
                     Spacer(Modifier.width(SPACE_SIZE))
@@ -220,7 +286,10 @@ fun Screen(viewModel: InputViewModel) {
                     onRemoveLastOpen = { viewModel.removeLasOpen() },
                     onBetB = { viewModel.betB() },
                     onBetP = { viewModel.betP() },
-                    onRemoveLastBet = { viewModel.removeLastBet() }
+                    onRemoveLastBet = { viewModel.removeLastBet() },
+                    timerStatus = timerStatus,
+                    onTimerToggle = toggleTimer,
+                    onTimerReset = resetTimer
                 )
             }
         }
@@ -270,8 +339,72 @@ private fun CounterDisplay(
 }
 
 @Composable
-private fun BppcTableTitles() {
+private fun CurrentTimeDisplay(
+    elapsedTime: Int,
+    timerStatus: TimerStatus,
+    showReminder: Boolean,
+    onDismissReminder: () -> Unit
+) {
+    val timeString = remember {
+        SimpleDateFormat("yyyy-MM-dd EEEE", Locale.getDefault()).format(System.currentTimeMillis())
+    }
+    val textStyle = remember {
+        TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold)
+    }
 
+    val minutes = elapsedTime / 60
+    val seconds = elapsedTime % 60
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = "$timeString",
+            style = textStyle,
+            color = Color.Black
+        )
+
+        Spacer(Modifier.width(ITEM_SIZE))
+        Text(
+            text = String.format(Locale.getDefault(), "计时: %02d:%02d", minutes, seconds),
+            style = textStyle,
+            color = Color.Black
+        )
+
+        Spacer(Modifier.width(8.dp))
+        // 显示状态
+        Text(
+            text = when (timerStatus) {
+                TimerStatus.Idle -> "未开始"
+                TimerStatus.Running -> "运行中"
+                TimerStatus.Paused -> "已暂停"
+                TimerStatus.Finished -> "已完成"
+            },
+            style = textStyle.copy(fontSize = 12.sp),
+            color = Color.Gray
+        )
+    }
+
+    if (showReminder) {
+        AlertDialog(
+            onDismissRequest = onDismissReminder,
+            confirmButton = {
+                Button(onClick = onDismissReminder) {
+                    Text("确定")
+                }
+            },
+            text = { Text("该休息了") }
+        )
+    }
+}
+
+// 播放提示音
+private fun playNotificationSound() {
+    val toneGenerator = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100)
+    toneGenerator.startTone(ToneGenerator.TONE_PROP_ACK, 1000) // 播放 1 秒提示音
+    toneGenerator.release()
+}
+
+@Composable
+private fun BppcTableTitles() {
     Column(Modifier.width(ITEM_SIZE)) {
         val mainTitles = remember { listOf("\\", "A", "B", "C") }
         val subTitles = remember { listOf("A", "B", "C") }
@@ -547,14 +680,16 @@ fun TextItem(
  * [优化点] 输入按钮现在通过 lambda 表达式接收回调，从而与 ViewModel 解耦，提升了组件的独立性。
  */
 @Composable
-fun InputButtons(
+private fun InputButtons(
     onOpenB: () -> Unit,
     onOpenP: () -> Unit,
     onRemoveLastOpen: () -> Unit,
     onBetB: () -> Unit,
     onBetP: () -> Unit,
     onRemoveLastBet: () -> Unit,
-    // onUndo: () -> Unit // 如果需要，后续可添加 onUndo 回调
+    timerStatus: TimerStatus,
+    onTimerToggle: () -> Unit,
+    onTimerReset: () -> Unit,
 ) {
     @Composable
     fun ColumnScope.DefaultButtonModifier(): Modifier = Modifier
@@ -581,8 +716,18 @@ fun InputButtons(
         Spacer(Modifier.weight(2f))
 
         Column(Modifier.weight(1f)) {
-            Button(modifier = DefaultButtonModifier(), onClick = onBetB) { Text(text = "计时") }
-            Button(modifier = DefaultButtonModifier(), onClick = onBetP) { Text(text = "保持") }
+            // 计时按钮现在控制传入的计时器
+            Button(modifier = DefaultButtonModifier(), onClick = onTimerToggle) {
+                Text(
+                    text = when (timerStatus) {
+                        TimerStatus.Running -> "暂停"
+                        TimerStatus.Paused -> "继续"
+                        TimerStatus.Idle -> "开始"
+                        TimerStatus.Finished -> "重新开始"
+                    }
+                )
+            }
+            Button(modifier = DefaultButtonModifier(), onClick = onBetP) { Text(text = "保存") }
             Button(modifier = DefaultButtonModifier(), onClick = { /* TODO: 实现撤销逻辑 */ }) { Text(text = "新牌") }
         }
     }
