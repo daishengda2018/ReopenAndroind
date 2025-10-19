@@ -271,8 +271,17 @@ private fun CounterDisplay(
 
 @Composable
 private fun BppcTableTitles() {
+
     Column(Modifier.width(ITEM_SIZE)) {
-        listOf("\\", "A", "B", "C").forEach { TextItem(it, TEXT_COLOR_NEUTRAL) }
+        val mainTitles = remember { listOf("\\", "A", "B", "C") }
+        val subTitles = remember { listOf("A", "B", "C") }
+
+        mainTitles.forEach { TextItem(it, TEXT_COLOR_NEUTRAL) }
+        Spacer(Modifier.height(SPACE_SIZE))
+        subTitles.forEach {
+            TextItem(it, TEXT_COLOR_NEUTRAL)
+            Spacer(Modifier.height(ITEM_SIZE * 3 + SPACE_SIZE))
+        }
     }
 }
 
