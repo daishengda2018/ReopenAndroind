@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -49,9 +50,12 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.dsd.baccarat.data.BpCounter
 import com.dsd.baccarat.data.BppcDisplayItem
 import com.dsd.baccarat.data.BppcItem
 import com.dsd.baccarat.data.InputViewModel
+import com.dsd.baccarat.data.PredictedStrategyValue
+import com.dsd.baccarat.data.StrategyData
 import com.dsd.baccarat.data.StrategyDisplayItem
 import com.dsd.baccarat.data.StrategyItem
 import com.dsd.baccarat.data.TimerStatus
@@ -67,6 +71,8 @@ const val MIN_TABLE_COLUMN_COUNT = 30
 private val ITEM_SIZE = 22.dp
 private val SPACE_SIZE = 5.dp
 private val TABLE_HEIGHT = ITEM_SIZE * 4
+
+private val TITLE_WIDTH_SHORT_SHORT = ITEM_SIZE * 2
 private val TITLE_WIDTH_SHORT = ITEM_SIZE * 3
 private val TITLE_WIDTH_LONG = ITEM_SIZE * 4
 private val BORDER = 0.3.dp
@@ -82,16 +88,10 @@ private val RED_COLOR_VALUES = setOf(1, 4, 6, 7)
  */
 @Composable
 fun Screen(viewModel: InputViewModel) {
-    // 从 ViewModel 收集计时相关状态（计时逻辑已迁移到 ViewModel）
+    val synchronizedListState = rememberLazyListState()
     val elapsedTime = viewModel.elapsedTime.collectAsStateWithLifecycle().value
     val timerStatus = viewModel.timerStatus.collectAsStateWithLifecycle().value
     val showReminder = viewModel.showReminder.collectAsStateWithLifecycle().value
-
-    // 使用独立的可组合函数来管理提示音的创建/释放与播放
-    NotificationSoundEffect(soundFlow = viewModel.soundEvent)
-    
-    //  在此处进行状态提升 (State Hoisting)。
-    val synchronizedListState = rememberLazyListState()
     val bppcTableData = viewModel.bppcTableStateFlow.collectAsStateWithLifecycle().value
     val bppcCounter = viewModel.bppcCounterStateFlow.collectAsStateWithLifecycle().value
     val aStrategyData = viewModel.aStrategyStateFlow.collectAsStateWithLifecycle().value
@@ -100,6 +100,9 @@ fun Screen(viewModel: InputViewModel) {
     val aPredictedValue = viewModel.aPredictionStateFlow.collectAsStateWithLifecycle().value
     val bPredictedValue = viewModel.bPredictionStateFlow.collectAsStateWithLifecycle().value
     val cPredictedValue = viewModel.cPredictionStateFlow.collectAsStateWithLifecycle().value
+
+    // 使用独立的可组合函数来管理提示音的创建/释放与播放
+    NotificationSoundEffect(soundFlow = viewModel.soundEvent)
 
     // 优化自动滚动逻辑
 //    LaunchedEffect(bppcTableData) { // 监听 items 的变化
@@ -117,141 +120,203 @@ fun Screen(viewModel: InputViewModel) {
                 .fillMaxSize()
         ) {
             // 左侧列
-            Column(
-                Modifier
-                    .weight(1f) // 使用 weight 实现灵活的权重布局
-                    .padding(horizontal = 5.dp)
-            ) {
-                Row {
-                    CounterDisplay(
-                        label1 = "B", value1 = bppcCounter.bCount, color1 = TEXT_COLOR_B,
-                        label2 = "P", value2 = bppcCounter.pCount, color2 = TEXT_COLOR_P
-                    )
-                    Spacer(Modifier.width(ITEM_SIZE))
-                    // 显示当前时间，需要动态更新
-                    CurrentTimeDisplay(
-                        elapsedTime = elapsedTime,
-                        timerStatus = timerStatus,
-                        showReminder = showReminder,
-                        onDismissReminder = { viewModel.dismissReminder() })
-                }
-
-                Row(Modifier.fillMaxWidth()) {
-                    BppcTableTitles()
-                    Spacer(Modifier.width(SPACE_SIZE))
-                    Table(
-                        items = bppcTableData,
-                        listState = synchronizedListState,
-                        showCharts = true // 这一列显示图表
-                    )
-                }
-                // 左侧列的策略区块
-                StrategySection(
-                    titles = listOf("A", "12", "56"),
-                    predictedIndex = aPredictedValue.predictionIndex,
-                    predictedValue1 = aPredictedValue.strategy12,
-                    predictedValue2 = aPredictedValue.strategy56,
-                    displayItems1 = aStrategyData.strategy12,
-                    displayItems2 = aStrategyData.strategy56,
-                    listState = synchronizedListState
-                )
-                StrategySection(
-                    titles = listOf("B", "12", "56"),
-                    predictedIndex = bPredictedValue.predictionIndex,
-                    predictedValue1 = bPredictedValue.strategy12,
-                    predictedValue2 = bPredictedValue.strategy56,
-                    displayItems1 = bStrategyData.strategy12,
-                    displayItems2 = bStrategyData.strategy56,
-                    listState = synchronizedListState,
-                )
-                StrategySection(
-                    titles = listOf("C", "12", "56"),
-                    predictedIndex = cPredictedValue.predictionIndex,
-                    predictedValue1 = cPredictedValue.strategy12,
-                    predictedValue2 = cPredictedValue.strategy56,
-                    displayItems1 = cStrategyData.strategy12,
-                    displayItems2 = cStrategyData.strategy56,
-                    listState = synchronizedListState,
-                )
-            }
+            LeftSide(
+                bppcCounter,
+                elapsedTime,
+                timerStatus,
+                showReminder,
+                viewModel,
+                bppcTableData,
+                synchronizedListState,
+                aPredictedValue,
+                aStrategyData,
+                bPredictedValue,
+                bStrategyData,
+                cPredictedValue,
+                cStrategyData
+            )
 
             // 右侧列
-            Column(
-                Modifier
-                    .weight(1f) // 使用 weight 实现灵活的权重布局
-                    .padding(horizontal = 5.dp)
-            ) {
-
-                Row(Modifier.fillMaxWidth()) {
-                    CounterDisplay(
-                        label1 = "W", value1 = bppcCounter.bCount, color1 = TEXT_COLOR_B,
-                        label2 = "L", value2 = bppcCounter.pCount, color2 = TEXT_COLOR_P,
-                        padding = 0.dp,
-                        isShowWsr = true,
-                        isHistory = false
-                    )
-                    CounterDisplay(
-                        label1 = "W", value1 = bppcCounter.bCount, color1 = TEXT_COLOR_B,
-                        label2 = "L", value2 = bppcCounter.pCount, color2 = TEXT_COLOR_P,
-                        padding = 0.dp,
-                        isShowWsr = true,
-                        isHistory = true
-                    )
-                }
-
-                //  复用 BppcTable 组件。
-                Table(
-                    items = bppcTableData,
-                    listState = synchronizedListState,
-                    showCharts = false // 这一列不显示图表
-                )
-                // 用 Spacer 来与左侧的图表区域在布局上对齐
-                Spacer(Modifier.height(TABLE_HEIGHT * 3 + SPACE_SIZE * 3))
-
-                // 右侧列的策略区块
-                StrategySection(
-                    titles = listOf("", "34", "78"),
-                    predictedIndex = aPredictedValue.predictionIndex,
-                    predictedValue1 = aPredictedValue.strategy12,
-                    predictedValue2 = aPredictedValue.strategy56,
-                    displayItems1 = aStrategyData.strategy34,
-                    displayItems2 = aStrategyData.strategy78,
-                    listState = synchronizedListState,
-                )
-                StrategySection(
-                    titles = listOf("", "34", "78"),
-                    predictedIndex = bPredictedValue.predictionIndex,
-                    predictedValue1 = bPredictedValue.strategy12,
-                    predictedValue2 = bPredictedValue.strategy56,
-                    displayItems1 = bStrategyData.strategy34,
-                    displayItems2 = bStrategyData.strategy78,
-                    listState = synchronizedListState,
-                )
-                StrategySection(
-                    titles = listOf("", "34", "78"),
-                    predictedIndex = cPredictedValue.predictionIndex,
-                    predictedValue1 = cPredictedValue.strategy12,
-                    predictedValue2 = cPredictedValue.strategy56,
-                    displayItems1 = cStrategyData.strategy34,
-                    displayItems2 = cStrategyData.strategy78,
-                    listState = synchronizedListState,
-                )
-
-                // 使用一个带权重的 Spacer 将按钮推到底部
-                Spacer(Modifier.weight(1f))
-                InputButtons(
-                    onOpenB = { viewModel.openB() },
-                    onOpenP = { viewModel.openP() },
-                    onRemoveLastOpen = { viewModel.removeLastOpen() },
-                    onBetB = { viewModel.betB() },
-                    onBetP = { viewModel.betP() },
-                    onRemoveLastBet = { viewModel.removeLastBet() },
-                    onTimerToggle = { viewModel.toggleTimer() },
-                    onTimerReset = { viewModel.resetTimer() },
-                    timerStatus = timerStatus,
-                )
-            }
+            RightSide(
+                bppcCounter,
+                bppcTableData,
+                synchronizedListState,
+                aPredictedValue,
+                aStrategyData,
+                bPredictedValue,
+                bStrategyData,
+                cPredictedValue,
+                cStrategyData,
+                viewModel,
+                timerStatus
+            )
         }
+    }
+}
+
+@Composable
+private fun RowScope.LeftSide(
+    bppcCounter: BpCounter,
+    elapsedTime: Int,
+    timerStatus: TimerStatus,
+    showReminder: Boolean,
+    viewModel: InputViewModel,
+    bppcTableData: List<BppcDisplayItem>,
+    synchronizedListState: LazyListState,
+    aPredictedValue: PredictedStrategyValue,
+    aStrategyData: StrategyData,
+    bPredictedValue: PredictedStrategyValue,
+    bStrategyData: StrategyData,
+    cPredictedValue: PredictedStrategyValue,
+    cStrategyData: StrategyData
+) {
+    Column(
+        Modifier
+            .weight(1f) // 使用 weight 实现灵活的权重布局
+            .padding(horizontal = 5.dp)
+    ) {
+        Row() {
+            CounterDisplay(
+                label1 = "B", value1 = bppcCounter.bCount, color1 = TEXT_COLOR_B,
+                label2 = "P", value2 = bppcCounter.pCount, color2 = TEXT_COLOR_P
+            )
+            Spacer(Modifier.width(ITEM_SIZE))
+            // 显示当前时间，需要动态更新
+            CurrentTimeDisplay(
+                elapsedTime = elapsedTime,
+                timerStatus = timerStatus,
+                showReminder = showReminder,
+                onDismissReminder = { viewModel.dismissReminder() })
+        }
+
+        Row(Modifier.fillMaxWidth()) {
+            BppcTableTitles()
+            Spacer(Modifier.width(SPACE_SIZE))
+            Table(
+                items = bppcTableData,
+                listState = synchronizedListState,
+                showCharts = true // 这一列显示图表
+            )
+        }
+        // 左侧列的策略区块
+        StrategySection(
+            titles = listOf("A", "12", "56"),
+            predictedIndex = aPredictedValue.predictionIndex,
+            predictedValue1 = aPredictedValue.strategy12,
+            predictedValue2 = aPredictedValue.strategy56,
+            displayItems1 = aStrategyData.strategy12,
+            displayItems2 = aStrategyData.strategy56,
+            listState = synchronizedListState
+        )
+        StrategySection(
+            titles = listOf("B", "12", "56"),
+            predictedIndex = bPredictedValue.predictionIndex,
+            predictedValue1 = bPredictedValue.strategy12,
+            predictedValue2 = bPredictedValue.strategy56,
+            displayItems1 = bStrategyData.strategy12,
+            displayItems2 = bStrategyData.strategy56,
+            listState = synchronizedListState,
+        )
+        StrategySection(
+            titles = listOf("C", "12", "56"),
+            predictedIndex = cPredictedValue.predictionIndex,
+            predictedValue1 = cPredictedValue.strategy12,
+            predictedValue2 = cPredictedValue.strategy56,
+            displayItems1 = cStrategyData.strategy12,
+            displayItems2 = cStrategyData.strategy56,
+            listState = synchronizedListState,
+        )
+    }
+}
+
+@Composable
+private fun RowScope.RightSide(
+    bppcCounter: BpCounter,
+    bppcTableData: List<BppcDisplayItem>,
+    synchronizedListState: LazyListState,
+    aPredictedValue: PredictedStrategyValue,
+    aStrategyData: StrategyData,
+    bPredictedValue: PredictedStrategyValue,
+    bStrategyData: StrategyData,
+    cPredictedValue: PredictedStrategyValue,
+    cStrategyData: StrategyData,
+    viewModel: InputViewModel,
+    timerStatus: TimerStatus
+) {
+    Column(
+        Modifier
+            .weight(1f) // 使用 weight 实现灵活的权重布局
+            .padding(horizontal = 5.dp)
+    ) {
+
+        Row(Modifier.fillMaxWidth()) {
+            CounterDisplay(
+                label1 = "W", value1 = bppcCounter.bCount, color1 = TEXT_COLOR_B,
+                label2 = "L", value2 = bppcCounter.pCount, color2 = TEXT_COLOR_P,
+                padding = 0.dp,
+                isShowWsr = true,
+                isHistory = false
+            )
+            CounterDisplay(
+                label1 = "W", value1 = bppcCounter.bCount, color1 = TEXT_COLOR_B,
+                label2 = "L", value2 = bppcCounter.pCount, color2 = TEXT_COLOR_P,
+                padding = 0.dp,
+                isShowWsr = true,
+                isHistory = true
+            )
+        }
+
+        //  复用 BppcTable 组件。
+        Table(
+            items = bppcTableData,
+            listState = synchronizedListState,
+            showCharts = false // 这一列不显示图表
+        )
+        // 用 Spacer 来与左侧的图表区域在布局上对齐
+        Spacer(Modifier.height(TABLE_HEIGHT * 3 + SPACE_SIZE * 3))
+
+        // 右侧列的策略区块
+        StrategySection(
+            titles = listOf("", "34", "78"),
+            predictedIndex = aPredictedValue.predictionIndex,
+            predictedValue1 = aPredictedValue.strategy12,
+            predictedValue2 = aPredictedValue.strategy56,
+            displayItems1 = aStrategyData.strategy34,
+            displayItems2 = aStrategyData.strategy78,
+            listState = synchronizedListState,
+        )
+        StrategySection(
+            titles = listOf("", "34", "78"),
+            predictedIndex = bPredictedValue.predictionIndex,
+            predictedValue1 = bPredictedValue.strategy12,
+            predictedValue2 = bPredictedValue.strategy56,
+            displayItems1 = bStrategyData.strategy34,
+            displayItems2 = bStrategyData.strategy78,
+            listState = synchronizedListState,
+        )
+        StrategySection(
+            titles = listOf("", "34", "78"),
+            predictedIndex = cPredictedValue.predictionIndex,
+            predictedValue1 = cPredictedValue.strategy12,
+            predictedValue2 = cPredictedValue.strategy56,
+            displayItems1 = cStrategyData.strategy34,
+            displayItems2 = cStrategyData.strategy78,
+            listState = synchronizedListState,
+        )
+
+        // 使用一个带权重的 Spacer 将按钮推到底部
+        Spacer(Modifier.weight(1f))
+        InputButtons(
+            onOpenB = { viewModel.openB() },
+            onOpenP = { viewModel.openP() },
+            onRemoveLastOpen = { viewModel.removeLastOpen() },
+            onBetB = { viewModel.betB() },
+            onBetP = { viewModel.betP() },
+            onRemoveLastBet = { viewModel.removeLastBet() },
+            onTimerToggle = { viewModel.toggleTimer() },
+            onTimerReset = { viewModel.resetTimer() },
+            timerStatus = timerStatus,
+        )
     }
 }
 
@@ -267,7 +332,7 @@ private fun NotificationSoundEffect(soundFlow: kotlinx.coroutines.flow.SharedFlo
     LaunchedEffect(soundFlow) {
         soundFlow.collectLatest {
             // 播放 1 秒提示音（1000ms）
-            toneGenerator.startTone(ToneGenerator.TONE_PROP_ACK, 1000)
+            toneGenerator.startTone(ToneGenerator.TONE_PROP_ACK, 10000)
         }
     }
 }
@@ -297,19 +362,24 @@ private fun CounterDisplay(
     Row(
         Modifier
             .wrapContentWidth()
-            .padding(start = ITEM_SIZE + padding)
+            .padding(start = (ITEM_SIZE + padding))
             .height(ITEM_SIZE)
             .alpha(if (isHistory) 0.7f else 1f)
             .background(backgroundColor),
         horizontalArrangement = Arrangement.Start
 
     ) {
-        TextItem("$label1$value1", color1, width = TITLE_WIDTH_SHORT)
-        TextItem("$label2$value2", color2, width = TITLE_WIDTH_SHORT)
-        TextItem("Total $total", Color.Black, width = TITLE_WIDTH_LONG)
         if (isShowWsr) {
+            TextItem("$label1$value1", color1, width = TITLE_WIDTH_SHORT)
+            TextItem("$label2$value2", color2, width = TITLE_WIDTH_SHORT)
+            TextItem("Total $total", Color.Black, width = TITLE_WIDTH_LONG)
             val wsr = value1 / total.toFloat()
             TextItem("WSR ${df.format(wsr)}", Color.Magenta, width = TITLE_WIDTH_LONG)
+        } else {
+            TextItem("$label1$value1", color1, width = TITLE_WIDTH_SHORT_SHORT)
+            TextItem("$label2$value2", color2, width = TITLE_WIDTH_SHORT_SHORT)
+            TextItem("$label1 - $label2 =  ${value1 - value2}", color2, width = TITLE_WIDTH_LONG)
+            TextItem("Total $total", Color.Black, width = TITLE_WIDTH_LONG)
         }
     }
 }
@@ -331,7 +401,7 @@ private fun CurrentTimeDisplay(
     val minutes = elapsedTime / 60
     val seconds = elapsedTime % 60
 
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.height(ITEM_SIZE)) {
         Text(
             text = "$timeString",
             style = textStyle,
@@ -676,20 +746,6 @@ private fun InputButtons(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Column(Modifier.weight(1f)) {
-            Button(modifier = DefaultButtonModifier(), onClick = onBetB) { Text(text = "押 B") }
-            Button(modifier = DefaultButtonModifier(), onClick = onBetP) { Text(text = "押 P") }
-            Button(modifier = DefaultButtonModifier(), onClick = onRemoveLastBet) { Text(text = "撤销") }
-        }
-
-        Column(Modifier.weight(1f)) {
-            Button(modifier = DefaultButtonModifier(), onClick = onOpenB) { Text(text = "开 B") }
-            Button(modifier = DefaultButtonModifier(), onClick = onOpenP) { Text(text = "开 P") }
-            Button(modifier = DefaultButtonModifier(), onClick = onRemoveLastOpen) { Text(text = "撤销") }
-        }
-
-        Spacer(Modifier.weight(1f))
-
         Column(Modifier.weight(1f))
         {
             // 计时按钮现在控制传入的计时器
@@ -710,6 +766,20 @@ private fun InputButtons(
         Column(Modifier.weight(1f)) {
             Button(modifier = DefaultButtonModifier(), onClick = onBetP) { Text(text = "保存") }
             Button(modifier = DefaultButtonModifier(), onClick = { /* TODO: 实现撤销逻辑 */ }) { Text(text = "新牌") }
+        }
+
+        Spacer(Modifier.weight(1f))
+
+        Column(Modifier.weight(1f)) {
+            Button(modifier = DefaultButtonModifier(), onClick = onBetB) { Text(text = "押 B") }
+            Button(modifier = DefaultButtonModifier(), onClick = onBetP) { Text(text = "押 P") }
+            Button(modifier = DefaultButtonModifier(), onClick = onRemoveLastBet) { Text(text = "撤销") }
+        }
+
+        Column(Modifier.weight(1f)) {
+            Button(modifier = DefaultButtonModifier(), onClick = onOpenB) { Text(text = "开 B") }
+            Button(modifier = DefaultButtonModifier(), onClick = onOpenP) { Text(text = "开 P") }
+            Button(modifier = DefaultButtonModifier(), onClick = onRemoveLastOpen) { Text(text = "撤销") }
         }
     }
 }

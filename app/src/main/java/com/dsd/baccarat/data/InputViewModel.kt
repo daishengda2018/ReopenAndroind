@@ -45,6 +45,11 @@ class InputViewModel : ViewModel() {
     private val _cPredictionStateFlow = MutableStateFlow(PredictedStrategyValue())
     val cPredictionStateFlow: StateFlow<PredictedStrategyValue> = _cPredictionStateFlow.asStateFlow()
 
+    private val _beltStateFlow = MutableStateFlow(PredictedStrategyValue())
+    val beltStateFlow: StateFlow<PredictedStrategyValue> = _cPredictionStateFlow.asStateFlow()
+
+    private var _isBeltMode : Boolean = false
+
     // Timer state moved to ViewModel
     private val _elapsedTime = MutableStateFlow(0) // 秒
     val elapsedTime: StateFlow<Int> = _elapsedTime.asStateFlow()
@@ -60,7 +65,6 @@ class InputViewModel : ViewModel() {
     val soundEvent = _soundEvent.asSharedFlow()
 
     private var timerJob: Job? = null
-    private val maxSeconds = 45 * 60
 
     // 控制计时器：切换/复位/关闭提醒
     fun toggleTimer() {
@@ -102,12 +106,12 @@ class InputViewModel : ViewModel() {
     private fun startTimer() {
         stopTimerJob()
         timerJob = viewModelScope.launch {
-            while (_timerStatus.value == TimerStatus.Running && _elapsedTime.value < maxSeconds) {
+            while (_timerStatus.value == TimerStatus.Running && _elapsedTime.value < MAX_SECONDS) {
                 delay(1000)
                 // 使用原子 update，避免竞态
                 _elapsedTime.update { it + 1 }
             }
-            if (_elapsedTime.value >= maxSeconds) {
+            if (_elapsedTime.value >= MAX_SECONDS) {
                 _timerStatus.value = TimerStatus.Finished
                 _showReminder.value = true
                 _soundEvent.emit(Unit)
@@ -335,10 +339,17 @@ class InputViewModel : ViewModel() {
 
     fun betB() {
         _betList.add(InputType.BET_B)
+        updateBeltData()
     }
+
 
     fun betP() {
         _betList.add(InputType.BET_P)
+        updateBeltData()
+    }
+
+    private fun updateBeltData() {
+        _isBeltMode = true
     }
 
     fun removeLastBet() {
@@ -346,6 +357,7 @@ class InputViewModel : ViewModel() {
     }
 
     companion object {
+        private const val MAX_SECONDS = 45 * 60
         private val DEFAULT_PREDICTION = PredictedStrategyValue()
         private val DEFAULT_STRATEGYDATA = StrategyData()
         private val DEFAULT_BPCOUNTER = BpCounter()
