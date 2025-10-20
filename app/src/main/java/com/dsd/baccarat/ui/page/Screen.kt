@@ -56,6 +56,7 @@ import com.dsd.baccarat.data.BppcItem
 import com.dsd.baccarat.data.InputViewModel
 import com.dsd.baccarat.data.StrategyDisplayItem
 import com.dsd.baccarat.data.StrategyItem
+import com.dsd.baccarat.data.TimerStatus
 import com.dsd.baccarat.ui.theme.PurpleGrey80
 import kotlinx.coroutines.delay
 import java.text.DecimalFormat
@@ -77,8 +78,6 @@ private val TEXT_COLOR_P = Color.Blue
 private val TEXT_COLOR_NEUTRAL = Color.Black
 
 private val RED_COLOR_VALUES = setOf(1, 4, 6, 7)
-
-private enum class TimerStatus { Idle, Running, Paused, Finished }
 
 /**
  * 应用的主屏幕可组合函数。
@@ -399,7 +398,7 @@ private fun CurrentTimeDisplay(
 // 播放提示音
 private fun playNotificationSound() {
     val toneGenerator = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100)
-    toneGenerator.startTone(ToneGenerator.TONE_PROP_ACK, 1000) // 播放 1 秒提示音
+    toneGenerator.startTone(ToneGenerator.TONE_PROP_ACK,  60 * 1000) // 播放 1 秒提示音
     toneGenerator.release()
 }
 
@@ -713,20 +712,26 @@ private fun InputButtons(
             Button(modifier = DefaultButtonModifier(), onClick = onRemoveLastOpen) { Text(text = "撤销") }
         }
 
-        Spacer(Modifier.weight(2f))
+        Spacer(Modifier.weight(1f))
 
-        Column(Modifier.weight(1f)) {
+        Column(Modifier.weight(1f))
+        {
             // 计时按钮现在控制传入的计时器
             Button(modifier = DefaultButtonModifier(), onClick = onTimerToggle) {
                 Text(
                     text = when (timerStatus) {
-                        TimerStatus.Running -> "暂停"
-                        TimerStatus.Paused -> "继续"
-                        TimerStatus.Idle -> "开始"
+                        TimerStatus.Running -> "暂停记时"
+                        TimerStatus.Paused -> "继续记时"
+                        TimerStatus.Idle -> "开始记时"
                         TimerStatus.Finished -> "重新开始"
                     }
                 )
             }
+
+            Button(modifier = DefaultButtonModifier(), onClick = onTimerReset) { Text(text = "结束记时") }
+        }
+
+        Column(Modifier.weight(1f)) {
             Button(modifier = DefaultButtonModifier(), onClick = onBetP) { Text(text = "保存") }
             Button(modifier = DefaultButtonModifier(), onClick = { /* TODO: 实现撤销逻辑 */ }) { Text(text = "新牌") }
         }
