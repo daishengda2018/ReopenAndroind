@@ -1,16 +1,23 @@
+// kotlin
 package com.dsd.baccarat.data
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.dsd.baccarat.ui.page.MIN_TABLE_COLUMN_COUNT
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 class InputViewModel : ViewModel() {
 
-    private var _opendList: MutableList<InputType> = mutableListOf()
+    private var _openList: MutableList<InputType> = mutableListOf()
     private var _betList: MutableList<InputType> = mutableListOf()
 
     private val _bppcTableStateFlow = MutableStateFlow<List<BppcDisplayItem>>(DEFAULT_BPPCDISPLAY_LIST)
@@ -28,7 +35,7 @@ class InputViewModel : ViewModel() {
     private val _cStrategyStateFlow = MutableStateFlow(StrategyData())
     val cStrategyStateFlow: StateFlow<StrategyData> = _cStrategyStateFlow.asStateFlow()
 
-    // 新增：每列的动态预告 StateFlow（null 表示未知）
+    // 每列的动态预告 StateFlow（null 表示未知）
     private val _aPredictionStateFlow = MutableStateFlow(PredictedStrategyValue())
     val aPredictionStateFlow: StateFlow<PredictedStrategyValue> = _aPredictionStateFlow.asStateFlow()
 
@@ -38,21 +45,100 @@ class InputViewModel : ViewModel() {
     private val _cPredictionStateFlow = MutableStateFlow(PredictedStrategyValue())
     val cPredictionStateFlow: StateFlow<PredictedStrategyValue> = _cPredictionStateFlow.asStateFlow()
 
+    // Timer state moved to ViewModel
+    private val _elapsedTime = MutableStateFlow(0) // 秒
+    val elapsedTime: StateFlow<Int> = _elapsedTime.asStateFlow()
+
+    private val _timerStatus = MutableStateFlow(TimerStatus.Idle)
+    val timerStatus: StateFlow<TimerStatus> = _timerStatus.asStateFlow()
+
+    private val _showReminder = MutableStateFlow(false)
+    val showReminder: StateFlow<Boolean> = _showReminder.asStateFlow()
+
+    // 用于通知 UI 播放提示音（UI 层收集并调用 Android API）
+    private val _soundEvent = MutableSharedFlow<Unit>()
+    val soundEvent = _soundEvent.asSharedFlow()
+
+    private var timerJob: Job? = null
+    private val maxSeconds = 45 * 60
+
+    // 控制计时器：切换/复位/关闭提醒
+    fun toggleTimer() {
+        when (_timerStatus.value) {
+            TimerStatus.Idle -> {
+                _elapsedTime.value = 0
+                _showReminder.value = false
+                _timerStatus.value = TimerStatus.Running
+                startTimer()
+            }
+            TimerStatus.Running -> {
+                _timerStatus.value = TimerStatus.Paused
+                stopTimerJob()
+            }
+            TimerStatus.Paused -> {
+                _timerStatus.value = TimerStatus.Running
+                startTimer()
+            }
+            TimerStatus.Finished -> {
+                _elapsedTime.value = 0
+                _showReminder.value = false
+                _timerStatus.value = TimerStatus.Running
+                startTimer()
+            }
+        }
+    }
+
+    fun resetTimer() {
+        stopTimerJob()
+        _elapsedTime.value = 0
+        _timerStatus.value = TimerStatus.Idle
+        _showReminder.value = false
+    }
+
+    fun dismissReminder() {
+        _showReminder.value = false
+    }
+
+    private fun startTimer() {
+        stopTimerJob()
+        timerJob = viewModelScope.launch {
+            while (_timerStatus.value == TimerStatus.Running && _elapsedTime.value < maxSeconds) {
+                delay(1000)
+                // 使用原子 update，避免竞态
+                _elapsedTime.update { it + 1 }
+            }
+            if (_elapsedTime.value >= maxSeconds) {
+                _timerStatus.value = TimerStatus.Finished
+                _showReminder.value = true
+                _soundEvent.emit(Unit)
+            }
+        }
+    }
+
+    private fun stopTimerJob() {
+        timerJob?.cancel()
+        timerJob = null
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        stopTimerJob()
+    }
+
     fun openB() {
-        _opendList.add(InputType.B)
+        _openList.add(InputType.B)
         updateOpenData()
     }
 
     fun openP() {
-        _opendList.add(InputType.P)
+        _openList.add(InputType.P)
         updateOpenData()
     }
 
-    // Kotlin
-    fun removeLasOpen() {
-        _opendList.removeLastOrNull() ?: return
+    fun removeLastOpen() {
+        _openList.removeLastOrNull() ?: return
 
-        // 重置展示相关状态： 数据量不大，不考虑性能，否则代码将会很复杂
+        // 重置展示相关状态
         _bppcTableStateFlow.value = DEFAULT_BPPCDISPLAY_LIST
         _bpCounterStateFlow.value = DEFAULT_BPCOUNTER
         _aStrategyStateFlow.value = DEFAULT_STRATEGYDATA
@@ -62,83 +148,71 @@ class InputViewModel : ViewModel() {
         _bPredictionStateFlow.value = DEFAULT_PREDICTION
         _cPredictionStateFlow.value = DEFAULT_PREDICTION
 
-        // 在删除最近一项后，按原来“加入时”的逻辑从头按顺序重建表格、计数器和策略
-        // 但只有在索引到达第 3 个及以后时才触发表格/策略的更新（避免不足三项时错误计算）。
-        for (i in _opendList.indices) {
+        // 从头重建（仅在 i >= 2 时触发表格/策略更新）
+        for (i in _openList.indices) {
             if (i >= 2) {
-                // 取最后三项输入
-                val last3 = _opendList.subList(0, i + 1).takeLast(3)
-                // 与添加时一致：在第三项及之后才更新计数、表格与策略
-                updateBpCounter(_opendList[i])
+                val last3 = _openList.subList(0, i + 1).takeLast(3)
+                updateBpCounter(_openList[i])
                 val filledColumn = updateBppcTable(last3)
                 updateStrategyData(last3, filledColumn)
             }
         }
 
-        // 重建完成后更新预测（若不足 1 项则已置为默认）
-        if (_opendList.isNotEmpty()) {
+        if (_openList.isNotEmpty()) {
             updateAllPredictions()
         }
     }
 
-
     private fun updateOpenData() {
         updateAllPredictions()
 
-        val last3Inputs = _opendList.takeLast(3)
+        val last3Inputs = _openList.takeLast(3)
         if (last3Inputs.size >= 3) {
             Log.d("InputViewModel", "Current Inputs: $last3Inputs")
-            updateBpCounter(_opendList.last())
+            updateBpCounter(_openList.last())
             val filledColumn = updateBppcTable(last3Inputs)
             updateStrategyData(last3Inputs, filledColumn)
         }
     }
 
     /**
-     * [核心优化] 结合了您的配置列表和我之前的简洁计算逻辑。
+     * 优化：避免重复计算，逻辑更清晰
      */
     private fun updateAllPredictions() {
-        if (_opendList.isEmpty()) return // 空列表直接返回，避免索引越界
+        if (_openList.isEmpty()) return
 
         _aPredictionStateFlow.value = DEFAULT_PREDICTION
         _bPredictionStateFlow.value = DEFAULT_PREDICTION
         _cPredictionStateFlow.value = DEFAULT_PREDICTION
 
-        val lastIndex = _opendList.lastIndex
-        if (lastIndex % 3 == 0) {
-            if (_opendList.size > 3) {
-                _cPredictionStateFlow.value = predictNextStrategyValue("3", _opendList)
+        val lastIndex = _openList.lastIndex
+        when (lastIndex % 3) {
+            0 -> {
+                if (_openList.size > 3) _cPredictionStateFlow.value = predictNextStrategyValue("3", _openList)
+                _aPredictionStateFlow.value = predictNextStrategyValue("2", _openList)
             }
-            _aPredictionStateFlow.value = predictNextStrategyValue("2", _opendList)
-
-        } else if (lastIndex % 3 == 1) {
-            _aPredictionStateFlow.value = predictNextStrategyValue("3", _opendList)
-            _bPredictionStateFlow.value = predictNextStrategyValue("2", _opendList)
-        } else if (lastIndex % 3 == 2) {
-            _bPredictionStateFlow.value = predictNextStrategyValue("3", _opendList)
-            _cPredictionStateFlow.value = predictNextStrategyValue("2", _opendList)
+            1 -> {
+                _aPredictionStateFlow.value = predictNextStrategyValue("3", _openList)
+                _bPredictionStateFlow.value = predictNextStrategyValue("2", _openList)
+            }
+            2 -> {
+                _bPredictionStateFlow.value = predictNextStrategyValue("3", _openList)
+                _cPredictionStateFlow.value = predictNextStrategyValue("2", _openList)
+            }
         }
     }
 
     /**
-     * 根据策略值预测下一次输入的函数，便于后续实现和维护。
+     * 将预测逻辑做少量简化，便于阅读
      */
     private fun predictNextStrategyValue(title: String, inputHistory: MutableList<InputType>): PredictedStrategyValue {
         val lastInput = inputHistory.last()
-        // 判断最后一个输入的索引是否为偶数
         val isLastIndexEven = inputHistory.lastIndex % 2 == 0
         fun flip(input: InputType) = if (input == InputType.B) InputType.P else InputType.B
 
-        // 第2位与第1位相同，第3位与第2位相同；
         val strategy12 = lastInput.toString()
-
-        // 第2位与第1位相反，第3位与第2位相反；
         val strategy56 = flip(lastInput).toString()
-
-        // 第2位与第1位相反，第3位与第2位相同；
         val strategy34 = (if (isLastIndexEven) lastInput else flip(lastInput)).toString()
-
-        // 第2位与第1位相同，第3位与第2位相反；
         val strategy78 = (if (isLastIndexEven) flip(lastInput) else lastInput).toString()
 
         return PredictedStrategyValue(title, strategy12, strategy34, strategy56, strategy78)
@@ -154,10 +228,6 @@ class InputViewModel : ViewModel() {
         }
     }
 
-    /**
-     * 专门负责更新 BppcTable 的函数，逻辑清晰。
-     * 使用 .update 来保证原子性，内部逻辑简洁。
-     */
     private fun updateBppcTable(last3Inputs: List<InputType>): ColumnType? {
         val inputCombination = last3Inputs.joinToString("")
         val result = inputCombinationToResult[inputCombination] ?: return null
@@ -169,40 +239,30 @@ class InputViewModel : ViewModel() {
             val lastRealIndex = updatedList.indexOfLast { it is BppcDisplayItem.Real }
 
             if (lastRealIndex == -1) {
-                // 情况1：列表为空，在第一位创建新项
                 updatedList[0] = BppcDisplayItem.Real(BppcItem(dataA = result))
                 filledColumn = ColumnType.A
             } else {
                 val lastRealItem = updatedList[lastRealIndex] as BppcDisplayItem.Real
                 val currentData = lastRealItem.data
 
-                // 情况2：最后一个 Real 项有空位，更新它
                 when {
                     currentData.dataA == null -> {
                         updatedList[lastRealIndex] = lastRealItem.copy(data = currentData.copy(dataA = result))
                         filledColumn = ColumnType.A
                     }
-
                     currentData.dataB == null -> {
                         updatedList[lastRealIndex] = lastRealItem.copy(data = currentData.copy(dataB = result))
                         filledColumn = ColumnType.B
                     }
-
                     currentData.dataC == null -> {
                         updatedList[lastRealIndex] = lastRealItem.copy(data = currentData.copy(dataC = result))
                         filledColumn = ColumnType.C
                     }
-
                     else -> {
-                        // 情况3：最后一个 Real 项已满，在其后添加新项
                         val insertIndex = lastRealIndex + 1
                         updatedList.add(insertIndex, BppcDisplayItem.Real(BppcItem(dataA = result)))
                         filledColumn = ColumnType.A
-
-                        // 保持列表长度
-                        if (updatedList.size > MIN_TABLE_COLUMN_COUNT) {
-                            updatedList.removeLastOrNull()
-                        }
+                        if (updatedList.size > MIN_TABLE_COLUMN_COUNT) updatedList.removeLastOrNull()
                     }
                 }
             }
@@ -211,9 +271,6 @@ class InputViewModel : ViewModel() {
         return filledColumn
     }
 
-    /**
-     * 将策略更新分发到正确的 StateFlow。
-     */
     private fun updateStrategyData(last3Inputs: List<InputType>, filledColumn: ColumnType?) {
         val targetFlow = when (filledColumn) {
             ColumnType.A -> _aStrategyStateFlow
@@ -232,9 +289,6 @@ class InputViewModel : ViewModel() {
         }
     }
 
-    /**
-     * 专门负责更新单个策略列表的函数，逻辑与 updateBppcTable 类似但更简单。
-     */
     private fun updateSingleStrategyList(
         type: StrategyType,
         currentList: List<StrategyDisplayItem>,
@@ -245,29 +299,22 @@ class InputViewModel : ViewModel() {
         val lastRealIndex = updatedList.indexOfLast { it is StrategyDisplayItem.Real }
 
         if (lastRealIndex == -1) {
-            // 情况1：列表为空
             updatedList[0] = StrategyDisplayItem.Real(StrategyItem(strategy1 = newValue))
         } else {
             val lastRealItem = updatedList[lastRealIndex] as StrategyDisplayItem.Real
             val currentData = lastRealItem.data
 
-            // 情况2：最后一个 Real 项有空位
             when {
                 currentData.strategy1 == null -> {
                     updatedList[lastRealIndex] = lastRealItem.copy(data = currentData.copy(strategy1 = newValue))
                 }
-
                 currentData.strategy2 == null -> {
                     updatedList[lastRealIndex] = lastRealItem.copy(data = currentData.copy(strategy2 = newValue))
                 }
-
                 else -> {
-                    // 情况3：最后一个 Real 项已满
                     val insertIndex = lastRealIndex + 1
                     updatedList.add(insertIndex, StrategyDisplayItem.Real(StrategyItem(strategy1 = newValue)))
-                    if (updatedList.size > MIN_TABLE_COLUMN_COUNT) {
-                        updatedList.removeLastOrNull()
-                    }
+                    if (updatedList.size > MIN_TABLE_COLUMN_COUNT) updatedList.removeLastOrNull()
                 }
             }
         }

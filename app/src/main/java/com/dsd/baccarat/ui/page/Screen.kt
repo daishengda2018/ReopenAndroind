@@ -28,12 +28,10 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -58,12 +56,12 @@ import com.dsd.baccarat.data.StrategyDisplayItem
 import com.dsd.baccarat.data.StrategyItem
 import com.dsd.baccarat.data.TimerStatus
 import com.dsd.baccarat.ui.theme.PurpleGrey80
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-// [优化点] 常量在顶部统一组织，清晰明了。
+//  常量在顶部统一组织，清晰明了。
 const val MIN_TABLE_COLUMN_COUNT = 30
 
 private val ITEM_SIZE = 22.dp
@@ -84,54 +82,16 @@ private val RED_COLOR_VALUES = setOf(1, 4, 6, 7)
  */
 @Composable
 fun Screen(viewModel: InputViewModel) {
-    // 计时器状态提升到 Screen
-    var elapsedTime by remember { mutableIntStateOf(0) } // 秒
-    var timerStatus by remember { mutableStateOf(TimerStatus.Idle) }
-    var showReminder by remember { mutableStateOf(false) }
+    // 从 ViewModel 收集计时相关状态（计时逻辑已迁移到 ViewModel）
+    val elapsedTime = viewModel.elapsedTime.collectAsStateWithLifecycle().value
+    val timerStatus = viewModel.timerStatus.collectAsStateWithLifecycle().value
+    val showReminder = viewModel.showReminder.collectAsStateWithLifecycle().value
 
-    // 启动/恢复计时逻辑：当 timerStatus 变为 Running 时启动循环；Paused/Idle 会停止循环。
-    LaunchedEffect(timerStatus) {
-        if (timerStatus == TimerStatus.Running) {
-            while (timerStatus == TimerStatus.Running && elapsedTime < 45 * 60) {
-                delay(1000)
-                elapsedTime++
-            }
-            if (elapsedTime >= 45 * 60) {
-                timerStatus = TimerStatus.Finished
-                showReminder = true
-                playNotificationSound()
-            }
-        }
-    }
-
-    // 提供给按钮的回调
-    val toggleTimer: () -> Unit = {
-        when (timerStatus) {
-            TimerStatus.Idle -> {
-                elapsedTime = 0
-                timerStatus = TimerStatus.Running
-            }
-
-            TimerStatus.Running -> timerStatus = TimerStatus.Paused
-            TimerStatus.Paused -> timerStatus = TimerStatus.Running
-            TimerStatus.Finished -> {
-                // 结束后再次点击视为重启
-                elapsedTime = 0
-                showReminder = false
-                timerStatus = TimerStatus.Running
-            }
-        }
-    }
-    val resetTimer: () -> Unit = {
-        elapsedTime = 0
-        timerStatus = TimerStatus.Idle
-        showReminder = false
-    }
-
-    // [优化点] 在此处进行状态提升 (State Hoisting)。这个唯一的 listState 实例将被传递给所有
-    // LazyRow，从而确保它们同步滚动。这是解决同步滚动的关键。
+    // 使用独立的可组合函数来管理提示音的创建/释放与播放
+    NotificationSoundEffect(soundFlow = viewModel.soundEvent)
+    
+    //  在此处进行状态提升 (State Hoisting)。
     val synchronizedListState = rememberLazyListState()
-    // [优化点] 在顶层统一收集所有 StateFlow 状态。
     val bppcTableData = viewModel.bppcTableStateFlow.collectAsStateWithLifecycle().value
     val bppcCounter = viewModel.bppcCounterStateFlow.collectAsStateWithLifecycle().value
     val aStrategyData = viewModel.aStrategyStateFlow.collectAsStateWithLifecycle().value
@@ -173,7 +133,7 @@ fun Screen(viewModel: InputViewModel) {
                         elapsedTime = elapsedTime,
                         timerStatus = timerStatus,
                         showReminder = showReminder,
-                        onDismissReminder = { showReminder = false })
+                        onDismissReminder = { viewModel.dismissReminder() })
                 }
 
                 Row(Modifier.fillMaxWidth()) {
@@ -239,7 +199,7 @@ fun Screen(viewModel: InputViewModel) {
                     )
                 }
 
-                // [优化点] 复用 BppcTable 组件。
+                //  复用 BppcTable 组件。
                 Table(
                     items = bppcTableData,
                     listState = synchronizedListState,
@@ -282,21 +242,38 @@ fun Screen(viewModel: InputViewModel) {
                 InputButtons(
                     onOpenB = { viewModel.openB() },
                     onOpenP = { viewModel.openP() },
-                    onRemoveLastOpen = { viewModel.removeLasOpen() },
+                    onRemoveLastOpen = { viewModel.removeLastOpen() },
                     onBetB = { viewModel.betB() },
                     onBetP = { viewModel.betP() },
                     onRemoveLastBet = { viewModel.removeLastBet() },
+                    onTimerToggle = { viewModel.toggleTimer() },
+                    onTimerReset = { viewModel.resetTimer() },
                     timerStatus = timerStatus,
-                    onTimerToggle = toggleTimer,
-                    onTimerReset = resetTimer
                 )
             }
         }
     }
 }
 
+@Composable
+private fun NotificationSoundEffect(soundFlow: kotlinx.coroutines.flow.SharedFlow<Unit>) {
+    val toneGenerator = remember { ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100) }
+    DisposableEffect(Unit) {
+        onDispose {
+            toneGenerator.release()
+        }
+    }
+
+    LaunchedEffect(soundFlow) {
+        soundFlow.collectLatest {
+            // 播放 1 秒提示音（1000ms）
+            toneGenerator.startTone(ToneGenerator.TONE_PROP_ACK, 1000)
+        }
+    }
+}
+
 /**
- * [优化点] 将 BPPCounter 和 WLCounter 合并为一个可复用的 CounterDisplay 可组合函数。
+ *  将 BPPCounter 和 WLCounter 合并为一个可复用的 CounterDisplay 可组合函数。
  */
 @Composable
 private fun CounterDisplay(
@@ -399,7 +376,6 @@ private fun CurrentTimeDisplay(
 private fun playNotificationSound() {
     val toneGenerator = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100)
     toneGenerator.startTone(ToneGenerator.TONE_PROP_ACK,  60 * 1000) // 播放 1 秒提示音
-    toneGenerator.release()
 }
 
 @Composable
@@ -418,7 +394,7 @@ private fun BppcTableTitles() {
 }
 
 /**
- * [优化点] 合并了 TableAndChart 和 WsrTable。现在通过参数控制是否显示图表，增强了复用性。
+ *  合并了 TableAndChart 和 WsrTable。现在通过参数控制是否显示图表，增强了复用性。
  */
 @Composable
 private fun Table(
@@ -565,7 +541,7 @@ private fun determineColor(value: Int?): Color {
 }
 
 /**
- * [优化点] 将 Canvas 绘制逻辑提取到独立的可组合函数中，使 BppcTable 更简洁。
+ *  将 Canvas 绘制逻辑提取到独立的可组合函数中，使 BppcTable 更简洁。
  */
 @Composable
 fun VerticalBarChart(value: Int?) {
@@ -676,7 +652,7 @@ fun TextItem(
 }
 
 /**
- * [优化点] 输入按钮现在通过 lambda 表达式接收回调，从而与 ViewModel 解耦，提升了组件的独立性。
+ *  输入按钮现在通过 lambda 表达式接收回调，从而与 ViewModel 解耦，提升了组件的独立性。
  */
 @Composable
 private fun InputButtons(
