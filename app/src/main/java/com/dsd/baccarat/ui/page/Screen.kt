@@ -26,6 +26,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonColors
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,16 +52,17 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.dsd.baccarat.data.Counter
-import com.dsd.baccarat.data.TableDisplayItem
-import com.dsd.baccarat.data.TableItem
 import com.dsd.baccarat.data.ColumnType
+import com.dsd.baccarat.data.Counter
+import com.dsd.baccarat.data.InputType
 import com.dsd.baccarat.data.InputViewModel
 import com.dsd.baccarat.data.InputViewModel.Companion.MIN_TABLE_COLUMN_COUNT
 import com.dsd.baccarat.data.PredictedStrategyValue
 import com.dsd.baccarat.data.StrategyData
 import com.dsd.baccarat.data.StrategyDisplayItem
 import com.dsd.baccarat.data.StrategyItem
+import com.dsd.baccarat.data.TableDisplayItem
+import com.dsd.baccarat.data.TableItem
 import com.dsd.baccarat.data.TimerStatus
 import com.dsd.baccarat.ui.theme.PurpleGrey80
 import kotlinx.coroutines.flow.collectLatest
@@ -97,6 +100,7 @@ fun Screen(viewModel: InputViewModel) {
     val bppcTableData = viewModel.bppcTableStateFlow.collectAsStateWithLifecycle().value
     val bppcCounter = viewModel.bppcCounterStateFlow.collectAsStateWithLifecycle().value
     val wlTableData = viewModel.wlTableStateFlow.collectAsStateWithLifecycle().value
+    val beltInputState = viewModel.beltInputStageFlow.collectAsStateWithLifecycle().value
 
     val strategyDataList = viewModel.strategyStateFlowList.map { it.collectAsStateWithLifecycle().value }
     val predictedDataList = viewModel.predictedStateFlowList.map { it.collectAsStateWithLifecycle().value }
@@ -140,7 +144,8 @@ fun Screen(viewModel: InputViewModel) {
                 strategyDataList,
                 predictedDataList,
                 viewModel,
-                timerStatus
+                timerStatus,
+                beltInputState
             )
         }
     }
@@ -211,7 +216,8 @@ private fun RowScope.RightSide(
     strategyDataList: List<StrategyData>,
     predictedDataList: List<PredictedStrategyValue>,
     viewModel: InputViewModel,
-    timerStatus: TimerStatus
+    timerStatus: TimerStatus,
+    beltInputState: InputType?
 ) {
     Column(
         Modifier
@@ -263,17 +269,7 @@ private fun RowScope.RightSide(
 
         // 使用一个带权重的 Spacer 将按钮推到底部
         Spacer(Modifier.weight(1f))
-        InputButtons(
-            onOpenB = { viewModel.openB() },
-            onOpenP = { viewModel.openP() },
-            onRemoveLastOpen = { viewModel.removeLastOpen() },
-            onBetB = { viewModel.betB() },
-            onBetP = { viewModel.betP() },
-            onRemoveLastBet = { viewModel.removeLastBet() },
-            onTimerToggle = { viewModel.toggleTimer() },
-            onTimerReset = { viewModel.resetTimer() },
-            timerStatus = timerStatus,
-        )
+        InputButtons(viewModel, timerStatus, beltInputState)
     }
 }
 
@@ -676,22 +672,18 @@ fun TextItem(
  *  输入按钮现在通过 lambda 表达式接收回调，从而与 ViewModel 解耦，提升了组件的独立性。
  */
 @Composable
-private fun InputButtons(
-    onOpenB: () -> Unit,
-    onOpenP: () -> Unit,
-    onRemoveLastOpen: () -> Unit,
-    onBetB: () -> Unit,
-    onBetP: () -> Unit,
-    onRemoveLastBet: () -> Unit,
-    timerStatus: TimerStatus,
-    onTimerToggle: () -> Unit,
-    onTimerReset: () -> Unit,
-) {
+private fun InputButtons(viewModel: InputViewModel, timerStatus: TimerStatus, beltInputState: InputType?) {
+    // 选中时的背景色（高亮）
+    val buttonColors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3)) // 蓝色背景
+
+
     @Composable
-    fun ColumnScope.DefaultButtonModifier(): Modifier = Modifier
-        .padding(3.dp)
-        .fillMaxWidth()
-        .weight(1f)
+    fun ColumnScope.DefaultButtonModifier(): Modifier = remember {
+        Modifier
+            .padding(3.dp)
+            .fillMaxWidth()
+            .weight(1f)
+    }
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -700,7 +692,7 @@ private fun InputButtons(
         Column(Modifier.weight(1f))
         {
             // 计时按钮现在控制传入的计时器
-            Button(modifier = DefaultButtonModifier(), onClick = onTimerToggle) {
+            Button(modifier = DefaultButtonModifier(), onClick = { viewModel.toggleTimer() }) {
                 Text(
                     text = when (timerStatus) {
                         TimerStatus.Running -> "暂停记时"
@@ -711,26 +703,54 @@ private fun InputButtons(
                 )
             }
 
-            Button(modifier = DefaultButtonModifier(), onClick = onTimerReset) { Text(text = "结束记时") }
+            Button(modifier = DefaultButtonModifier(), onClick = { viewModel.toggleTimer() }) { Text(text = "结束记时") }
         }
 
         Column(Modifier.weight(1f)) {
-            Button(modifier = DefaultButtonModifier(), onClick = onBetP) { Text(text = "保存") }
+            Button(modifier = DefaultButtonModifier(), onClick = { /* TODO: 实现撤销逻辑 */ }) { Text(text = "保存") }
             Button(modifier = DefaultButtonModifier(), onClick = { /* TODO: 实现撤销逻辑 */ }) { Text(text = "新牌") }
         }
 
         Spacer(Modifier.weight(1f))
 
         Column(Modifier.weight(1f)) {
-            Button(modifier = DefaultButtonModifier(), onClick = onBetB) { Text(text = "押 B") }
-            Button(modifier = DefaultButtonModifier(), onClick = onBetP) { Text(text = "押 P") }
-            Button(modifier = DefaultButtonModifier(), onClick = onRemoveLastBet) { Text(text = "撤销") }
+            when (beltInputState) {
+                null -> {
+                    Button(modifier = DefaultButtonModifier(), onClick = { viewModel.betB() }) { Text(text = "押 B") }
+                    Button(modifier = DefaultButtonModifier(), onClick = { viewModel.betP() }) { Text(text = "押 P") }
+                }
+
+                InputType.B -> {
+                    Button(
+                        modifier = DefaultButtonModifier(),
+                        enabled = true,
+                        colors = buttonColors,
+                        onClick = { viewModel.betB() }) { Text(text = "押 B 中") }
+                    Button(
+                        modifier = DefaultButtonModifier(),
+                        enabled = false,
+                        onClick = { viewModel.betP() }) { Text(text = "押 P") }
+                }
+
+                InputType.P -> {
+                    Button(
+                        modifier = DefaultButtonModifier(),
+                        enabled = false,
+                        onClick = { viewModel.betB() }) { Text(text = "押 B") }
+                    Button(
+                        modifier = DefaultButtonModifier(),
+                        enabled = true,
+                        colors = buttonColors,
+                        onClick = { viewModel.betP() }) { Text(text = "押 P 中") }
+                }
+            }
+            Button(modifier = DefaultButtonModifier(), onClick = { viewModel.removeLastBet() }) { Text(text = "撤销") }
         }
 
         Column(Modifier.weight(1f)) {
-            Button(modifier = DefaultButtonModifier(), onClick = onOpenB) { Text(text = "开 B") }
-            Button(modifier = DefaultButtonModifier(), onClick = onOpenP) { Text(text = "开 P") }
-            Button(modifier = DefaultButtonModifier(), onClick = onRemoveLastOpen) { Text(text = "撤销") }
+            Button(modifier = DefaultButtonModifier(), onClick = { viewModel.openB() }) { Text(text = "开 B") }
+            Button(modifier = DefaultButtonModifier(), onClick = { viewModel.openP() }) { Text(text = "开 P") }
+            Button(modifier = DefaultButtonModifier(), onClick = { viewModel.removeLastOpen() }) { Text(text = "撤销") }
         }
     }
 }

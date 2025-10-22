@@ -16,8 +16,6 @@ import kotlinx.coroutines.launch
 
 class InputViewModel : ViewModel() {
 
-    private var _curBeltInput: InputType? = null
-
     private var _openInputList: MutableList<InputType> = mutableListOf()
 
     private var _betResultList: MutableList<BeltResultType> = mutableListOf()
@@ -41,15 +39,14 @@ class InputViewModel : ViewModel() {
     private val _predictionStateFlowList = List(MAX_COLUMN) { MutableStateFlow(PredictedStrategyValue()) }
     val predictedStateFlowList: List<StateFlow<PredictedStrategyValue>> = _predictionStateFlowList.map { it.asStateFlow() }
 
-    private val _beltStateFlow = MutableStateFlow(PredictedStrategyValue())
-    val beltStateFlow: StateFlow<PredictedStrategyValue> = _beltStateFlow.asStateFlow()
+    val beltInputStageFlow: MutableStateFlow<InputType?> = MutableStateFlow(null)
 
     // Timer state moved to ViewModel
-    private val _elapsedTime = MutableStateFlow(0) // 秒
-    val elapsedTime: StateFlow<Int> = _elapsedTime.asStateFlow()
-
     private val _timerStatus = MutableStateFlow(TimerStatus.Idle)
     val timerStatus: StateFlow<TimerStatus> = _timerStatus.asStateFlow()
+
+    private val _elapsedTime = MutableStateFlow(0) // 秒
+    val elapsedTime: StateFlow<Int> = _elapsedTime.asStateFlow()
 
     private val _showReminder = MutableStateFlow(false)
     val showReminder: StateFlow<Boolean> = _showReminder.asStateFlow()
@@ -151,10 +148,11 @@ class InputViewModel : ViewModel() {
     }
 
     private fun updateWlTable() {
-        if (_curBeltInput == null) {
+        val inputType = beltInputStageFlow.value
+        if (inputType == null) {
             return
         }
-        if (_openInputList.last() == _curBeltInput) {
+        if (_openInputList.last() == inputType) {
             _betResultList.add(BeltResultType.W)
         } else {
             _betResultList.add(BeltResultType.L)
@@ -162,20 +160,20 @@ class InputViewModel : ViewModel() {
 
         val last3Inputs = _betResultList.takeLast(3)
         if (last3Inputs.size < 3) {
-            _curBeltInput = null
+            beltInputStageFlow.update { null }
             return
         }
 
         val inputCombination = last3Inputs.joinToString("")
         val result = wlCombinationToResult[inputCombination] ?: run {
-            _curBeltInput = null
+            beltInputStageFlow.update { null }
             return
         }
 
         Log.d("InputViewModel", "Current Inputs: $last3Inputs")
         updateCounter(_wlCounterStateFlow, _openInputList.last())
         updateTableStageFlow(_wlTableStateFlow, result)
-        _curBeltInput = null
+        beltInputStageFlow.update { null }
     }
 
     /**
@@ -357,13 +355,12 @@ class InputViewModel : ViewModel() {
     }
 
     fun betB() {
-        _curBeltInput = InputType.B
+        beltInputStageFlow.update { InputType.B }
         updateBeltData()
     }
 
-
     fun betP() {
-        _curBeltInput = InputType.P
+        beltInputStageFlow.update { InputType.P }
         updateBeltData()
     }
 
