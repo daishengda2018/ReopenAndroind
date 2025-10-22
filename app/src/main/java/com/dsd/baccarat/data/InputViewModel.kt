@@ -26,27 +26,15 @@ class InputViewModel : ViewModel() {
     private val _bpCounterStateFlow = MutableStateFlow(BpCounter())
     val bppcCounterStateFlow: StateFlow<BpCounter> = _bpCounterStateFlow.asStateFlow()
 
-    private val _aStrategyStateFlow = MutableStateFlow(StrategyData())
-    val aStrategyStateFlow: StateFlow<StrategyData> = _aStrategyStateFlow.asStateFlow()
-
-    private val _bStrategyStateFlow = MutableStateFlow(StrategyData())
-    val bStrategyStateFlow: StateFlow<StrategyData> = _bStrategyStateFlow.asStateFlow()
-
-    private val _cStrategyStateFlow = MutableStateFlow(StrategyData())
-    val cStrategyStateFlow: StateFlow<StrategyData> = _cStrategyStateFlow.asStateFlow()
+    private val _strategyStateFlowList = List(MAX_COLUMN) { MutableStateFlow(StrategyData()) }
+    val strategyStateFlowList: List<StateFlow<StrategyData>> = _strategyStateFlowList.map { it.asStateFlow() }
 
     // 每列的动态预告 StateFlow（null 表示未知）
-    private val _aPredictionStateFlow = MutableStateFlow(PredictedStrategyValue())
-    val aPredictionStateFlow: StateFlow<PredictedStrategyValue> = _aPredictionStateFlow.asStateFlow()
-
-    private val _bPredictionStateFlow = MutableStateFlow(PredictedStrategyValue())
-    val bPredictionStateFlow: StateFlow<PredictedStrategyValue> = _bPredictionStateFlow.asStateFlow()
-
-    private val _cPredictionStateFlow = MutableStateFlow(PredictedStrategyValue())
-    val cPredictionStateFlow: StateFlow<PredictedStrategyValue> = _cPredictionStateFlow.asStateFlow()
+    private val _predictionStateFlowList = List(MAX_COLUMN) { MutableStateFlow(PredictedStrategyValue()) }
+    val predictedStateFlowList: List<StateFlow<PredictedStrategyValue>> = _predictionStateFlowList.map { it.asStateFlow() }
 
     private val _beltStateFlow = MutableStateFlow(PredictedStrategyValue())
-    val beltStateFlow: StateFlow<PredictedStrategyValue> = _cPredictionStateFlow.asStateFlow()
+    val beltStateFlow: StateFlow<PredictedStrategyValue> = _beltStateFlow.asStateFlow()
 
     private var _isBeltMode : Boolean = false
 
@@ -145,12 +133,8 @@ class InputViewModel : ViewModel() {
         // 重置展示相关状态
         _bppcTableStateFlow.value = DEFAULT_BPPCDISPLAY_LIST
         _bpCounterStateFlow.value = DEFAULT_BPCOUNTER
-        _aStrategyStateFlow.value = DEFAULT_STRATEGYDATA
-        _bStrategyStateFlow.value = DEFAULT_STRATEGYDATA
-        _cStrategyStateFlow.value = DEFAULT_STRATEGYDATA
-        _aPredictionStateFlow.value = DEFAULT_PREDICTION
-        _bPredictionStateFlow.value = DEFAULT_PREDICTION
-        _cPredictionStateFlow.value = DEFAULT_PREDICTION
+        _strategyStateFlowList.forEach { it.value = DEFAULT_STRATEGYDATA }
+        _predictionStateFlowList.forEach { it.value = DEFAULT_PREDICTION }
 
         // 从头重建（仅在 i >= 2 时触发表格/策略更新）
         for (i in _openList.indices) {
@@ -185,23 +169,21 @@ class InputViewModel : ViewModel() {
     private fun updateAllPredictions() {
         if (_openList.isEmpty()) return
 
-        _aPredictionStateFlow.value = DEFAULT_PREDICTION
-        _bPredictionStateFlow.value = DEFAULT_PREDICTION
-        _cPredictionStateFlow.value = DEFAULT_PREDICTION
-
+        _predictionStateFlowList.forEach { it.value = DEFAULT_PREDICTION }
         val lastIndex = _openList.lastIndex
+
         when (lastIndex % 3) {
-            0 -> {
-                if (_openList.size > 3) _cPredictionStateFlow.value = predictNextStrategyValue("3", _openList)
-                _aPredictionStateFlow.value = predictNextStrategyValue("2", _openList)
+            ColumnType.A.value -> {
+                if (_openList.size > 3) _predictionStateFlowList[ColumnType.C.value].value = predictNextStrategyValue("3", _openList)
+                _predictionStateFlowList[ColumnType.A.value].value = predictNextStrategyValue("2", _openList)
             }
-            1 -> {
-                _aPredictionStateFlow.value = predictNextStrategyValue("3", _openList)
-                _bPredictionStateFlow.value = predictNextStrategyValue("2", _openList)
+            ColumnType.B.value -> {
+                _predictionStateFlowList[ColumnType.A.value].value = predictNextStrategyValue("3", _openList)
+                _predictionStateFlowList[ColumnType.B.value].value = predictNextStrategyValue("2", _openList)
             }
-            2 -> {
-                _bPredictionStateFlow.value = predictNextStrategyValue("3", _openList)
-                _cPredictionStateFlow.value = predictNextStrategyValue("2", _openList)
+            ColumnType.C.value -> {
+                _predictionStateFlowList[ColumnType.B.value].value = predictNextStrategyValue("3", _openList)
+                _predictionStateFlowList[ColumnType.C.value].value = predictNextStrategyValue("2", _openList)
             }
         }
     }
@@ -276,14 +258,8 @@ class InputViewModel : ViewModel() {
     }
 
     private fun updateStrategyData(last3Inputs: List<InputType>, filledColumn: ColumnType?) {
-        val targetFlow = when (filledColumn) {
-            ColumnType.A -> _aStrategyStateFlow
-            ColumnType.B -> _bStrategyStateFlow
-            ColumnType.C -> _cStrategyStateFlow
-            null -> return
-        }
-
-        targetFlow.update { currentStrategyData ->
+        filledColumn ?: return
+        _strategyStateFlowList[filledColumn.value].update { currentStrategyData ->
             currentStrategyData.copy(
                 strategy12 = updateSingleStrategyList(StrategyType.STRATEGY_12, currentStrategyData.strategy12, last3Inputs),
                 strategy34 = updateSingleStrategyList(StrategyType.STRATEGY_34, currentStrategyData.strategy34, last3Inputs),
@@ -358,6 +334,7 @@ class InputViewModel : ViewModel() {
 
     companion object {
         private const val MAX_SECONDS = 45 * 60
+        private const val MAX_COLUMN = 3
         private val DEFAULT_PREDICTION = PredictedStrategyValue()
         private val DEFAULT_STRATEGYDATA = StrategyData()
         private val DEFAULT_BPCOUNTER = BpCounter()

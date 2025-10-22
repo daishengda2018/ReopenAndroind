@@ -2,17 +2,16 @@ package com.dsd.baccarat.data
 
 import com.dsd.baccarat.ui.page.MIN_TABLE_COLUMN_COUNT
 
-// --- 数据类定义 (请确保与此一致) ---
 
 // 输入类型
 enum class InputType {
     B, P, BET_B, BET_P;
 
     override fun toString(): String = when (this) {
-        InputType.B -> "B"
-        InputType.P -> "P"
-        InputType.BET_B -> "押庄"
-        InputType.BET_P -> "押闲"
+        B -> "B"
+        P -> "P"
+        BET_B -> "押庄"
+        BET_P -> "押闲"
     }
 }
 
@@ -20,7 +19,7 @@ enum class InputType {
 data class BpCounter(val bCount: Int = 0, val pCount: Int = 0)
 
 // 列类型
-enum class ColumnType { A, B, C }
+enum class ColumnType(val value: Int) { A(0), B(1), C(2) }
 
 // 策略类型
 enum class StrategyType { STRATEGY_12, STRATEGY_34, STRATEGY_56, STRATEGY_78 }

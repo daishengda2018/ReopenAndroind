@@ -53,6 +53,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dsd.baccarat.data.BpCounter
 import com.dsd.baccarat.data.BppcDisplayItem
 import com.dsd.baccarat.data.BppcItem
+import com.dsd.baccarat.data.ColumnType
 import com.dsd.baccarat.data.InputViewModel
 import com.dsd.baccarat.data.PredictedStrategyValue
 import com.dsd.baccarat.data.StrategyData
@@ -94,12 +95,9 @@ fun Screen(viewModel: InputViewModel) {
     val showReminder = viewModel.showReminder.collectAsStateWithLifecycle().value
     val bppcTableData = viewModel.bppcTableStateFlow.collectAsStateWithLifecycle().value
     val bppcCounter = viewModel.bppcCounterStateFlow.collectAsStateWithLifecycle().value
-    val aStrategyData = viewModel.aStrategyStateFlow.collectAsStateWithLifecycle().value
-    val bStrategyData = viewModel.bStrategyStateFlow.collectAsStateWithLifecycle().value
-    val cStrategyData = viewModel.cStrategyStateFlow.collectAsStateWithLifecycle().value
-    val aPredictedValue = viewModel.aPredictionStateFlow.collectAsStateWithLifecycle().value
-    val bPredictedValue = viewModel.bPredictionStateFlow.collectAsStateWithLifecycle().value
-    val cPredictedValue = viewModel.cPredictionStateFlow.collectAsStateWithLifecycle().value
+
+    val strategyDataList = viewModel.strategyStateFlowList.map { it.collectAsStateWithLifecycle().value }
+    val predictedDataList = viewModel.predictedStateFlowList.map { it.collectAsStateWithLifecycle().value }
 
     // 使用独立的可组合函数来管理提示音的创建/释放与播放
     NotificationSoundEffect(soundFlow = viewModel.soundEvent)
@@ -128,12 +126,8 @@ fun Screen(viewModel: InputViewModel) {
                 viewModel,
                 bppcTableData,
                 synchronizedListState,
-                aPredictedValue,
-                aStrategyData,
-                bPredictedValue,
-                bStrategyData,
-                cPredictedValue,
-                cStrategyData
+                strategyDataList,
+                predictedDataList
             )
 
             // 右侧列
@@ -141,12 +135,8 @@ fun Screen(viewModel: InputViewModel) {
                 bppcCounter,
                 bppcTableData,
                 synchronizedListState,
-                aPredictedValue,
-                aStrategyData,
-                bPredictedValue,
-                bStrategyData,
-                cPredictedValue,
-                cStrategyData,
+                strategyDataList,
+                predictedDataList,
                 viewModel,
                 timerStatus
             )
@@ -163,12 +153,8 @@ private fun RowScope.LeftSide(
     viewModel: InputViewModel,
     bppcTableData: List<BppcDisplayItem>,
     synchronizedListState: LazyListState,
-    aPredictedValue: PredictedStrategyValue,
-    aStrategyData: StrategyData,
-    bPredictedValue: PredictedStrategyValue,
-    bStrategyData: StrategyData,
-    cPredictedValue: PredictedStrategyValue,
-    cStrategyData: StrategyData
+    strategyDataList: List<StrategyData>,
+    predictedDataList: List<PredictedStrategyValue>,
 ) {
     Column(
         Modifier
@@ -198,34 +184,20 @@ private fun RowScope.LeftSide(
                 showCharts = true // 这一列显示图表
             )
         }
-        // 左侧列的策略区块
-        StrategySection(
-            titles = listOf("A", "12", "56"),
-            predictedIndex = aPredictedValue.predictionIndex,
-            predictedValue1 = aPredictedValue.strategy12,
-            predictedValue2 = aPredictedValue.strategy56,
-            displayItems1 = aStrategyData.strategy12,
-            displayItems2 = aStrategyData.strategy56,
-            listState = synchronizedListState
-        )
-        StrategySection(
-            titles = listOf("B", "12", "56"),
-            predictedIndex = bPredictedValue.predictionIndex,
-            predictedValue1 = bPredictedValue.strategy12,
-            predictedValue2 = bPredictedValue.strategy56,
-            displayItems1 = bStrategyData.strategy12,
-            displayItems2 = bStrategyData.strategy56,
-            listState = synchronizedListState,
-        )
-        StrategySection(
-            titles = listOf("C", "12", "56"),
-            predictedIndex = cPredictedValue.predictionIndex,
-            predictedValue1 = cPredictedValue.strategy12,
-            predictedValue2 = cPredictedValue.strategy56,
-            displayItems1 = cStrategyData.strategy12,
-            displayItems2 = cStrategyData.strategy56,
-            listState = synchronizedListState,
-        )
+        ColumnType.entries.forEach { type ->
+            val idx = type.value
+            if (idx < predictedDataList.size && idx < strategyDataList.size) {
+                StrategySection(
+                    titles = listOf(type.name, "12", "56"),
+                    predictedIndex = predictedDataList[idx].predictionIndex,
+                    predictedValue1 = predictedDataList[idx].strategy12,
+                    predictedValue2 = predictedDataList[idx].strategy56,
+                    displayItems1 = strategyDataList[idx].strategy12,
+                    displayItems2 = strategyDataList[idx].strategy56,
+                    listState = synchronizedListState
+                )
+            }
+        }
     }
 }
 
@@ -234,12 +206,8 @@ private fun RowScope.RightSide(
     bppcCounter: BpCounter,
     bppcTableData: List<BppcDisplayItem>,
     synchronizedListState: LazyListState,
-    aPredictedValue: PredictedStrategyValue,
-    aStrategyData: StrategyData,
-    bPredictedValue: PredictedStrategyValue,
-    bStrategyData: StrategyData,
-    cPredictedValue: PredictedStrategyValue,
-    cStrategyData: StrategyData,
+    strategyDataList: List<StrategyData>,
+    predictedDataList: List<PredictedStrategyValue>,
     viewModel: InputViewModel,
     timerStatus: TimerStatus
 ) {
@@ -276,33 +244,20 @@ private fun RowScope.RightSide(
         Spacer(Modifier.height(TABLE_HEIGHT * 3 + SPACE_SIZE * 3))
 
         // 右侧列的策略区块
-        StrategySection(
-            titles = listOf("", "34", "78"),
-            predictedIndex = aPredictedValue.predictionIndex,
-            predictedValue1 = aPredictedValue.strategy12,
-            predictedValue2 = aPredictedValue.strategy56,
-            displayItems1 = aStrategyData.strategy34,
-            displayItems2 = aStrategyData.strategy78,
-            listState = synchronizedListState,
-        )
-        StrategySection(
-            titles = listOf("", "34", "78"),
-            predictedIndex = bPredictedValue.predictionIndex,
-            predictedValue1 = bPredictedValue.strategy12,
-            predictedValue2 = bPredictedValue.strategy56,
-            displayItems1 = bStrategyData.strategy34,
-            displayItems2 = bStrategyData.strategy78,
-            listState = synchronizedListState,
-        )
-        StrategySection(
-            titles = listOf("", "34", "78"),
-            predictedIndex = cPredictedValue.predictionIndex,
-            predictedValue1 = cPredictedValue.strategy12,
-            predictedValue2 = cPredictedValue.strategy56,
-            displayItems1 = cStrategyData.strategy34,
-            displayItems2 = cStrategyData.strategy78,
-            listState = synchronizedListState,
-        )
+        ColumnType.entries.forEach { type ->
+            val idx = type.value
+            if (idx < predictedDataList.size && idx < strategyDataList.size) {
+                StrategySection(
+                    titles = listOf(type.name, "34", "78"),
+                    predictedIndex = predictedDataList[idx].predictionIndex,
+                    predictedValue1 = predictedDataList[idx].strategy12,
+                    predictedValue2 = predictedDataList[idx].strategy56,
+                    displayItems1 = strategyDataList[idx].strategy12,
+                    displayItems2 = strategyDataList[idx].strategy56,
+                    listState = synchronizedListState
+                )
+            }
+        }
 
         // 使用一个带权重的 Spacer 将按钮推到底部
         Spacer(Modifier.weight(1f))
