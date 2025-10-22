@@ -1,22 +1,20 @@
 package com.dsd.baccarat.data
 
-import com.dsd.baccarat.ui.page.MIN_TABLE_COLUMN_COUNT
-
-
+import com.dsd.baccarat.data.InputViewModel.Companion.MIN_TABLE_COLUMN_COUNT
 // 输入类型
-enum class InputType {
-    B, P, BET_B, BET_P;
+enum class InputType(val value: String) {
+    B("B"),
+    P("P")
+}
 
-    override fun toString(): String = when (this) {
-        B -> "B"
-        P -> "P"
-        BET_B -> "押庄"
-        BET_P -> "押闲"
-    }
+enum class BeltResultType() {
+    W,
+    L
 }
 
 // BP 计数器
-data class BpCounter(val bCount: Int = 0, val pCount: Int = 0)
+data class Counter(val count1: Int = 0, val count2: Int = 0)
+
 
 // 列类型
 enum class ColumnType(val value: Int) { A(0), B(1), C(2) }
@@ -25,7 +23,7 @@ enum class ColumnType(val value: Int) { A(0), B(1), C(2) }
 enum class StrategyType { STRATEGY_12, STRATEGY_34, STRATEGY_56, STRATEGY_78 }
 
 // 主列表项 (使用可空类型)
-data class BppcItem(
+data class TableItem(
     val dataA: Int? = null,
     val dataB: Int? = null,
     val dataC: Int? = null
@@ -43,16 +41,17 @@ sealed class DisplayItem {
 }
 
 // Bppc 的显示项
-sealed class BppcDisplayItem : DisplayItem() {
-    object Empty : BppcDisplayItem()
-    data class Real(val data: BppcItem) : BppcDisplayItem()
+sealed class TableDisplayItem() {
+    object Empty : TableDisplayItem()
+    data class Real(val data: TableItem) : TableDisplayItem()
 }
 
 // 策略的显示项
-sealed class StrategyDisplayItem : DisplayItem() {
+sealed class StrategyDisplayItem() {
     object Empty : StrategyDisplayItem()
     data class Real(val data: StrategyItem) : StrategyDisplayItem()
 }
+
 
 // 包含四种策略的数据
 data class StrategyData(
@@ -71,3 +70,5 @@ data class PredictedStrategyValue(
 )
 
 enum class TimerStatus { Idle, Running, Paused, Finished }
+
+

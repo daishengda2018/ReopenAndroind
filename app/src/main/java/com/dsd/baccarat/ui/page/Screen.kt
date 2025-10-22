@@ -50,11 +50,12 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.dsd.baccarat.data.BpCounter
-import com.dsd.baccarat.data.BppcDisplayItem
-import com.dsd.baccarat.data.BppcItem
+import com.dsd.baccarat.data.Counter
+import com.dsd.baccarat.data.TableDisplayItem
+import com.dsd.baccarat.data.TableItem
 import com.dsd.baccarat.data.ColumnType
 import com.dsd.baccarat.data.InputViewModel
+import com.dsd.baccarat.data.InputViewModel.Companion.MIN_TABLE_COLUMN_COUNT
 import com.dsd.baccarat.data.PredictedStrategyValue
 import com.dsd.baccarat.data.StrategyData
 import com.dsd.baccarat.data.StrategyDisplayItem
@@ -67,7 +68,7 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 
 //  常量在顶部统一组织，清晰明了。
-const val MIN_TABLE_COLUMN_COUNT = 30
+
 
 private val ITEM_SIZE = 22.dp
 private val SPACE_SIZE = 5.dp
@@ -95,6 +96,7 @@ fun Screen(viewModel: InputViewModel) {
     val showReminder = viewModel.showReminder.collectAsStateWithLifecycle().value
     val bppcTableData = viewModel.bppcTableStateFlow.collectAsStateWithLifecycle().value
     val bppcCounter = viewModel.bppcCounterStateFlow.collectAsStateWithLifecycle().value
+    val wlTableData = viewModel.wlTableStateFlow.collectAsStateWithLifecycle().value
 
     val strategyDataList = viewModel.strategyStateFlowList.map { it.collectAsStateWithLifecycle().value }
     val predictedDataList = viewModel.predictedStateFlowList.map { it.collectAsStateWithLifecycle().value }
@@ -133,7 +135,7 @@ fun Screen(viewModel: InputViewModel) {
             // 右侧列
             RightSide(
                 bppcCounter,
-                bppcTableData,
+                wlTableData,
                 synchronizedListState,
                 strategyDataList,
                 predictedDataList,
@@ -146,12 +148,12 @@ fun Screen(viewModel: InputViewModel) {
 
 @Composable
 private fun RowScope.LeftSide(
-    bppcCounter: BpCounter,
+    bppcCounter: Counter,
     elapsedTime: Int,
     timerStatus: TimerStatus,
     showReminder: Boolean,
     viewModel: InputViewModel,
-    bppcTableData: List<BppcDisplayItem>,
+    bppcTableData: List<TableDisplayItem>,
     synchronizedListState: LazyListState,
     strategyDataList: List<StrategyData>,
     predictedDataList: List<PredictedStrategyValue>,
@@ -163,8 +165,8 @@ private fun RowScope.LeftSide(
     ) {
         Row() {
             CounterDisplay(
-                label1 = "B", value1 = bppcCounter.bCount, color1 = TEXT_COLOR_B,
-                label2 = "P", value2 = bppcCounter.pCount, color2 = TEXT_COLOR_P
+                label1 = "B", value1 = bppcCounter.count1, color1 = TEXT_COLOR_B,
+                label2 = "P", value2 = bppcCounter.count2, color2 = TEXT_COLOR_P
             )
             Spacer(Modifier.width(ITEM_SIZE))
             // 显示当前时间，需要动态更新
@@ -203,8 +205,8 @@ private fun RowScope.LeftSide(
 
 @Composable
 private fun RowScope.RightSide(
-    bppcCounter: BpCounter,
-    bppcTableData: List<BppcDisplayItem>,
+    bppcCounter: Counter,
+    tableData: List<TableDisplayItem>,
     synchronizedListState: LazyListState,
     strategyDataList: List<StrategyData>,
     predictedDataList: List<PredictedStrategyValue>,
@@ -219,15 +221,15 @@ private fun RowScope.RightSide(
 
         Row(Modifier.fillMaxWidth()) {
             CounterDisplay(
-                label1 = "W", value1 = bppcCounter.bCount, color1 = TEXT_COLOR_B,
-                label2 = "L", value2 = bppcCounter.pCount, color2 = TEXT_COLOR_P,
+                label1 = "W", value1 = bppcCounter.count1, color1 = TEXT_COLOR_B,
+                label2 = "L", value2 = bppcCounter.count2, color2 = TEXT_COLOR_P,
                 padding = 0.dp,
                 isShowWsr = true,
                 isHistory = false
             )
             CounterDisplay(
-                label1 = "W", value1 = bppcCounter.bCount, color1 = TEXT_COLOR_B,
-                label2 = "L", value2 = bppcCounter.pCount, color2 = TEXT_COLOR_P,
+                label1 = "W", value1 = bppcCounter.count1, color1 = TEXT_COLOR_B,
+                label2 = "L", value2 = bppcCounter.count2, color2 = TEXT_COLOR_P,
                 padding = 0.dp,
                 isShowWsr = true,
                 isHistory = true
@@ -236,7 +238,7 @@ private fun RowScope.RightSide(
 
         //  复用 BppcTable 组件。
         Table(
-            items = bppcTableData,
+            items = tableData,
             listState = synchronizedListState,
             showCharts = false // 这一列不显示图表
         )
@@ -397,12 +399,6 @@ private fun CurrentTimeDisplay(
     }
 }
 
-// 播放提示音
-private fun playNotificationSound() {
-    val toneGenerator = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100)
-    toneGenerator.startTone(ToneGenerator.TONE_PROP_ACK,  60 * 1000) // 播放 1 秒提示音
-}
-
 @Composable
 private fun BppcTableTitles() {
     Column(Modifier.width(ITEM_SIZE)) {
@@ -423,7 +419,7 @@ private fun BppcTableTitles() {
  */
 @Composable
 private fun Table(
-    items: List<BppcDisplayItem>,
+    items: List<TableDisplayItem>,
     listState: LazyListState,
     showCharts: Boolean
 ) {
@@ -432,7 +428,7 @@ private fun Table(
             items = items,
             key = { index, item -> "$index-${item.hashCode()}" }
         ) { idx, item ->
-            val data = (item as? BppcDisplayItem.Real)?.data
+            val data = (item as? TableDisplayItem.Real)?.data
             Column(Modifier.width(ITEM_SIZE)) {
                 // 索引行
                 TextItem("${idx + 1}", TEXT_COLOR_NEUTRAL, fontSize = 10.sp)
@@ -758,11 +754,11 @@ private fun BppcTableWithChartsPreview() {
     val synchronizedListState = rememberLazyListState()
     val mockBppcData = remember {
         val realItems = listOf(
-            BppcDisplayItem.Real(BppcItem(dataA = 1, dataB = 2, dataC = 3)),
-            BppcDisplayItem.Real(BppcItem(dataA = 4, dataB = 5, dataC = null)),
-            BppcDisplayItem.Real(BppcItem(dataA = 7, dataB = 8, dataC = 1))
+            TableDisplayItem.Real(TableItem(dataA = 1, dataB = 2, dataC = 3)),
+            TableDisplayItem.Real(TableItem(dataA = 4, dataB = 5, dataC = null)),
+            TableDisplayItem.Real(TableItem(dataA = 7, dataB = 8, dataC = 1))
         )
-        val emptyItems = List(MIN_TABLE_COLUMN_COUNT - realItems.size) { BppcDisplayItem.Empty }
+        val emptyItems = List(MIN_TABLE_COLUMN_COUNT - realItems.size) { TableDisplayItem.Empty }
         realItems + emptyItems
     }
     Table(items = mockBppcData, listState = synchronizedListState, showCharts = true)
