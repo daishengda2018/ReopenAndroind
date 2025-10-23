@@ -67,27 +67,12 @@ class InputViewModel : ViewModel() {
                 startTimer()
             }
             TimerStatus.Running -> {
-                _timerStatus.value = TimerStatus.Paused
-                stopTimerJob()
-            }
-            TimerStatus.Paused -> {
-                _timerStatus.value = TimerStatus.Running
-                startTimer()
-            }
-            TimerStatus.Finished -> {
                 _elapsedTime.value = 0
                 _showReminder.value = false
-                _timerStatus.value = TimerStatus.Running
-                startTimer()
+                _timerStatus.value = TimerStatus.Idle
+                stopTimerJob()
             }
         }
-    }
-
-    fun resetTimer() {
-        stopTimerJob()
-        _elapsedTime.value = 0
-        _timerStatus.value = TimerStatus.Idle
-        _showReminder.value = false
     }
 
     fun dismissReminder() {
@@ -103,7 +88,7 @@ class InputViewModel : ViewModel() {
                 _elapsedTime.update { it + 1 }
             }
             if (_elapsedTime.value >= MAX_SECONDS) {
-                _timerStatus.value = TimerStatus.Finished
+                _timerStatus.value = TimerStatus.Idle
                 _showReminder.value = true
                 _soundEvent.emit(Unit)
             }
@@ -113,11 +98,6 @@ class InputViewModel : ViewModel() {
     private fun stopTimerJob() {
         timerJob?.cancel()
         timerJob = null
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        stopTimerJob()
     }
 
     fun openB() {
@@ -370,6 +350,11 @@ class InputViewModel : ViewModel() {
 
     fun removeLastBet() {
         //   _betInputList.removeLastOrNull()
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        stopTimerJob()
     }
 
     companion object {

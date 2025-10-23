@@ -69,6 +69,6 @@ data class PredictedStrategyValue(
     val strategy78: String? = null
 )
 
-enum class TimerStatus { Idle, Running, Paused, Finished }
+enum class TimerStatus { Idle, Running }
 
 

@@ -26,7 +26,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -83,7 +82,12 @@ private val TITLE_WIDTH_LONG = ITEM_SIZE * 4
 private val BORDER = 0.3.dp
 private const val MAX_VALUE = 8
 private val TEXT_COLOR_B = Color.Red
+
 private val TEXT_COLOR_P = Color.Blue
+
+private val TEXT_COLOR_W = Color.Red
+
+private val TEXT_COLOR_L = Color.Magenta
 private val TEXT_COLOR_NEUTRAL = Color.Black
 
 private val RED_COLOR_VALUES = setOf(1, 4, 6, 7)
@@ -99,6 +103,7 @@ fun Screen(viewModel: InputViewModel) {
     val showReminder = viewModel.showReminder.collectAsStateWithLifecycle().value
     val bppcTableData = viewModel.bppcTableStateFlow.collectAsStateWithLifecycle().value
     val bppcCounter = viewModel.bppcCounterStateFlow.collectAsStateWithLifecycle().value
+    val wlCounter = viewModel.wlCounterStateFlow.collectAsStateWithLifecycle().value
     val wlTableData = viewModel.wlTableStateFlow.collectAsStateWithLifecycle().value
     val beltInputState = viewModel.beltInputStageFlow.collectAsStateWithLifecycle().value
 
@@ -138,7 +143,7 @@ fun Screen(viewModel: InputViewModel) {
 
             // 右侧列
             RightSide(
-                bppcCounter,
+                wlCounter,
                 wlTableData,
                 synchronizedListState,
                 strategyDataList,
@@ -210,7 +215,7 @@ private fun RowScope.LeftSide(
 
 @Composable
 private fun RowScope.RightSide(
-    bppcCounter: Counter,
+    counter: Counter,
     tableData: List<TableDisplayItem>,
     synchronizedListState: LazyListState,
     strategyDataList: List<StrategyData>,
@@ -227,15 +232,15 @@ private fun RowScope.RightSide(
 
         Row(Modifier.fillMaxWidth()) {
             CounterDisplay(
-                label1 = "W", value1 = bppcCounter.count1, color1 = TEXT_COLOR_B,
-                label2 = "L", value2 = bppcCounter.count2, color2 = TEXT_COLOR_P,
+                label1 = "W", value1 = counter.count1, color1 = TEXT_COLOR_W,
+                label2 = "L", value2 = counter.count2, color2 = TEXT_COLOR_L,
                 padding = 0.dp,
                 isShowWsr = true,
                 isHistory = false
             )
             CounterDisplay(
-                label1 = "W", value1 = bppcCounter.count1, color1 = TEXT_COLOR_B,
-                label2 = "L", value2 = bppcCounter.count2, color2 = TEXT_COLOR_P,
+                label1 = "W", value1 = counter.count1, color1 = TEXT_COLOR_W,
+                label2 = "L", value2 = counter.count2, color2 = TEXT_COLOR_L,
                 padding = 0.dp,
                 isShowWsr = true,
                 isHistory = true
@@ -374,8 +379,6 @@ private fun CurrentTimeDisplay(
             text = when (timerStatus) {
                 TimerStatus.Idle -> "未开始"
                 TimerStatus.Running -> "运行中"
-                TimerStatus.Paused -> "已暂停"
-                TimerStatus.Finished -> "已完成"
             },
             style = textStyle.copy(fontSize = 12.sp),
             color = Color.Gray
@@ -674,8 +677,7 @@ fun TextItem(
 @Composable
 private fun InputButtons(viewModel: InputViewModel, timerStatus: TimerStatus, beltInputState: InputType?) {
     // 选中时的背景色（高亮）
-    val buttonColors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3)) // 蓝色背景
-
+    val buttonColors = ButtonDefaults.buttonColors(containerColor = TEXT_COLOR_W) // 蓝色背景
 
     @Composable
     fun ColumnScope.DefaultButtonModifier(): Modifier = remember {
@@ -689,30 +691,6 @@ private fun InputButtons(viewModel: InputViewModel, timerStatus: TimerStatus, be
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Column(Modifier.weight(1f))
-        {
-            // 计时按钮现在控制传入的计时器
-            Button(modifier = DefaultButtonModifier(), onClick = { viewModel.toggleTimer() }) {
-                Text(
-                    text = when (timerStatus) {
-                        TimerStatus.Running -> "暂停记时"
-                        TimerStatus.Paused -> "继续记时"
-                        TimerStatus.Idle -> "开始记时"
-                        TimerStatus.Finished -> "重新开始"
-                    }
-                )
-            }
-
-            Button(modifier = DefaultButtonModifier(), onClick = { viewModel.toggleTimer() }) { Text(text = "结束记时") }
-        }
-
-        Column(Modifier.weight(1f)) {
-            Button(modifier = DefaultButtonModifier(), onClick = { /* TODO: 实现撤销逻辑 */ }) { Text(text = "保存") }
-            Button(modifier = DefaultButtonModifier(), onClick = { /* TODO: 实现撤销逻辑 */ }) { Text(text = "新牌") }
-        }
-
-        Spacer(Modifier.weight(1f))
-
         Column(Modifier.weight(1f)) {
             when (beltInputState) {
                 null -> {
@@ -752,6 +730,23 @@ private fun InputButtons(viewModel: InputViewModel, timerStatus: TimerStatus, be
             Button(modifier = DefaultButtonModifier(), onClick = { viewModel.openP() }) { Text(text = "开 P") }
             Button(modifier = DefaultButtonModifier(), onClick = { viewModel.removeLastOpen() }) { Text(text = "撤销") }
         }
+
+        Spacer(Modifier.weight(1f))
+
+        Column(Modifier.weight(1f)) {
+            // 计时按钮现在控制传入的计时器
+            Button(modifier = DefaultButtonModifier(), onClick = { viewModel.toggleTimer() }) {
+                Text(
+                    text = when (timerStatus) {
+                        TimerStatus.Idle -> "开始记时"
+                        TimerStatus.Running -> "结束记时"
+                    }
+                )
+            }
+            Button(modifier = DefaultButtonModifier(), onClick = { /* TODO: 实现撤销逻辑 */ }) { Text(text = "保存") }
+            Button(modifier = DefaultButtonModifier(), onClick = { /* TODO: 实现撤销逻辑 */ }) { Text(text = "新牌") }
+        }
+
     }
 }
 
