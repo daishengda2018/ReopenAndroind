@@ -121,7 +121,7 @@ class InputViewModel : ViewModel() {
     private fun updateBppcAndStrategy() {
         val last3Inputs = _openInputList.takeLast(3)
         if (last3Inputs.size >= 3) {
-            updateCounter(_bppcCounterStateFlow, _openInputList.last())
+            updateBppcCounter(_openInputList.last())
             val filledColumn = updateBppcTable(last3Inputs)
             updateStrategyData(last3Inputs, filledColumn)
         }
@@ -151,7 +151,7 @@ class InputViewModel : ViewModel() {
         }
 
         Log.d("InputViewModel", "Current Inputs: $last3Inputs")
-        updateCounter(_wlCounterStateFlow, _openInputList.last())
+        updateWlCounter(_betResultList.last())
         updateTableStageFlow(_wlTableStateFlow, result)
         beltInputStageFlow.update { null }
     }
@@ -197,11 +197,20 @@ class InputViewModel : ViewModel() {
         return PredictedStrategyValue(title, strategy12, strategy34, strategy56, strategy78)
     }
 
-    private fun updateCounter(counterStateFlow: MutableStateFlow<Counter>, lastInput: InputType) {
-        counterStateFlow.update { currentCounter ->
+    private fun updateBppcCounter(lastInput: InputType) {
+        _bppcCounterStateFlow.update { currentCounter ->
             when (lastInput) {
                 InputType.B -> currentCounter.copy(count1 = currentCounter.count1 + 1)
                 InputType.P -> currentCounter.copy(count2 = currentCounter.count2 + 1)
+            }
+        }
+    }
+
+    private fun updateWlCounter(lastInput: BeltResultType) {
+        _wlCounterStateFlow.update { currentCounter ->
+            when (lastInput) {
+                BeltResultType.W -> currentCounter.copy(count1 = currentCounter.count1 + 1)
+                BeltResultType.L -> currentCounter.copy(count2 = currentCounter.count2 + 1)
             }
         }
     }
@@ -323,7 +332,7 @@ class InputViewModel : ViewModel() {
         for (i in _openInputList.indices) {
             if (i >= 2) {
                 val last3 = _openInputList.subList(0, i + 1).takeLast(3)
-                updateCounter(_bppcCounterStateFlow, _openInputList[i])
+                updateBppcCounter(_openInputList[i])
                 val filledColumn = updateBppcTable(last3)
                 updateStrategyData(last3, filledColumn)
             }
@@ -336,20 +345,34 @@ class InputViewModel : ViewModel() {
 
     fun betB() {
         beltInputStageFlow.update { InputType.B }
-        updateBeltData()
     }
 
     fun betP() {
         beltInputStageFlow.update { InputType.P }
-        updateBeltData()
-    }
-
-    private fun updateBeltData() {
-
     }
 
     fun removeLastBet() {
-        //   _betInputList.removeLastOrNull()
+        if (beltInputStageFlow.value != null) {
+            beltInputStageFlow.update { null }
+        } else {
+            _betResultList.removeLastOrNull() ?: return
+        }
+
+        // 重置展示相关状态
+        _wlTableStateFlow.value = DEFAULT_TABLE_DISPLAY_LIST
+        _wlCounterStateFlow.value = DEFAULT_BPCOUNTER
+
+        // 从头重建（仅在 i >= 2 时触发表格/策略更新）
+        for (i in _betResultList.indices) {
+            if (i >= 2) {
+                val last3Inputs = _betResultList.subList(0, i + 1).takeLast(3)
+                updateWlCounter(_betResultList[i])
+                val inputCombination = last3Inputs.joinToString("")
+                wlCombinationToResult[inputCombination]?.let { result ->
+                    updateTableStageFlow(_wlTableStateFlow, result)
+                }
+            }
+        }
     }
 
     override fun onCleared() {

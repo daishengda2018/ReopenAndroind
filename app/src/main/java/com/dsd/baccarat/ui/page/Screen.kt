@@ -26,7 +26,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -77,7 +76,7 @@ private val SPACE_SIZE = 5.dp
 private val TABLE_HEIGHT = ITEM_SIZE * 4
 
 private val TITLE_WIDTH_SHORT_SHORT = ITEM_SIZE * 2
-private val TITLE_WIDTH_SHORT = ITEM_SIZE * 3
+private val TITLE_WIDTH_SHORT = ITEM_SIZE * 2
 private val TITLE_WIDTH_LONG = ITEM_SIZE * 4
 private val BORDER = 0.3.dp
 private const val MAX_VALUE = 8
@@ -87,7 +86,7 @@ private val TEXT_COLOR_P = Color.Blue
 
 private val TEXT_COLOR_W = Color.Red
 
-private val TEXT_COLOR_L = Color.Magenta
+private val TEXT_COLOR_L = Color.Blue
 private val TEXT_COLOR_NEUTRAL = Color.Black
 
 private val RED_COLOR_VALUES = setOf(1, 4, 6, 7)
@@ -230,22 +229,13 @@ private fun RowScope.RightSide(
             .padding(horizontal = 5.dp)
     ) {
 
-        Row(Modifier.fillMaxWidth()) {
-            CounterDisplay(
-                label1 = "W", value1 = counter.count1, color1 = TEXT_COLOR_W,
-                label2 = "L", value2 = counter.count2, color2 = TEXT_COLOR_L,
-                padding = 0.dp,
-                isShowWsr = true,
-                isHistory = false
-            )
-            CounterDisplay(
-                label1 = "W", value1 = counter.count1, color1 = TEXT_COLOR_W,
-                label2 = "L", value2 = counter.count2, color2 = TEXT_COLOR_L,
-                padding = 0.dp,
-                isShowWsr = true,
-                isHistory = true
-            )
-        }
+        CounterDisplay(
+            label1 = "W", value1 = counter.count1, color1 = TEXT_COLOR_W,
+            label2 = "L", value2 = counter.count2, color2 = TEXT_COLOR_L,
+            padding = 0.dp,
+            isShowWsr = true,
+            isHistory = false
+        )
 
         //  复用 BppcTable 组件。
         Table(
@@ -253,8 +243,17 @@ private fun RowScope.RightSide(
             listState = synchronizedListState,
             showCharts = false // 这一列不显示图表
         )
+
+        CounterDisplay(
+            label1 = "W", value1 = counter.count1, color1 = TEXT_COLOR_W,
+            label2 = "L", value2 = counter.count2, color2 = TEXT_COLOR_L,
+            padding = 0.dp,
+            isShowWsr = true,
+            isHistory = true
+        )
+
         // 用 Spacer 来与左侧的图表区域在布局上对齐
-        Spacer(Modifier.height(TABLE_HEIGHT * 3 + SPACE_SIZE * 3))
+        Spacer(Modifier.height(TABLE_HEIGHT * 3 + SPACE_SIZE * 3 - ITEM_SIZE))
 
         // 右侧列的策略区块
         ColumnType.entries.forEach { type ->
@@ -327,17 +326,14 @@ private fun CounterDisplay(
         horizontalArrangement = Arrangement.Start
 
     ) {
+        TextItem("$label1$value1", color1, width = TITLE_WIDTH_SHORT)
+        TextItem("$label2$value2", color2, width = TITLE_WIDTH_SHORT)
+        TextItem("$label1 - $label2 =  ${value1 - value2}", color2, width = TITLE_WIDTH_LONG)
+        TextItem("Total $total", Color.Black, width = TITLE_WIDTH_LONG)
+
         if (isShowWsr) {
-            TextItem("$label1$value1", color1, width = TITLE_WIDTH_SHORT)
-            TextItem("$label2$value2", color2, width = TITLE_WIDTH_SHORT)
-            TextItem("Total $total", Color.Black, width = TITLE_WIDTH_LONG)
-            val wsr = value1 / total.toFloat()
-            TextItem("WSR ${df.format(wsr)}", Color.Magenta, width = TITLE_WIDTH_LONG)
-        } else {
-            TextItem("$label1$value1", color1, width = TITLE_WIDTH_SHORT_SHORT)
-            TextItem("$label2$value2", color2, width = TITLE_WIDTH_SHORT_SHORT)
-            TextItem("$label1 - $label2 =  ${value1 - value2}", color2, width = TITLE_WIDTH_LONG)
-            TextItem("Total $total", Color.Black, width = TITLE_WIDTH_LONG)
+            val wsr = if (total != 0) value1 / total.toFloat() else 0
+            TextItem("WSR ${if (wsr == 1f) "100%" else df.format(wsr)}", Color.Magenta, width = TITLE_WIDTH_LONG)
         }
     }
 }
@@ -630,7 +626,6 @@ fun VerticalBarChart(value: Int?) {
     }
 }
 
-
 /**
  * 一个可复用的、带边框的文本项。
  */
@@ -676,9 +671,6 @@ fun TextItem(
  */
 @Composable
 private fun InputButtons(viewModel: InputViewModel, timerStatus: TimerStatus, beltInputState: InputType?) {
-    // 选中时的背景色（高亮）
-    val buttonColors = ButtonDefaults.buttonColors(containerColor = TEXT_COLOR_W) // 蓝色背景
-
     @Composable
     fun ColumnScope.DefaultButtonModifier(): Modifier = remember {
         Modifier
@@ -692,36 +684,39 @@ private fun InputButtons(viewModel: InputViewModel, timerStatus: TimerStatus, be
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Column(Modifier.weight(1f)) {
-            when (beltInputState) {
-                null -> {
-                    Button(modifier = DefaultButtonModifier(), onClick = { viewModel.betB() }) { Text(text = "押 B") }
-                    Button(modifier = DefaultButtonModifier(), onClick = { viewModel.betP() }) { Text(text = "押 P") }
-                }
+            var isBeltPEnable = true
+            var isBeltBEnable = true
+            var isInputB = false
+            var isInputP = false
 
+            when (beltInputState) {
                 InputType.B -> {
-                    Button(
-                        modifier = DefaultButtonModifier(),
-                        enabled = true,
-                        colors = buttonColors,
-                        onClick = { viewModel.betB() }) { Text(text = "押 B 中") }
-                    Button(
-                        modifier = DefaultButtonModifier(),
-                        enabled = false,
-                        onClick = { viewModel.betP() }) { Text(text = "押 P") }
+                    isInputB = true
+                    isBeltPEnable = false
                 }
 
                 InputType.P -> {
-                    Button(
-                        modifier = DefaultButtonModifier(),
-                        enabled = false,
-                        onClick = { viewModel.betB() }) { Text(text = "押 B") }
-                    Button(
-                        modifier = DefaultButtonModifier(),
-                        enabled = true,
-                        colors = buttonColors,
-                        onClick = { viewModel.betP() }) { Text(text = "押 P 中") }
+                    isInputP = true
+                    isBeltBEnable = false
                 }
+
+                null -> {}
             }
+
+            Button(
+                modifier = DefaultButtonModifier(),
+                enabled = isBeltBEnable,
+                onClick = { viewModel.betB() }) {
+                Text(text = if (isInputB) "押 B 中" else "押 B")
+            }
+
+            Button(
+                modifier = DefaultButtonModifier(),
+                enabled = isBeltPEnable,
+                onClick = { viewModel.betP() }) {
+                Text(text = if (isInputP) "押 P 中" else "押 P")
+            }
+
             Button(modifier = DefaultButtonModifier(), onClick = { viewModel.removeLastBet() }) { Text(text = "撤销") }
         }
 
