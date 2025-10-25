@@ -1,6 +1,7 @@
 package com.dsd.baccarat.data
 
 import com.dsd.baccarat.data.InputViewModel.Companion.MIN_TABLE_COLUMN_COUNT
+
 // 输入类型
 enum class InputType(val value: String) {
     B("B"),
@@ -29,10 +30,16 @@ data class TableItem(
     val dataC: Int? = null
 )
 
+data class StrategyGridItem(
+    val predictedList: List<String?> = emptyList(),
+    val actualOpenedList: List<String?> = emptyList(),
+    val itemList: List<Pair<Boolean, List<String?>>> = emptyList()
+)
+
 // 策略列表项 (使用可空类型)
-data class StrategyItem(
-    val strategy1: Int? = null,
-    val strategy2: Int? = null
+data class Strategy3WyasItem(
+    val first: Int? = null,
+    val second: Int? = null
 )
 
 // UI 显示项的基类
@@ -47,21 +54,21 @@ sealed class TableDisplayItem() {
 }
 
 // 策略的显示项
-sealed class StrategyDisplayItem() {
-    object Empty : StrategyDisplayItem()
-    data class Real(val data: StrategyItem) : StrategyDisplayItem()
+sealed class Strategy3WyasDisplayItem() {
+    object Empty : Strategy3WyasDisplayItem()
+    data class Real(val data: Strategy3WyasItem) : Strategy3WyasDisplayItem()
 }
 
 
 // 包含四种策略的数据
-data class StrategyData(
-    val strategy12: List<StrategyDisplayItem> = List(MIN_TABLE_COLUMN_COUNT) { StrategyDisplayItem.Empty },
-    val strategy34: List<StrategyDisplayItem> = List(MIN_TABLE_COLUMN_COUNT) { StrategyDisplayItem.Empty },
-    val strategy56: List<StrategyDisplayItem> = List(MIN_TABLE_COLUMN_COUNT) { StrategyDisplayItem.Empty },
-    val strategy78: List<StrategyDisplayItem> = List(MIN_TABLE_COLUMN_COUNT) { StrategyDisplayItem.Empty }
+data class Strategy3WaysData(
+    val strategy12: List<Strategy3WyasDisplayItem> = List(MIN_TABLE_COLUMN_COUNT) { Strategy3WyasDisplayItem.Empty },
+    val strategy34: List<Strategy3WyasDisplayItem> = List(MIN_TABLE_COLUMN_COUNT) { Strategy3WyasDisplayItem.Empty },
+    val strategy56: List<Strategy3WyasDisplayItem> = List(MIN_TABLE_COLUMN_COUNT) { Strategy3WyasDisplayItem.Empty },
+    val strategy78: List<Strategy3WyasDisplayItem> = List(MIN_TABLE_COLUMN_COUNT) { Strategy3WyasDisplayItem.Empty }
 )
 
-data class PredictedStrategyValue(
+data class PredictedStrategy3WaysValue(
     val predictionIndex: String? = null,
     val strategy12: String? = null,
     val strategy34: String? = null,

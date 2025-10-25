@@ -54,15 +54,18 @@ import com.dsd.baccarat.data.ColumnType
 import com.dsd.baccarat.data.Counter
 import com.dsd.baccarat.data.InputType
 import com.dsd.baccarat.data.InputViewModel
+import com.dsd.baccarat.data.InputViewModel.Companion.MAX_COLUMN_COUNT
 import com.dsd.baccarat.data.InputViewModel.Companion.MIN_TABLE_COLUMN_COUNT
-import com.dsd.baccarat.data.PredictedStrategyValue
-import com.dsd.baccarat.data.StrategyData
-import com.dsd.baccarat.data.StrategyDisplayItem
-import com.dsd.baccarat.data.StrategyItem
+import com.dsd.baccarat.data.PredictedStrategy3WaysValue
+import com.dsd.baccarat.data.Strategy3WaysData
+import com.dsd.baccarat.data.Strategy3WyasDisplayItem
+import com.dsd.baccarat.data.Strategy3WyasItem
+import com.dsd.baccarat.data.StrategyGridItem
 import com.dsd.baccarat.data.TableDisplayItem
 import com.dsd.baccarat.data.TableItem
 import com.dsd.baccarat.data.TimerStatus
 import com.dsd.baccarat.ui.theme.PurpleGrey80
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.collectLatest
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
@@ -74,11 +77,9 @@ import java.util.Locale
 private val ITEM_SIZE = 22.dp
 private val SPACE_SIZE = 5.dp
 private val TABLE_HEIGHT = ITEM_SIZE * 4
-
-private val TITLE_WIDTH_SHORT_SHORT = ITEM_SIZE * 2
 private val TITLE_WIDTH_SHORT = ITEM_SIZE * 2
 private val TITLE_WIDTH_LONG = ITEM_SIZE * 4
-private val BORDER = 0.3.dp
+private val BORDER_SIZE = 0.3.dp
 private const val MAX_VALUE = 8
 private val TEXT_COLOR_B = Color.Red
 
@@ -106,8 +107,9 @@ fun Screen(viewModel: InputViewModel) {
     val wlTableData = viewModel.wlTableStateFlow.collectAsStateWithLifecycle().value
     val beltInputState = viewModel.beltInputStageFlow.collectAsStateWithLifecycle().value
 
-    val strategyDataList = viewModel.strategyStateFlowList.map { it.collectAsStateWithLifecycle().value }
-    val predictedDataList = viewModel.predictedStateFlowList.map { it.collectAsStateWithLifecycle().value }
+    val strategyGridList = viewModel.stragetyGridStateFlow.map { it.collectAsStateWithLifecycle().value }
+    val strategy3WaysList = viewModel.strategy3WaysStateFlowList.map { it.collectAsStateWithLifecycle().value }
+    val predicted3WaysList = viewModel.predictedStateFlowList.map { it.collectAsStateWithLifecycle().value }
 
     // 使用独立的可组合函数来管理提示音的创建/释放与播放
     NotificationSoundEffect(soundFlow = viewModel.soundEvent)
@@ -136,8 +138,9 @@ fun Screen(viewModel: InputViewModel) {
                 viewModel,
                 bppcTableData,
                 synchronizedListState,
-                strategyDataList,
-                predictedDataList
+                strategyGridList,
+                strategy3WaysList,
+                predicted3WaysList
             )
 
             // 右侧列
@@ -145,8 +148,8 @@ fun Screen(viewModel: InputViewModel) {
                 wlCounter,
                 wlTableData,
                 synchronizedListState,
-                strategyDataList,
-                predictedDataList,
+                strategy3WaysList,
+                predicted3WaysList,
                 viewModel,
                 timerStatus,
                 beltInputState
@@ -164,15 +167,16 @@ private fun RowScope.LeftSide(
     viewModel: InputViewModel,
     bppcTableData: List<TableDisplayItem>,
     synchronizedListState: LazyListState,
-    strategyDataList: List<StrategyData>,
-    predictedDataList: List<PredictedStrategyValue>,
+    strategyGridList: List<StrategyGridItem>,
+    strategy3WaysList: List<Strategy3WaysData>,
+    predicted3WaysList: List<PredictedStrategy3WaysValue>,
 ) {
     Column(
         Modifier
             .weight(1f) // 使用 weight 实现灵活的权重布局
             .padding(horizontal = 5.dp)
     ) {
-        Row() {
+        Row {
             CounterDisplay(
                 label1 = "B", value1 = bppcCounter.count1, color1 = TEXT_COLOR_B,
                 label2 = "P", value2 = bppcCounter.count2, color2 = TEXT_COLOR_P
@@ -197,16 +201,77 @@ private fun RowScope.LeftSide(
         }
         ColumnType.entries.forEach { type ->
             val idx = type.value
-            if (idx < predictedDataList.size && idx < strategyDataList.size) {
-                StrategySection(
+            if (idx < predicted3WaysList.size && idx < strategy3WaysList.size) {
+                Strategy3WaysDisplay(
                     titles = listOf(type.name, "12", "56"),
-                    predictedIndex = predictedDataList[idx].predictionIndex,
-                    predictedValue1 = predictedDataList[idx].strategy12,
-                    predictedValue2 = predictedDataList[idx].strategy56,
-                    displayItems1 = strategyDataList[idx].strategy12,
-                    displayItems2 = strategyDataList[idx].strategy56,
+                    predictedIndex = predicted3WaysList[idx].predictionIndex,
+                    predictedValue1 = predicted3WaysList[idx].strategy12,
+                    predictedValue2 = predicted3WaysList[idx].strategy56,
+                    displayItems1 = strategy3WaysList[idx].strategy12,
+                    displayItems2 = strategy3WaysList[idx].strategy56,
                     listState = synchronizedListState
                 )
+            }
+        }
+        Spacer(Modifier.height(SPACE_SIZE))
+        Row {
+            StrategyGridDisplay(ColumnType.A.toString(), strategyGridList[ColumnType.A.value])
+            Spacer(Modifier.width(ITEM_SIZE))
+            StrategyGridDisplay(ColumnType.B.toString(), strategyGridList[ColumnType.B.value])
+            Spacer(Modifier.width(ITEM_SIZE))
+            StrategyGridDisplay(ColumnType.C.toString(), strategyGridList[ColumnType.C.value])
+        }
+    }
+}
+
+@Composable
+private fun StrategyGridDisplay(title: String, strategyItem: StrategyGridItem) {
+    Spacer(Modifier.height(SPACE_SIZE))
+    // 使用一个占位的 Box 来确保布局一致性
+    Row {
+        Column {
+            Spacer(Modifier.height(ITEM_SIZE))
+            TextItem(title)
+        }
+        Spacer(Modifier.width(SPACE_SIZE))
+        for (i in 0 until MAX_COLUMN_COUNT) {
+            val isObslate = strategyItem.itemList.getOrNull(i)?.first ?: false
+            val dataList = strategyItem.itemList.getOrNull(i)?.second
+            dataList?.first()
+            Column(Modifier.width(ITEM_SIZE)) {
+                val data1 = dataList?.getOrNull(0)
+                TextItem(
+                    data1 ?: "",
+                    determineColor(data1?.toInt() ?: 0),
+                    isObslate = isObslate,
+                    isShowBorder = false,
+                    width = TITLE_WIDTH_SHORT
+                )
+
+                val data2 = dataList?.getOrNull(1)
+                TextItem(data2 ?: "", determineColor(data2), isObslate = isObslate, width = TITLE_WIDTH_SHORT)
+
+                val data3 = dataList?.getOrNull(2)
+                TextItem(data3 ?: "", determineColor(data3), isObslate = isObslate, width = TITLE_WIDTH_SHORT)
+
+                val data4 = dataList?.getOrNull(3)
+                TextItem(data4 ?: "", determineColor(data4), isObslate = isObslate, width = TITLE_WIDTH_SHORT)
+            }
+        }
+
+        Spacer(Modifier.width(ITEM_SIZE))
+
+        Column {
+            Spacer(Modifier.height(ITEM_SIZE))
+            for (i in 0 until MAX_COLUMN_COUNT) {
+                TextItem(strategyItem.predictedList.getOrNull(i) ?: "")
+            }
+        }
+
+        Column {
+            Spacer(Modifier.height(ITEM_SIZE))
+            for (i in 0 until MAX_COLUMN_COUNT) {
+                TextItem(strategyItem.actualOpenedList.getOrNull(i) ?: "")
             }
         }
     }
@@ -217,8 +282,8 @@ private fun RowScope.RightSide(
     counter: Counter,
     tableData: List<TableDisplayItem>,
     synchronizedListState: LazyListState,
-    strategyDataList: List<StrategyData>,
-    predictedDataList: List<PredictedStrategyValue>,
+    strategy3WaysList: List<Strategy3WaysData>,
+    predicted3WaysList: List<PredictedStrategy3WaysValue>,
     viewModel: InputViewModel,
     timerStatus: TimerStatus,
     beltInputState: InputType?
@@ -258,14 +323,14 @@ private fun RowScope.RightSide(
         // 右侧列的策略区块
         ColumnType.entries.forEach { type ->
             val idx = type.value
-            if (idx < predictedDataList.size && idx < strategyDataList.size) {
-                StrategySection(
+            if (idx < predicted3WaysList.size && idx < strategy3WaysList.size) {
+                Strategy3WaysDisplay(
                     titles = listOf(type.name, "34", "78"),
-                    predictedIndex = predictedDataList[idx].predictionIndex,
-                    predictedValue1 = predictedDataList[idx].strategy12,
-                    predictedValue2 = predictedDataList[idx].strategy56,
-                    displayItems1 = strategyDataList[idx].strategy12,
-                    displayItems2 = strategyDataList[idx].strategy56,
+                    predictedIndex = predicted3WaysList[idx].predictionIndex,
+                    predictedValue1 = predicted3WaysList[idx].strategy12,
+                    predictedValue2 = predicted3WaysList[idx].strategy56,
+                    displayItems1 = strategy3WaysList[idx].strategy12,
+                    displayItems2 = strategy3WaysList[idx].strategy56,
                     listState = synchronizedListState
                 )
             }
@@ -278,7 +343,7 @@ private fun RowScope.RightSide(
 }
 
 @Composable
-private fun NotificationSoundEffect(soundFlow: kotlinx.coroutines.flow.SharedFlow<Unit>) {
+private fun NotificationSoundEffect(soundFlow: SharedFlow<Unit>) {
     val toneGenerator = remember { ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100) }
     DisposableEffect(Unit) {
         onDispose {
@@ -306,7 +371,7 @@ private fun CounterDisplay(
     isHistory: Boolean = false,
 ) {
     val total = value1 + value2
-    val df = remember { DecimalFormat("0.00%") }
+    val df = remember { DecimalFormat("0.0%") }
     val backgroundColor = remember(isHistory)
     {
         if (isHistory) {
@@ -455,16 +520,16 @@ private fun Table(
 }
 
 /**
- * [修复] 一个全新的、独立的“策略区块”可组合函数，用于显示一组策略。
+ * 一个全新的、独立的“策略区块”可组合函数，用于显示一组策略。
  */
 @Composable
-private fun StrategySection(
+private fun Strategy3WaysDisplay(
     titles: List<String>,
     predictedIndex: String?,
     predictedValue1: String?,
     predictedValue2: String?,
-    displayItems1: List<StrategyDisplayItem>,
-    displayItems2: List<StrategyDisplayItem>,
+    displayItems1: List<Strategy3WyasDisplayItem>,
+    displayItems2: List<Strategy3WyasDisplayItem>,
     listState: LazyListState,
 
     ) {
@@ -509,51 +574,41 @@ private fun StrategySection(
             }
             // 步骤 2: 根据当前选中的状态，决定要显示哪个数据列表。
             when (selectedOption.intValue) {
-                1 -> StrategyTable(listState, displayItems1)
-                2 -> StrategyTable(listState, displayItems2)
+                1 -> Strategy3WyasTable(listState, displayItems1)
+                2 -> Strategy3WyasTable(listState, displayItems2)
             }
         }
     }
 }
 
 /**
- * [修复] 这是 StrategyMap 完全重写和修复后的版本。
+ *这是 StrategyMap 完全重写和修复后的版本。
  * 它现在能够正确地显示每个数据列对应的两行策略数据。
  */
 @Composable
-private fun StrategyTable(
+private fun Strategy3WyasTable(
     listState: LazyListState,
-    displayItems: List<StrategyDisplayItem>
+    displayItems: List<Strategy3WyasDisplayItem>
 ) {
     LazyRow(state = listState, modifier = Modifier.fillMaxWidth()) {
         items(
             count = displayItems.size,
             key = { index -> index }
         ) { idx ->
-            val item = (displayItems.getOrNull(idx) as? StrategyDisplayItem.Real)?.data
+            val item = (displayItems.getOrNull(idx) as? Strategy3WyasDisplayItem.Real)?.data
 
             Column(Modifier.width(ITEM_SIZE)) {
-                // 第一行 (例如 12 或 34)
                 TextItem(
-                    text = item?.strategy1?.toString() ?: "",
-                    color = determineColor(item?.strategy1)
+                    text = item?.first?.toString() ?: "",
+                    color = determineColor(item?.first)
                 )
                 TextItem(
-                    text = item?.strategy2?.toString() ?: "",
-                    color = determineColor(item?.strategy2)
+                    text = item?.second?.toString() ?: "",
+                    color = determineColor(item?.second)
                 )
             }
         }
     }
-}
-
-
-/**
- * 根据数值确定文本颜色的辅助函数。已优化，可以安全处理 null 值。
- */
-private fun determineColor(value: Int?): Color {
-    if (value == null) return TEXT_COLOR_NEUTRAL
-    return if (value in RED_COLOR_VALUES) TEXT_COLOR_B else TEXT_COLOR_P
 }
 
 /**
@@ -574,7 +629,7 @@ fun VerticalBarChart(value: Int?) {
     ) {
         Canvas(Modifier.fillMaxSize()) {
             val gridColor = Color.LightGray
-            val gridWidth = BORDER.toPx()
+            val gridWidth = BORDER_SIZE.toPx()
             val interval = size.height / MAX_VALUE
             // 绘制网格线和边框
             for (i in 0..MAX_VALUE) {
@@ -637,6 +692,8 @@ fun TextItem(
     fontSize: TextUnit = 14.sp,
     fontWeight: FontWeight = FontWeight.Normal,
     isSelected: Boolean = false,
+    isObslate: Boolean = false,
+    isShowBorder: Boolean = true,
     onClick: (() -> Unit)? = null
 ) {
     // 步骤 1: 根据 isSelected 状态决定背景色和文字颜色
@@ -649,20 +706,30 @@ fun TextItem(
         }
     }
 
+
     Box(
         Modifier
             .width(width)
             .height(ITEM_SIZE)
-            .border(BorderStroke(BORDER, Color.LightGray))
             .background(backgroundColor)
-            .clickable {
-                onClick?.invoke()
-            },
+            .clickable { onClick?.invoke() }
+            .alpha(if (isObslate) 0.5f else 1.0f)
+            .conditionalBorder(isShowBorder),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = text, fontSize = fontSize, color = color, fontWeight = fontWeight
         )
+        if (isObslate) {
+            Canvas(Modifier.fillMaxSize()) {
+                drawLine(
+                    color = Color.Black,
+                    start = Offset(size.width / 2, 0f),
+                    end = Offset(size.width / 2, size.height),
+                    strokeWidth = 1.dp.toPx()
+                )
+            }
+        }
     }
 }
 
@@ -745,6 +812,23 @@ private fun InputButtons(viewModel: InputViewModel, timerStatus: TimerStatus, be
     }
 }
 
+/**
+ * 根据数值确定文本颜色的辅助函数。已优化，可以安全处理 null 值。
+ */
+private fun determineColor(value: Int?): Color {
+    if (value == null) return TEXT_COLOR_NEUTRAL
+    return if (value in RED_COLOR_VALUES) TEXT_COLOR_B else TEXT_COLOR_P
+}
+
+private fun determineColor(value: String?): Color {
+    if (value == null) return TEXT_COLOR_NEUTRAL
+    return if (value == "B") TEXT_COLOR_B else TEXT_COLOR_P
+}
+
+fun Modifier.conditionalBorder(showBorder: Boolean): Modifier =
+    if (showBorder) this.border(BorderStroke(BORDER_SIZE, Color.LightGray)) else this
+
+
 // 预览1：预览计数器
 @Preview(showBackground = true)
 @Composable
@@ -778,21 +862,21 @@ private fun BppcTableWithChartsPreview() {
 // 预览3：预览策略区块
 @Preview(showBackground = true)
 @Composable
-private fun StrategySectionPreview() {
+private fun Strategy3WaysPreview() {
     val synchronizedListState = rememberLazyListState()
     val displayItems1 = remember {
         listOf(
-            StrategyDisplayItem.Real(StrategyItem(strategy1 = 1, strategy2 = 2)),
-            StrategyDisplayItem.Real(StrategyItem(strategy1 = 3, strategy2 = null))
+            Strategy3WyasDisplayItem.Real(Strategy3WyasItem(first = 1, second = 2)),
+            Strategy3WyasDisplayItem.Real(Strategy3WyasItem(first = 3, second = null))
         )
     }
     val displayItems2 = remember {
         listOf(
-            StrategyDisplayItem.Real(StrategyItem(strategy1 = 3, strategy2 = 2)),
-            StrategyDisplayItem.Real(StrategyItem(strategy1 = 1, strategy2 = null))
+            Strategy3WyasDisplayItem.Real(Strategy3WyasItem(first = 3, second = 2)),
+            Strategy3WyasDisplayItem.Real(Strategy3WyasItem(first = 1, second = null))
         )
     }
-    StrategySection(
+    Strategy3WaysDisplay(
         titles = listOf("A", "12", "56"),
         predictedIndex = "2",
         predictedValue1 = "P",
@@ -802,3 +886,14 @@ private fun StrategySectionPreview() {
         listState = synchronizedListState,
     )
 }
+
+@Preview(showBackground = true)
+@Composable
+private fun TextItemPreveiw() {
+    Column {
+        TextItem("B", determineColor("B"), isObslate = true, width = TITLE_WIDTH_SHORT)
+        TextItem("B", determineColor("B"), isObslate = true, width = TITLE_WIDTH_SHORT)
+        TextItem("B", determineColor("B"), isObslate = true, width = TITLE_WIDTH_SHORT)
+    }
+}
+
