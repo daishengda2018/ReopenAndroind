@@ -335,9 +335,7 @@ private fun RowScope.RightSide(
                 )
             }
         }
-
-        // 使用一个带权重的 Spacer 将按钮推到底部
-        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.height(SPACE_SIZE))
         InputButtons(viewModel, timerStatus, beltInputState)
     }
 }
@@ -391,14 +389,14 @@ private fun CounterDisplay(
         horizontalArrangement = Arrangement.Start
 
     ) {
-        TextItem("$label1$value1", color1, width = TITLE_WIDTH_SHORT)
-        TextItem("$label2$value2", color2, width = TITLE_WIDTH_SHORT)
-        TextItem("$label1 - $label2 =  ${value1 - value2}", color2, width = TITLE_WIDTH_LONG)
-        TextItem("Total $total", Color.Black, width = TITLE_WIDTH_LONG)
+        TextItem("$label1$value1", color1, isHistory = isHistory, width = TITLE_WIDTH_SHORT)
+        TextItem("$label2$value2", color2, isHistory = isHistory, width = TITLE_WIDTH_SHORT)
+        TextItem("$label1 - $label2 =  ${value1 - value2}", color2, isHistory = isHistory, width = TITLE_WIDTH_LONG)
+        TextItem("Total $total", Color.Black, isHistory = isHistory, width = TITLE_WIDTH_LONG)
 
         if (isShowWsr) {
             val wsr = if (total != 0) value1 / total.toFloat() else 0
-            TextItem("WSR ${if (wsr == 1f) "100%" else df.format(wsr)}", Color.Magenta, width = TITLE_WIDTH_LONG)
+            TextItem("WSR ${if (wsr == 1f) "100%" else df.format(wsr)}", Color.Magenta, isHistory = isHistory, width = TITLE_WIDTH_LONG)
         }
     }
 }
@@ -694,18 +692,20 @@ fun TextItem(
     isSelected: Boolean = false,
     isObslate: Boolean = false,
     isShowBorder: Boolean = true,
+    isHistory: Boolean = false,
     onClick: (() -> Unit)? = null
 ) {
     // 步骤 1: 根据 isSelected 状态决定背景色和文字颜色
-    val backgroundColor = remember(isSelected)
+    val backgroundColor = remember(isSelected, isObslate)
     {
         if (isSelected) {
             PurpleGrey80 // 选中时，使用主题色的淡色作为背景
+        } else if (isObslate) {
+            Color.Gray
         } else {
             Color.Transparent // 未选中时，背景透明
         }
     }
-
 
     Box(
         Modifier
@@ -714,7 +714,7 @@ fun TextItem(
             .background(backgroundColor)
             .clickable { onClick?.invoke() }
             .alpha(if (isObslate) 0.5f else 1.0f)
-            .conditionalBorder(isShowBorder),
+            .conditionalBorder(isShowBorder, isObslate || isHistory),
         contentAlignment = Alignment.Center
     ) {
         Text(
@@ -745,7 +745,6 @@ private fun InputButtons(viewModel: InputViewModel, timerStatus: TimerStatus, be
             .fillMaxWidth()
             .weight(1f)
     }
-
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -825,9 +824,13 @@ private fun determineColor(value: String?): Color {
     return if (value == "B") TEXT_COLOR_B else TEXT_COLOR_P
 }
 
-fun Modifier.conditionalBorder(showBorder: Boolean): Modifier =
-    if (showBorder) this.border(BorderStroke(BORDER_SIZE, Color.LightGray)) else this
-
+fun Modifier.conditionalBorder(showBorder: Boolean, isWhiteBorder: Boolean): Modifier {
+    return if (showBorder) {
+        this.border(BorderStroke(BORDER_SIZE, if (isWhiteBorder) Color.White else Color.LightGray))
+    } else {
+        this
+    }
+}
 
 // 预览1：预览计数器
 @Preview(showBackground = true)
