@@ -701,7 +701,7 @@ fun TextItem(
         if (isSelected) {
             PurpleGrey80 // 选中时，使用主题色的淡色作为背景
         } else if (isObslate) {
-            Color.Gray
+            Color.LightGray
         } else {
             Color.Transparent // 未选中时，背景透明
         }
@@ -720,16 +720,16 @@ fun TextItem(
         Text(
             text = text, fontSize = fontSize, color = color, fontWeight = fontWeight
         )
-        if (isObslate) {
-            Canvas(Modifier.fillMaxSize()) {
-                drawLine(
-                    color = Color.Black,
-                    start = Offset(size.width / 2, 0f),
-                    end = Offset(size.width / 2, size.height),
-                    strokeWidth = 1.dp.toPx()
-                )
-            }
-        }
+//        if (isObslate) {
+//            Canvas(Modifier.fillMaxSize()) {
+//                drawLine(
+//                    color = Color.Black,
+//                    start = Offset(size.width / 2, 0f),
+//                    end = Offset(size.width / 2, size.height),
+//                    strokeWidth = 1.dp.toPx()
+//                )
+//            }
+//        }
     }
 }
 
