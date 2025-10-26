@@ -31,6 +31,11 @@ class ExampleUnitTest {
         val actualOpenedList2 = listOf("P", "P")
         val actualOpenedList3 = listOf("P", "P", "B")
 
+        val actualOpenedList4 = listOf("")
+        val actualOpenedList5 = listOf("P")
+        val actualOpenedList6 = listOf("P", "B")
+        val actualOpenedList7 = listOf("P", "B", "P")
+
         filterItems(actualOpenedList0)
         println("测试场景 0 结果: $predictedList ${itemList}") // 预期输出: [P, B]
 
@@ -42,6 +47,20 @@ class ExampleUnitTest {
 
         filterItems(actualOpenedList3)
         println("测试场景 3 结果: $predictedList ${itemList}") // 预期输出: [P, B]
+
+        println("--------------") // 预期输出: [P, B]
+
+        filterItems(actualOpenedList4)
+        println("测试场景 4 结果: $predictedList ${itemList}") // 预期输出: [P, B]
+
+        filterItems(actualOpenedList5)
+        println("测试场景 5 结果: $predictedList ${itemList}") // 预期输出: [P, B]
+
+        filterItems(actualOpenedList6)
+        println("测试场景 6 结果: $predictedList ${itemList}") // 预期输出: [P, B]
+
+        filterItems(actualOpenedList7)
+        println("测试场景 7 结果: $predictedList ${itemList}") // 预期输出: [P, B]
     }
 
 
@@ -57,10 +76,11 @@ class ExampleUnitTest {
             val currentIndex = actualOpenedList.size
             val aRowItemList = if (actualOpenedList.isEmpty()) {
                 // 情况1: actualOpenedList 为空，直接提取当前索引的值
-                itemList.map { it.second[currentIndex] }
+                itemList.filterNot { itemList -> itemList.first == "XX" }.map { it.second[currentIndex] }
             } else {
                 // 情况2: 过滤掉与 actualOpenedList 完全匹配的项，提取当前索引的值
                 itemList
+                    .filterNot { itemList -> itemList.first == "XX" }
                     .filterNot { item ->
                         item.second.withIndex().any { (index, value) ->
                             index < actualOpenedList.size && value == actualOpenedList[index]
