@@ -360,13 +360,16 @@ class InputViewModel : ViewModel() {
         val inputCombination = last3Inputs.joinToString("")
         currentConbinations.add(inputCombination)
 
+        _strategyGridStateMap.forEach { it ->
+            if (it.value == true) {
+                updateGridStrategyData(_openInputList.last(), it.key)
+            }
+        }
+
         // 判断是否正好存在三未曾出现的组合
         if (currentConbinations.size == THRESHOLD_HAS_SHOWED_CONBINATION) {
             createGridStrategyData(currentConbinations, filledColumn)
-        }
-
-        if (_strategyGridStateMap[filledColumn] == true) {
-            updateGridStrategyData(currentConbinations, filledColumn)
+            updateGridStrategyData(null, filledColumn)
         }
     }
 
@@ -381,64 +384,73 @@ class InputViewModel : ViewModel() {
             // 将形态转换为字母： “PPB” -> “P", "P", "B"
             val itemList = missingWithAntonyms.flatMap { word ->
                 val wordList = word.map { it.toString() }
+                // 第一个 item 为形态标号
                 listOf(mutableListOf(bppcCombinationToResult[word].toString()).apply { addAll(wordList) })
             }.toMutableList()
 
-
-            // 获取预测的形态： 取前三种形态的第一个
-            val predictions = itemList.take(itemList.size).map { it[0] }
-            // 如果预测的形态只有一种，则直接使用该形态，否则使用所有形态
-            val predictedList = currentData.predictedList.toMutableList()
-            if (predictions.distinct().size == 1) {
-                predictedList.add(predictions.first())
-            } else {
-                predictedList.add("-")
-            }
-
             _strategyGridStateMap[filledColumn] = true
             currentData.copy(
-                predictedList = predictedList,
                 // 获取组合的形态和状态：是否已经开过
                 itemList = itemList.map { Pair(false, it) }
             )
         }
     }
 
-    private fun updateGridStrategyData(currentConbinations: MutableSet<String>, filledColumn: ColumnType) {
-        if (_openInputList.isEmpty()) {
-            return
-        }
-        val last = _openInputList.last()
+    private fun updateGridStrategyData(inputType: InputType?, filledColumn: ColumnType) {
         _stragetyGridStateFlow[filledColumn.value].update { currentData ->
-            var actualOpenedList = currentData.actualOpenedList.toMutableList()
-            if (actualOpenedList.size >= MAX_COLUMN_COUNT) {
-                actualOpenedList = mutableListOf()
+            // 1. 更新 actualOpenedList
+            val actualOpenedList = currentData.actualOpenedList.toMutableList().apply {
+                if (size >= MAX_COLUMN_COUNT) clear()
+                inputType?.let { add(it.toString()) }
             }
-            // 存储最新开的形态到实际列表中
-            actualOpenedList.add(last.toString())
 
-            // 按照行从形态列表中获取三个 InputType，如果三个 InputType 都一样则，则可以直接预判。
-            val predictions = currentData.itemList.let { list ->
-                val idx = actualOpenedList.indexOfLast { it?.isNotEmpty() == true }
-                list.take(currentData.itemList.size).map { it.second[idx] }
+            // 2. 准备数据
+            val itemList = currentData.itemList.toMutableList()
+            val predictedList = currentData.predictedList.toMutableList().apply {
+                if (size >= MAX_COLUMN_COUNT) clear()
             }
-            // 如果三个 InputType 都一样则，则可以直接预判。
-            val predictedList = currentData.predictedList.toMutableList()
-            if (predictions.distinct().size == 1) {
-                predictedList.add(predictions.first())
+
+            // 3. 根据条件处理数据
+            if (actualOpenedList.size < MAX_COLUMN_COUNT) {
+                val currentIndex = actualOpenedList.size
+                val aRowItemList = if (actualOpenedList.isEmpty()) {
+                    // 情况1: actualOpenedList 为空，直接提取当前索引的值
+                    currentData.itemList.map { it.second[currentIndex] }
+                } else {
+                    // 情况2: 过滤掉与 actualOpenedList 完全匹配的项，提取当前索引的值
+                    currentData.itemList
+                        .filterNot { item ->
+                            item.second.withIndex().any { (index, value) ->
+                                index < actualOpenedList.size && value == actualOpenedList[index]
+                            }
+                        }
+                        .map { it.second[currentIndex] }
+                        .ifEmpty { emptyList() }
+                }
+
+                // 4. 更新 predictedList
+                predictedList.add(if (aRowItemList.distinct().size == 1) aRowItemList.first() else "-")
             } else {
-                predictedList.add("-")
+                // 情况3: 处理已满的情况： 需要删除元素了
+                val openedSize = actualOpenedList.size
+                itemList
+                    .filterNot { item -> isItemMatched(item.second, actualOpenedList.take(openedSize)) }
+                    .map { it.copy(true) }
             }
 
-            _strategyGridStateMap[filledColumn] = true
+            // 5. 返回更新后的数据
             currentData.copy(
                 predictedList = predictedList,
-                // 获取组合的形态和状态：是否已经开过
-//                itemList = itemList.map { Pair(false, it) }
+                actualOpenedList = actualOpenedList,
+                itemList = itemList
             )
         }
     }
 
+    // 辅助函数：检查 item 是否与 openedList 匹配
+    private fun isItemMatched(itemValues: List<String?>, openedList: List<String?>): Boolean {
+        return itemValues.take(openedList.size) == openedList
+    }
 
     /**
      * 撤销最后一个开
