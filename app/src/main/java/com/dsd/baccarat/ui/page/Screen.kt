@@ -60,7 +60,7 @@ import com.dsd.baccarat.data.PredictedStrategy3WaysValue
 import com.dsd.baccarat.data.Strategy3WaysData
 import com.dsd.baccarat.data.Strategy3WyasDisplayItem
 import com.dsd.baccarat.data.Strategy3WyasItem
-import com.dsd.baccarat.data.StrategyGridItem
+import com.dsd.baccarat.data.StrategyGridInfo
 import com.dsd.baccarat.data.TableDisplayItem
 import com.dsd.baccarat.data.TableItem
 import com.dsd.baccarat.data.TimerStatus
@@ -167,7 +167,7 @@ private fun RowScope.LeftSide(
     viewModel: InputViewModel,
     bppcTableData: List<TableDisplayItem>,
     synchronizedListState: LazyListState,
-    strategyGridList: List<StrategyGridItem>,
+    strategyGridList: List<StrategyGridInfo>,
     strategy3WaysList: List<Strategy3WaysData>,
     predicted3WaysList: List<PredictedStrategy3WaysValue>,
 ) {
@@ -225,7 +225,7 @@ private fun RowScope.LeftSide(
 }
 
 @Composable
-private fun StrategyGridDisplay(title: String, strategyItem: StrategyGridItem) {
+private fun StrategyGridDisplay(title: String, strategyItem: StrategyGridInfo) {
     Spacer(Modifier.height(SPACE_SIZE))
     // 使用一个占位的 Box 来确保布局一致性
     Row {
@@ -235,26 +235,26 @@ private fun StrategyGridDisplay(title: String, strategyItem: StrategyGridItem) {
         }
         Spacer(Modifier.width(SPACE_SIZE))
         for (i in 0 until MAX_COLUMN_COUNT) {
-            val isObslate = strategyItem.itemList.getOrNull(i)?.first ?: false
-            val dataList = strategyItem.itemList.getOrNull(i)?.second
-            dataList?.first()
+            val gridItem = strategyItem.itemList.getOrNull(i)
+            val isObslate = gridItem?.status ?: false
+            val dataList = gridItem?.items
+            val conbinationTitle = gridItem?.title
             Column(Modifier.width(ITEM_SIZE)) {
-                val data1 = dataList?.getOrNull(0)
                 TextItem(
-                    data1 ?: "",
-                    determineColor(data1?.toInt() ?: 0),
+                    conbinationTitle ?: "",
+                    determineColor(conbinationTitle?.toInt() ?: 0),
                     isObslate = isObslate,
                     isShowBorder = false,
                     width = TITLE_WIDTH_SHORT
                 )
 
-                val data2 = dataList?.getOrNull(1)
+                val data2 = dataList?.getOrNull(0)
                 TextItem(data2 ?: "", determineColor(data2), isObslate = isObslate, width = TITLE_WIDTH_SHORT)
 
-                val data3 = dataList?.getOrNull(2)
+                val data3 = dataList?.getOrNull(1)
                 TextItem(data3 ?: "", determineColor(data3), isObslate = isObslate, width = TITLE_WIDTH_SHORT)
 
-                val data4 = dataList?.getOrNull(3)
+                val data4 = dataList?.getOrNull(2)
                 TextItem(data4 ?: "", determineColor(data4), isObslate = isObslate, width = TITLE_WIDTH_SHORT)
             }
         }

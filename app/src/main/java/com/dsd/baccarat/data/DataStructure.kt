@@ -30,10 +30,16 @@ data class TableItem(
     val dataC: Int? = null
 )
 
-data class StrategyGridItem(
+data class StrategyGridInfo(
     val predictedList: List<String?> = emptyList(),
     val actualOpenedList: List<String?> = emptyList(),
-    val itemList: List<Pair<Boolean, List<String?>>> = emptyList()
+    val itemList: List<StrategyGridItem> = emptyList()
+)
+
+data class StrategyGridItem(
+    val status: Boolean = false,
+    val title: String? = null,
+    val items: List<String?> = emptyList()
 )
 
 // 策略列表项 (使用可空类型)
