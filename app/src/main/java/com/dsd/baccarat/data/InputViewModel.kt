@@ -424,7 +424,12 @@ class InputViewModel : ViewModel() {
                 }
                 actualOpenedList.clear()
                 // 返回更新后的数据
-                result = result.copy(itemList = itemList)
+                result = result.copy(predictedList = predictedList, actualOpenedList = actualOpenedList, itemList = itemList)
+            }
+
+            // 如果所有形态都被删除了，不再预测
+            if (result.itemList.none { !it.status }) {
+                return@update result
             }
 
             val currentIndex = actualOpenedList.size
