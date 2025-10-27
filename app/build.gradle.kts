@@ -4,7 +4,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-//    alias(libs.plugins.detekt)
+    alias(libs.plugins.detekt)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
 }
@@ -47,12 +47,12 @@ android {
         freeCompilerArgs = listOf("-XXLanguage:+PropertyParamAnnotationDefaultTargetMode")
     }
 
-//    detekt {
-//        config = files("${rootDir}/config/detekt/detekt.yml") // 你的自定义配置文件路径
-//        buildUponDefaultConfig = true // 推荐：在默认配置基础上进行修改
-//        allRules = false // 不启用所有规则，除非你在自定义配置中明确启用
-//        parallel = true // 启用并行分析，提高速度
-//    }
+    detekt {
+        config = files("${rootDir}/config/detekt/detekt.yml") // 你的自定义配置文件路径
+        buildUponDefaultConfig = true // 推荐：在默认配置基础上进行修改
+        allRules = false // 不启用所有规则，除非你在自定义配置中明确启用
+        parallel = true // 启用并行分析，提高速度
+    }
 }
 
 dependencies {

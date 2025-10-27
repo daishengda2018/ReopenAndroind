@@ -507,10 +507,12 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
      */
     fun removeLastOpen() {
         _openInputList.removeLastOrNull() ?: return
-
         // 重置展示相关状态
         clearAll()
+        resumeOpenedData()
+    }
 
+    private fun resumeOpenedData() {
         // 从头重建（仅在 i >= 2 时触发表格/策略更新）
         for (i in _openInputList.indices) {
             if (i >= 2) {
@@ -548,6 +550,10 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
         _wlCounterStateFlow.value = DEFAULT_BPCOUNTER
 
         // 从头重建（仅在 i >= 2 时触发表格/策略更新）
+        resumeBetedData()
+    }
+
+    private fun resumeBetedData() {
         for (i in _betResultList.indices) {
             if (i >= 2) {
                 val last3Inputs = _betResultList.subList(0, i + 1).takeLast(3)
@@ -567,6 +573,12 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
         _stragetyGridStateFlow.forEach { it.value = DEFAULT_STRANTYGE_GRID }
         _predictionStateFlowList.forEach { it.value = DEFAULT_PREDICTION }
         _uniqueBppcConbinationList.forEach { it.clear() }
+    }
+
+    fun resomeAll() {
+        clearAll()
+        resumeOpenedData()
+        resumeBetedData()
     }
 
     override fun onCleared() {
