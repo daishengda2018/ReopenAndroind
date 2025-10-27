@@ -119,6 +119,7 @@ class InputViewModel : ViewModel() {
         _openInputList.add(InputType.P)
         updateOpenData()
     }
+
     private fun updateOpenData() {
         // 所有预测，
         updateAllPredictions()
@@ -469,10 +470,7 @@ class InputViewModel : ViewModel() {
         _openInputList.removeLastOrNull() ?: return
 
         // 重置展示相关状态
-        _bppcTableStateFlow.value = DEFAULT_TABLE_DISPLAY_LIST
-        _bppcCounterStateFlow.value = DEFAULT_BPCOUNTER
-        _strategy3WaysStateFlowList.forEach { it.value = DEFAULT_STRATEGYDATA }
-        _predictionStateFlowList.forEach { it.value = DEFAULT_PREDICTION }
+        clearAll()
 
         // 从头重建（仅在 i >= 2 时触发表格/策略更新）
         for (i in _openInputList.indices) {
@@ -521,6 +519,15 @@ class InputViewModel : ViewModel() {
         }
     }
 
+    fun clearAll() {
+        _bppcTableStateFlow.value = DEFAULT_TABLE_DISPLAY_LIST
+        _bppcCounterStateFlow.value = DEFAULT_BPCOUNTER
+        _strategy3WaysStateFlowList.forEach { it.value = DEFAULT_STRATEGY_3WAY }
+        _stragetyGridStateFlow.forEach { it.value = DEFAULT_STRANTYGE_GRID }
+        _predictionStateFlowList.forEach { it.value = DEFAULT_PREDICTION }
+        _uniqueBppcConbinationList.forEach { it.clear() }
+    }
+
     override fun onCleared() {
         super.onCleared()
         stopTimerJob()
@@ -530,7 +537,7 @@ class InputViewModel : ViewModel() {
 
         private const val THRESHOLD_HAS_SHOWED_CONBINATION = 5
         private val DEFAULT_PREDICTION = PredictedStrategy3WaysValue()
-        private val DEFAULT_STRATEGYDATA = Strategy3WaysData()
+        private val DEFAULT_STRATEGY_3WAY = Strategy3WaysData()
         private val DEFAULT_BPCOUNTER = Counter()
         private val DEFAULT_TABLE_DISPLAY_LIST = List(MIN_TABLE_COLUMN_COUNT) { TableDisplayItem.Empty }
         private val DEFAULT_STRANTYGE_GRID = StrategyGridInfo()

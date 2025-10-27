@@ -805,7 +805,7 @@ private fun InputButtons(viewModel: InputViewModel, timerStatus: TimerStatus, be
                 )
             }
             Button(modifier = DefaultButtonModifier(), onClick = { /* TODO: 实现撤销逻辑 */ }) { Text(text = "保存") }
-            Button(modifier = DefaultButtonModifier(), onClick = { /* TODO: 实现撤销逻辑 */ }) { Text(text = "新牌") }
+            Button(modifier = DefaultButtonModifier(), onClick = { viewModel.clearAll() }) { Text(text = "新牌") }
         }
 
     }
