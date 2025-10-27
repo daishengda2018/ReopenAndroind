@@ -72,8 +72,6 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 
 //  常量在顶部统一组织，清晰明了。
-
-
 private val ITEM_SIZE = 22.dp
 private val SPACE_SIZE = 5.dp
 private val TABLE_HEIGHT = ITEM_SIZE * 4
@@ -105,11 +103,13 @@ fun Screen(viewModel: InputViewModel) {
     val bppcCounter = viewModel.bppcCounterStateFlow.collectAsStateWithLifecycle().value
     val wlCounter = viewModel.wlCounterStateFlow.collectAsStateWithLifecycle().value
     val wlTableData = viewModel.wlTableStateFlow.collectAsStateWithLifecycle().value
-    val beltInputState = viewModel.beltInputStageFlow.collectAsStateWithLifecycle().value
+    val beltInputState = viewModel.curBeltInputStageFlow.collectAsStateWithLifecycle().value
 
     val strategyGridList = viewModel.stragetyGridStateFlow.map { it.collectAsStateWithLifecycle().value }
     val strategy3WaysList = viewModel.strategy3WaysStateFlowList.map { it.collectAsStateWithLifecycle().value }
     val predicted3WaysList = viewModel.predictedStateFlowList.map { it.collectAsStateWithLifecycle().value }
+    val wHistoryCount = viewModel.wCount.collectAsStateWithLifecycle().value
+    val lHistoryCount = viewModel.lCount.collectAsStateWithLifecycle().value
 
     // 使用独立的可组合函数来管理提示音的创建/释放与播放
     NotificationSoundEffect(soundFlow = viewModel.soundEvent)
@@ -147,6 +147,8 @@ fun Screen(viewModel: InputViewModel) {
             RightSide(
                 wlCounter,
                 wlTableData,
+                wHistoryCount,
+                lHistoryCount,
                 synchronizedListState,
                 strategy3WaysList,
                 predicted3WaysList,
@@ -281,6 +283,8 @@ private fun StrategyGridDisplay(title: String, strategyItem: StrategyGridInfo) {
 private fun RowScope.RightSide(
     counter: Counter,
     tableData: List<TableDisplayItem>,
+    wHistoryCount: Int,
+    lHistoryCount: Int,
     synchronizedListState: LazyListState,
     strategy3WaysList: List<Strategy3WaysData>,
     predicted3WaysList: List<PredictedStrategy3WaysValue>,
@@ -310,8 +314,8 @@ private fun RowScope.RightSide(
         )
 
         CounterDisplay(
-            label1 = "W", value1 = counter.count1, color1 = TEXT_COLOR_W,
-            label2 = "L", value2 = counter.count2, color2 = TEXT_COLOR_L,
+            label1 = "W", value1 = wHistoryCount, color1 = TEXT_COLOR_W,
+            label2 = "L", value2 = lHistoryCount, color2 = TEXT_COLOR_L,
             padding = 0.dp,
             isShowWsr = true,
             isHistory = true

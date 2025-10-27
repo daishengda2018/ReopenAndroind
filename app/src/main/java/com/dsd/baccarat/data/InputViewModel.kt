@@ -4,6 +4,8 @@ package com.dsd.baccarat.data
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import jakarta.inject.Inject
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -17,7 +19,8 @@ import kotlinx.coroutines.launch
 /**
  * 输入 ViewModel
  */
-class InputViewModel : ViewModel() {
+@HiltViewModel
+class InputViewModel @Inject constructor(private val repository: CountRepository) : ViewModel() {
 
     private var _openInputList: MutableList<InputType> = mutableListOf()
 
@@ -45,7 +48,8 @@ class InputViewModel : ViewModel() {
     private val _predictionStateFlowList = List(MAX_COLUMN_COUNT) { MutableStateFlow(DEFAULT_PREDICTED_3WAYS) }
     val predictedStateFlowList: List<StateFlow<PredictedStrategy3WaysValue>> = _predictionStateFlowList.map { it.asStateFlow() }
 
-    val beltInputStageFlow: MutableStateFlow<InputType?> = MutableStateFlow(null)
+    private val _curBeltInputStageFlow: MutableStateFlow<InputType?> = MutableStateFlow(null)
+    val curBeltInputStageFlow = _curBeltInputStageFlow.asStateFlow()
 
     // Timer state moved to ViewModel
     private val _timerStatus = MutableStateFlow(TimerStatus.Idle)
@@ -66,6 +70,40 @@ class InputViewModel : ViewModel() {
     // 用于存储去重后的key（自动去重）
     private val _uniqueBppcConbinationList = MutableList<MutableSet<String>>(MAX_COLUMN_COUNT, { mutableSetOf() })
     private val _strategyGridStateMap: MutableMap<ColumnType, Boolean?> = HashMap(MAX_COLUMN_COUNT)
+
+    // 1. 定义 W 类型的热流（MutableStateFlow 作为容器，初始值 0）
+    private val _wCount = MutableStateFlow(0)
+    val wCount: StateFlow<Int> = _wCount.asStateFlow() // 暴露不可变的 StateFlow
+
+    // 2. 定义 L 类型的热流
+    private val _lCount = MutableStateFlow(0)
+    val lCount: StateFlow<Int> = _lCount.asStateFlow()
+
+    // 初始化时启动协程，收集 Repository 的冷流并转换为热流
+    init {
+        collectWCount()
+        collectLCount()
+    }
+
+    // 收集 W 类型的冷流，发射到 _wCount（热流）
+    private fun collectWCount() {
+        viewModelScope.launch {
+            // 收集 Repository 的冷流（wCountFlow）
+            repository.wCountFlow.collect { newCount ->
+                // 将新值发射到热流（_wCount）
+                _wCount.value = newCount
+            }
+        }
+    }
+
+    // 收集 L 类型的冷流，发射到 _lCount（热流）
+    private fun collectLCount() {
+        viewModelScope.launch {
+            repository.lCountFlow.collect { newCount ->
+                _lCount.value = newCount
+            }
+        }
+    }
 
     // 控制计时器：切换/复位/关闭提醒
     fun toggleTimer() {
@@ -212,7 +250,7 @@ class InputViewModel : ViewModel() {
      * 更新 WL 表格
      */
     private fun updateWlTable() {
-        val inputType = beltInputStageFlow.value
+        val inputType = _curBeltInputStageFlow.value
         if (inputType == null) {
             return
         }
@@ -224,20 +262,20 @@ class InputViewModel : ViewModel() {
 
         val last3Inputs = _betResultList.takeLast(3)
         if (last3Inputs.size < 3) {
-            beltInputStageFlow.update { null }
+            _curBeltInputStageFlow.update { null }
             return
         }
 
         val inputCombination = last3Inputs.joinToString("")
         val result = wlCombinationToResult[inputCombination] ?: run {
-            beltInputStageFlow.update { null }
+            _curBeltInputStageFlow.update { null }
             return
         }
 
         Log.d("InputViewModel", "Current Inputs: $last3Inputs")
         updateWlCounter(_betResultList.last())
         updateTableStageFlow(_wlTableStateFlow, result)
-        beltInputStageFlow.update { null }
+        _curBeltInputStageFlow.update { null }
     }
 
     private fun updateTableStageFlow(tableStateFlow: MutableStateFlow<List<TableDisplayItem>>, result: Int): ColumnType? {
@@ -284,13 +322,14 @@ class InputViewModel : ViewModel() {
     }
 
 
-    private fun updateWlCounter(lastInput: BeltResultType) {
+    private fun updateWlCounter(lastResult: BeltResultType) {
         _wlCounterStateFlow.update { currentCounter ->
-            when (lastInput) {
+            when (lastResult) {
                 BeltResultType.W -> currentCounter.copy(count1 = currentCounter.count1 + 1)
                 BeltResultType.L -> currentCounter.copy(count2 = currentCounter.count2 + 1)
             }
         }
+        viewModelScope.launch { repository.updateCount(lastResult, OperationType.INCREMENT) }
     }
 
     /**
@@ -488,18 +527,20 @@ class InputViewModel : ViewModel() {
 
 
     fun betB() {
-        beltInputStageFlow.update { InputType.B }
+        _curBeltInputStageFlow.update { InputType.B }
     }
 
     fun betP() {
-        beltInputStageFlow.update { InputType.P }
+        _curBeltInputStageFlow.update { InputType.P }
     }
 
     fun removeLastBet() {
-        if (beltInputStageFlow.value != null) {
-            beltInputStageFlow.update { null }
+        if (_curBeltInputStageFlow.value != null) {
+            _curBeltInputStageFlow.update { null }
         } else {
-            _betResultList.removeLastOrNull() ?: return
+            val last = _betResultList.removeLastOrNull()
+            last ?: return
+            viewModelScope.launch { repository.updateCount(last, OperationType.DECREMENT) }
         }
 
         // 重置展示相关状态
@@ -534,7 +575,6 @@ class InputViewModel : ViewModel() {
     }
 
     companion object {
-
         private const val THRESHOLD_HAS_SHOWED_CONBINATION = 5
         private val DEFAULT_PREDICTION = PredictedStrategy3WaysValue()
         private val DEFAULT_STRATEGY_3WAY = Strategy3WaysData()

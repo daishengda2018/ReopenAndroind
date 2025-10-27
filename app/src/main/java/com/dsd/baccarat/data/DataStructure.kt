@@ -1,21 +1,15 @@
 package com.dsd.baccarat.data
 
+import androidx.datastore.preferences.core.intPreferencesKey
 import com.dsd.baccarat.data.InputViewModel.Companion.MIN_TABLE_COLUMN_COUNT
 
 // 输入类型
-enum class InputType(val value: String) {
-    B("B"),
-    P("P")
-}
+enum class InputType(val value: String) { B("B"), P("P") }
 
-enum class BeltResultType() {
-    W,
-    L
-}
+enum class BeltResultType() { W, L }
 
 // BP 计数器
 data class Counter(val count1: Int = 0, val count2: Int = 0)
-
 
 // 列类型
 enum class ColumnType(val value: Int) { A(0), B(1), C(2) }
@@ -65,7 +59,6 @@ sealed class Strategy3WyasDisplayItem() {
     data class Real(val data: Strategy3WyasItem) : Strategy3WyasDisplayItem()
 }
 
-
 // 包含四种策略的数据
 data class Strategy3WaysData(
     val strategy12: List<Strategy3WyasDisplayItem> = List(MIN_TABLE_COLUMN_COUNT) { Strategy3WyasDisplayItem.Empty },
@@ -83,5 +76,16 @@ data class PredictedStrategy3WaysValue(
 )
 
 enum class TimerStatus { Idle, Running }
+
+object CountKeys {
+    val W_COUNT = intPreferencesKey("w_count")
+    val L_COUNT = intPreferencesKey("l_count")
+}
+
+// 2. 定义操作类型枚举（累加/累减）
+enum class OperationType {
+    INCREMENT, // 累加
+    DECREMENT  // 累减
+}
 
 

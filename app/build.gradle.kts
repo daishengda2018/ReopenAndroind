@@ -4,7 +4,9 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.detekt)
+//    alias(libs.plugins.detekt)
+    alias(libs.plugins.hilt)
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -41,17 +43,23 @@ android {
     buildFeatures {
         compose = true
     }
-
-    detekt {
-        config = files("${rootDir}/config/detekt/detekt.yml") // 你的自定义配置文件路径
-        buildUponDefaultConfig = true // 推荐：在默认配置基础上进行修改
-        allRules = false // 不启用所有规则，除非你在自定义配置中明确启用
-        parallel = true // 启用并行分析，提高速度
+    kotlinOptions {
+        freeCompilerArgs = listOf("-XXLanguage:+PropertyParamAnnotationDefaultTargetMode")
     }
+
+//    detekt {
+//        config = files("${rootDir}/config/detekt/detekt.yml") // 你的自定义配置文件路径
+//        buildUponDefaultConfig = true // 推荐：在默认配置基础上进行修改
+//        allRules = false // 不启用所有规则，除非你在自定义配置中明确启用
+//        parallel = true // 启用并行分析，提高速度
+//    }
 }
 
 dependencies {
-    detektPlugins(libs.detekt)
+//    detektPlugins(libs.detekt)
+    // 添加 Hilt 依赖
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -60,6 +68,10 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    // Preferences DataStore (SharedPreferences like APIs)
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.kotlinx.coroutines.android)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
