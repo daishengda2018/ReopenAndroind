@@ -79,14 +79,12 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
     private val _lCount = MutableStateFlow(0)
     val lCount: StateFlow<Int> = _lCount.asStateFlow()
 
+    // 输入文字的 StateFlow
+    private val _inputText = MutableStateFlow("")
+    val inputText: StateFlow<String> = _inputText.asStateFlow()
+
     // 初始化时启动协程，收集 Repository 的冷流并转换为热流
     init {
-        collectWCount()
-        collectLCount()
-    }
-
-    // 收集 W 类型的冷流，发射到 _wCount（热流）
-    private fun collectWCount() {
         viewModelScope.launch {
             // 收集 Repository 的冷流（wCountFlow）
             repository.wCountFlow.collect { newCount ->
@@ -94,13 +92,39 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
                 _wCount.value = newCount
             }
         }
-    }
 
-    // 收集 L 类型的冷流，发射到 _lCount（热流）
-    private fun collectLCount() {
         viewModelScope.launch {
             repository.lCountFlow.collect { newCount ->
                 _lCount.value = newCount
+            }
+        }
+
+        // 从 DataStore 恢复输入文字
+        viewModelScope.launch {
+            repository.noteTextFlow.collect { savedText ->
+                _inputText.value = savedText
+            }
+        }
+
+        // 从 DataStore 恢复数据
+        viewModelScope.launch {
+            repository.opendList.collect { savedList ->
+                _openInputList.clear()
+                _openInputList.addAll(savedList)
+                if (_openInputList.isNotEmpty()) {
+                    resumeOpenedData()
+                }
+            }
+        }
+
+        // 从 DataStore 恢复数据
+        viewModelScope.launch {
+            repository.betList.collect { savedList ->
+                _betResultList.clear()
+                _betResultList.addAll(savedList)
+                if (_betResultList.isNotEmpty()) {
+                    resumeBetedData()
+                }
             }
         }
     }
@@ -150,11 +174,13 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
 
     fun openB() {
         _openInputList.add(InputType.B)
+        updateOpendList(_openInputList)
         updateOpenData()
     }
 
     fun openP() {
         _openInputList.add(InputType.P)
+        updateOpendList(_openInputList)
         updateOpenData()
     }
 
@@ -256,8 +282,11 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
         }
         if (_openInputList.last() == inputType) {
             _betResultList.add(BeltResultType.W)
+            updateBetList(_betResultList)
+
         } else {
             _betResultList.add(BeltResultType.L)
+            updateBetList(_betResultList)
         }
 
         val last3Inputs = _betResultList.takeLast(3)
@@ -321,6 +350,11 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
         return filledColumn
     }
 
+    fun updateBetList(newList: List<BeltResultType>) {
+        viewModelScope.launch {
+            repository.saveBetList(newList)
+        }
+    }
 
     private fun updateWlCounter(lastResult: BeltResultType) {
         _wlCounterStateFlow.update { currentCounter ->
@@ -507,8 +541,9 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
      */
     fun removeLastOpen() {
         _openInputList.removeLastOrNull() ?: return
+        updateOpendList(_openInputList)
         // 重置展示相关状态
-        clearAll()
+        clearAllStateFlow()
         resumeOpenedData()
     }
 
@@ -542,7 +577,10 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
         } else {
             val last = _betResultList.removeLastOrNull()
             last ?: return
-            viewModelScope.launch { repository.updateCount(last, OperationType.DECREMENT) }
+            viewModelScope.launch {
+                repository.updateCount(last, OperationType.DECREMENT)
+                repository.saveBetList(_betResultList)
+            }
         }
 
         // 重置展示相关状态
@@ -566,7 +604,30 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
         }
     }
 
+    // 更新并保存数据
+    fun updateOpendList(newList: List<InputType>) {
+        viewModelScope.launch {
+            repository.saveOpendList(newList)
+        }
+    }
+
+    fun updateInputText(text: String) {
+        // 存储在用户点击 新牌、保持之前输入的内容
+        viewModelScope.launch { repository.saveNoteText(text) }
+    }
+
     fun clearAll() {
+        clearAllStateFlow()
+        _openInputList.clear()
+        _betResultList.clear()
+        viewModelScope.launch {
+            repository.saveNoteText("")
+            repository.saveOpendList(_openInputList)
+            repository.saveBetList(_betResultList)
+        }
+    }
+
+    fun clearAllStateFlow() {
         _bppcTableStateFlow.value = DEFAULT_TABLE_DISPLAY_LIST
         _bppcCounterStateFlow.value = DEFAULT_BPCOUNTER
         _strategy3WaysStateFlowList.forEach { it.value = DEFAULT_STRATEGY_3WAY }
@@ -575,10 +636,10 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
         _uniqueBppcConbinationList.forEach { it.clear() }
     }
 
-    fun resomeAll() {
-        clearAll()
-        resumeOpenedData()
-        resumeBetedData()
+    fun resumeAll() {
+//        clearAll()
+//        resumeOpenedData()
+//        resumeBetedData()
     }
 
     override fun onCleared() {

@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
+import com.dsd.baccarat.data.CountKeys.NOTE_TEXT
 import dagger.hilt.android.qualifiers.ApplicationContext
 import jakarta.inject.Inject
 import kotlinx.coroutines.Dispatchers
@@ -25,6 +26,26 @@ class CountRepository @Inject constructor(@ApplicationContext private val contex
         .map { preferences ->
             preferences[CountKeys.L_COUNT] ?: 0 // 默认为0
         }
+
+
+    val noteTextFlow: Flow<String> = context.dataStore.data
+        .map { preferences ->
+            preferences[CountKeys.NOTE_TEXT] ?: ""
+        }
+
+
+    val opendList: Flow<List<InputType>> = context.dataStore.data
+        .map { preferences ->
+            val json = preferences[CountKeys.INPUT_TYPE_LIST] ?: return@map emptyList()
+            SerializationUtils.deserializeInputTypeList(json)
+        }
+
+    val betList: Flow<List<BeltResultType>> = context.dataStore.data
+        .map { preferences ->
+            val json = preferences[CountKeys.BET_TYPE_LIST] ?: return@map emptyList()
+            SerializationUtils.deserializeBeltResultTypeList(json)
+        }
+
 
     // 3. 更新数量（核心：根据类型和操作，自动累加/累减）
     suspend fun updateCount(
@@ -50,6 +71,24 @@ class CountRepository @Inject constructor(@ApplicationContext private val contex
         }
     }
 
+    suspend fun saveNoteText(text: String) = withContext(Dispatchers.IO) {
+        context.dataStore.edit { preferences -> preferences[NOTE_TEXT] = text }
+    }
+
+    // 保存 List<InputType>
+    suspend fun saveOpendList(list: List<InputType>) {
+        val json = SerializationUtils.serializeInputTypeList(list)
+        context.dataStore.edit { preferences ->
+            preferences[CountKeys.INPUT_TYPE_LIST] = json
+        }
+    }
+
+    suspend fun saveBetList(list: List<BeltResultType>) {
+        val json = SerializationUtils.serializeBeltResultTypeList(list)
+        context.dataStore.edit { preferences ->
+            preferences[CountKeys.BET_TYPE_LIST] = json
+        }
+    }
     companion object {
         private const val WLR_HISTORY_PREFERENCES = "wlr_history_preferences"
         val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = WLR_HISTORY_PREFERENCES)

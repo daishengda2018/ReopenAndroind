@@ -1,12 +1,13 @@
 package com.dsd.baccarat.data
 
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import com.dsd.baccarat.data.InputViewModel.Companion.MIN_TABLE_COLUMN_COUNT
 
 // 输入类型
 enum class InputType(val value: String) { B("B"), P("P") }
 
-enum class BeltResultType() { W, L }
+enum class BeltResultType(val value: String) { W("W"), L("L") }
 
 // BP 计数器
 data class Counter(val count1: Int = 0, val count2: Int = 0)
@@ -80,6 +81,11 @@ enum class TimerStatus { Idle, Running }
 object CountKeys {
     val W_COUNT = intPreferencesKey("w_count")
     val L_COUNT = intPreferencesKey("l_count")
+
+    val NOTE_TEXT = stringPreferencesKey("note_text")
+
+    val INPUT_TYPE_LIST = stringPreferencesKey("opend_list")
+    val BET_TYPE_LIST = stringPreferencesKey("bet_list")
 }
 
 // 2. 定义操作类型枚举（累加/累减）

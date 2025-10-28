@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -110,6 +111,7 @@ fun Screen(viewModel: InputViewModel) {
     val predicted3WaysList = viewModel.predictedStateFlowList.map { it.collectAsStateWithLifecycle().value }
     val wHistoryCount = viewModel.wCount.collectAsStateWithLifecycle().value
     val lHistoryCount = viewModel.lCount.collectAsStateWithLifecycle().value
+    val inputText = viewModel.inputText.collectAsStateWithLifecycle().value
 
     // 使用独立的可组合函数来管理提示音的创建/释放与播放
     NotificationSoundEffect(soundFlow = viewModel.soundEvent)
@@ -154,6 +156,7 @@ fun Screen(viewModel: InputViewModel) {
                 predicted3WaysList,
                 viewModel,
                 timerStatus,
+                inputText,
                 beltInputState
             )
         }
@@ -290,6 +293,7 @@ private fun RowScope.RightSide(
     predicted3WaysList: List<PredictedStrategy3WaysValue>,
     viewModel: InputViewModel,
     timerStatus: TimerStatus,
+    inputText: String,
     beltInputState: InputType?
 ) {
     Column(
@@ -297,6 +301,10 @@ private fun RowScope.RightSide(
             .weight(1f) // 使用 weight 实现灵活的权重布局
             .padding(horizontal = 5.dp)
     ) {
+
+        val timeString = remember {
+            SimpleDateFormat("yyyy-MM-dd EEEE", Locale.getDefault()).format(System.currentTimeMillis())
+        }
 
         CounterDisplay(
             label1 = "W", value1 = counter.count1, color1 = TEXT_COLOR_W,
@@ -321,8 +329,17 @@ private fun RowScope.RightSide(
             isHistory = true
         )
 
-        // 用 Spacer 来与左侧的图表区域在布局上对齐
-        Spacer(Modifier.height(TABLE_HEIGHT * 3 + SPACE_SIZE * 3 - ITEM_SIZE))
+        // 可输入内容的文本框
+        OutlinedTextField(
+            value = inputText,
+            // 更新 ViewModel 中的文字
+            onValueChange = { newText -> viewModel.updateInputText(newText) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color.Transparent)
+                .height(TABLE_HEIGHT * 3 + SPACE_SIZE * 3 - ITEM_SIZE),
+            label = { Text("$timeString") },
+        )
 
         // 右侧列的策略区块
         ColumnType.entries.forEach { type ->
