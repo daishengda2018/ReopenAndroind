@@ -24,7 +24,7 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
 
     private var _openInputList: MutableList<InputType> = mutableListOf()
 
-    private var _betResultList: MutableList<BeltResultType> = mutableListOf()
+    private var _betResultList: MutableList<BetResultType> = mutableListOf()
 
     private val _wlTableStateFlow = MutableStateFlow<List<TableDisplayItem>>(DEFAULT_TABLE_DISPLAY_LIST)
     val wlTableStateFlow: StateFlow<List<TableDisplayItem>> = _wlTableStateFlow.asStateFlow()
@@ -72,12 +72,12 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
     private val _strategyGridStateMap: MutableMap<ColumnType, Boolean?> = HashMap(MAX_COLUMN_COUNT)
 
     // 1. 定义 W 类型的热流（MutableStateFlow 作为容器，初始值 0）
-    private val _wCount = MutableStateFlow(0)
-    val wCount: StateFlow<Int> = _wCount.asStateFlow() // 暴露不可变的 StateFlow
+    private val _wHistoryCounter = MutableStateFlow(0)
+    val wHistoryCounter: StateFlow<Int> = _wHistoryCounter.asStateFlow() // 暴露不可变的 StateFlow
 
     // 2. 定义 L 类型的热流
-    private val _lCount = MutableStateFlow(0)
-    val lCount: StateFlow<Int> = _lCount.asStateFlow()
+    private val _lHistoryCounter = MutableStateFlow(0)
+    val lHistoryCounter: StateFlow<Int> = _lHistoryCounter.asStateFlow()
 
     // 输入文字的 StateFlow
     private val _inputText = MutableStateFlow("")
@@ -89,43 +89,33 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
             // 收集 Repository 的冷流（wCountFlow）
             repository.wCountFlow.collect { newCount ->
                 // 将新值发射到热流（_wCount）
-                _wCount.value = newCount
+                _wHistoryCounter.value = newCount
             }
         }
 
         viewModelScope.launch {
             repository.lCountFlow.collect { newCount ->
-                _lCount.value = newCount
+                _lHistoryCounter.value = newCount
             }
         }
 
         // 从 DataStore 恢复输入文字
         viewModelScope.launch {
-            repository.noteTextFlow.collect { savedText ->
-                _inputText.value = savedText
-            }
+            _inputText.value = repository.getNoteText()
         }
 
         // 从 DataStore 恢复数据
         viewModelScope.launch {
-            repository.opendList.collect { savedList ->
-                _openInputList.clear()
-                _openInputList.addAll(savedList)
-                if (_openInputList.isNotEmpty()) {
-                    resumeOpenedData()
-                }
-            }
+            _openInputList.clear()
+            _openInputList.addAll(repository.getOpendList())
+            resumeOpenedData()
         }
 
         // 从 DataStore 恢复数据
         viewModelScope.launch {
-            repository.betList.collect { savedList ->
-                _betResultList.clear()
-                _betResultList.addAll(savedList)
-                if (_betResultList.isNotEmpty()) {
-                    resumeBetedData()
-                }
-            }
+            _betResultList.clear()
+            _betResultList.addAll(repository.getBetList())
+            resumeBetedData()
         }
     }
 
@@ -281,11 +271,11 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
             return
         }
         if (_openInputList.last() == inputType) {
-            _betResultList.add(BeltResultType.W)
+            _betResultList.add(BetResultType.W)
             updateBetList(_betResultList)
 
         } else {
-            _betResultList.add(BeltResultType.L)
+            _betResultList.add(BetResultType.L)
             updateBetList(_betResultList)
         }
 
@@ -302,7 +292,10 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
         }
 
         Log.d("InputViewModel", "Current Inputs: $last3Inputs")
-        updateWlCounter(_betResultList.last())
+        val lastResult = _betResultList.last()
+        updateWlCounter(lastResult)
+        viewModelScope.launch { repository.updateCount(lastResult, OperationType.INCREMENT) }
+
         updateTableStageFlow(_wlTableStateFlow, result)
         _curBeltInputStageFlow.update { null }
     }
@@ -350,20 +343,19 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
         return filledColumn
     }
 
-    fun updateBetList(newList: List<BeltResultType>) {
+    fun updateBetList(newList: List<BetResultType>) {
         viewModelScope.launch {
             repository.saveBetList(newList)
         }
     }
 
-    private fun updateWlCounter(lastResult: BeltResultType) {
+    private fun updateWlCounter(lastResult: BetResultType) {
         _wlCounterStateFlow.update { currentCounter ->
             when (lastResult) {
-                BeltResultType.W -> currentCounter.copy(count1 = currentCounter.count1 + 1)
-                BeltResultType.L -> currentCounter.copy(count2 = currentCounter.count2 + 1)
+                BetResultType.W -> currentCounter.copy(count1 = currentCounter.count1 + 1)
+                BetResultType.L -> currentCounter.copy(count2 = currentCounter.count2 + 1)
             }
         }
-        viewModelScope.launch { repository.updateCount(lastResult, OperationType.INCREMENT) }
     }
 
     /**
@@ -543,11 +535,11 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
         _openInputList.removeLastOrNull() ?: return
         updateOpendList(_openInputList)
         // 重置展示相关状态
-        clearAllStateFlow()
         resumeOpenedData()
     }
 
     private fun resumeOpenedData() {
+        clearAllStateFlow()
         // 从头重建（仅在 i >= 2 时触发表格/策略更新）
         for (i in _openInputList.indices) {
             if (i >= 2) {
@@ -561,7 +553,6 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
             updateAllPredictions()
         }
     }
-
 
     fun betB() {
         _curBeltInputStageFlow.update { InputType.B }
@@ -583,15 +574,15 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
             }
         }
 
-        // 重置展示相关状态
-        _wlTableStateFlow.value = DEFAULT_TABLE_DISPLAY_LIST
-        _wlCounterStateFlow.value = DEFAULT_BPCOUNTER
-
         // 从头重建（仅在 i >= 2 时触发表格/策略更新）
         resumeBetedData()
     }
 
     private fun resumeBetedData() {
+        // 重置展示相关状态
+        _wlTableStateFlow.value = DEFAULT_TABLE_DISPLAY_LIST
+        _wlCounterStateFlow.value = DEFAULT_BPCOUNTER
+
         for (i in _betResultList.indices) {
             if (i >= 2) {
                 val last3Inputs = _betResultList.subList(0, i + 1).takeLast(3)
@@ -614,9 +605,23 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
     fun updateInputText(text: String) {
         // 存储在用户点击 新牌、保持之前输入的内容
         viewModelScope.launch { repository.saveNoteText(text) }
+        _inputText.value = text
     }
 
-    fun clearAll() {
+    fun clearAllStateFlow() {
+        _bppcTableStateFlow.value = DEFAULT_TABLE_DISPLAY_LIST
+        _bppcCounterStateFlow.value = DEFAULT_BPCOUNTER
+
+        _strategy3WaysStateFlowList.forEach { it.value = DEFAULT_STRATEGY_3WAY }
+        _stragetyGridStateFlow.forEach { it.value = DEFAULT_STRANTYGE_GRID }
+        _predictionStateFlowList.forEach { it.value = DEFAULT_PREDICTION }
+
+        _uniqueBppcConbinationList.forEach { it.clear() }
+
+        _wlCounterStateFlow.value = DEFAULT_BPCOUNTER
+    }
+
+    fun newGame() {
         clearAllStateFlow()
         _openInputList.clear()
         _betResultList.clear()
@@ -625,21 +630,6 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
             repository.saveOpendList(_openInputList)
             repository.saveBetList(_betResultList)
         }
-    }
-
-    fun clearAllStateFlow() {
-        _bppcTableStateFlow.value = DEFAULT_TABLE_DISPLAY_LIST
-        _bppcCounterStateFlow.value = DEFAULT_BPCOUNTER
-        _strategy3WaysStateFlowList.forEach { it.value = DEFAULT_STRATEGY_3WAY }
-        _stragetyGridStateFlow.forEach { it.value = DEFAULT_STRANTYGE_GRID }
-        _predictionStateFlowList.forEach { it.value = DEFAULT_PREDICTION }
-        _uniqueBppcConbinationList.forEach { it.clear() }
-    }
-
-    fun resumeAll() {
-//        clearAll()
-//        resumeOpenedData()
-//        resumeBetedData()
     }
 
     override fun onCleared() {

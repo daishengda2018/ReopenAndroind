@@ -14,11 +14,11 @@ object SerializationUtils {
         return json.decodeFromString(jsonString)
     }
 
-    fun serializeBeltResultTypeList(list: List<BeltResultType>): String {
+    fun serializeBeltResultTypeList(list: List<BetResultType>): String {
         return json.encodeToString(list)
     }
 
-    fun deserializeBeltResultTypeList(jsonString: String): List<BeltResultType> {
+    fun deserializeBeltResultTypeList(jsonString: String): List<BetResultType> {
         return json.decodeFromString(jsonString)
     }
 }

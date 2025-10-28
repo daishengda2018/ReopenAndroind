@@ -109,8 +109,8 @@ fun Screen(viewModel: InputViewModel) {
     val strategyGridList = viewModel.stragetyGridStateFlow.map { it.collectAsStateWithLifecycle().value }
     val strategy3WaysList = viewModel.strategy3WaysStateFlowList.map { it.collectAsStateWithLifecycle().value }
     val predicted3WaysList = viewModel.predictedStateFlowList.map { it.collectAsStateWithLifecycle().value }
-    val wHistoryCount = viewModel.wCount.collectAsStateWithLifecycle().value
-    val lHistoryCount = viewModel.lCount.collectAsStateWithLifecycle().value
+    val wHistoryCount = viewModel.wHistoryCounter.collectAsStateWithLifecycle().value
+    val lHistoryCount = viewModel.lHistoryCounter.collectAsStateWithLifecycle().value
     val inputText = viewModel.inputText.collectAsStateWithLifecycle().value
 
     // 使用独立的可组合函数来管理提示音的创建/释放与播放
@@ -826,7 +826,7 @@ private fun InputButtons(viewModel: InputViewModel, timerStatus: TimerStatus, be
                 )
             }
             Button(modifier = DefaultButtonModifier(), onClick = { /* TODO: 实现撤销逻辑 */ }) { Text(text = "保存") }
-            Button(modifier = DefaultButtonModifier(), onClick = { viewModel.clearAll() }) { Text(text = "新牌") }
+            Button(modifier = DefaultButtonModifier(), onClick = { viewModel.newGame() }) { Text(text = "新牌") }
         }
 
     }

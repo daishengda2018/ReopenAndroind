@@ -10,8 +10,10 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import jakarta.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import java.io.IOException
 
 class CountRepository @Inject constructor(@ApplicationContext private val context: Context) {
 
@@ -27,36 +29,16 @@ class CountRepository @Inject constructor(@ApplicationContext private val contex
             preferences[CountKeys.L_COUNT] ?: 0 // 默认为0
         }
 
-
-    val noteTextFlow: Flow<String> = context.dataStore.data
-        .map { preferences ->
-            preferences[CountKeys.NOTE_TEXT] ?: ""
-        }
-
-
-    val opendList: Flow<List<InputType>> = context.dataStore.data
-        .map { preferences ->
-            val json = preferences[CountKeys.INPUT_TYPE_LIST] ?: return@map emptyList()
-            SerializationUtils.deserializeInputTypeList(json)
-        }
-
-    val betList: Flow<List<BeltResultType>> = context.dataStore.data
-        .map { preferences ->
-            val json = preferences[CountKeys.BET_TYPE_LIST] ?: return@map emptyList()
-            SerializationUtils.deserializeBeltResultTypeList(json)
-        }
-
-
     // 3. 更新数量（核心：根据类型和操作，自动累加/累减）
     suspend fun updateCount(
-        type: BeltResultType, // W或L
+        type: BetResultType, // W或L
         operation: OperationType // 加或减
     ) = withContext(Dispatchers.IO) {
         context.dataStore.edit { preferences ->
             // 先获取当前值（默认0）
             val currentCount = when (type) {
-                BeltResultType.W -> preferences[CountKeys.W_COUNT] ?: 0
-                BeltResultType.L -> preferences[CountKeys.L_COUNT] ?: 0
+                BetResultType.W -> preferences[CountKeys.W_COUNT] ?: 0
+                BetResultType.L -> preferences[CountKeys.L_COUNT] ?: 0
             }
             // 根据操作类型计算新值（累减时确保不小于0，可选）
             val newValue = when (operation) {
@@ -65,14 +47,25 @@ class CountRepository @Inject constructor(@ApplicationContext private val contex
             }
             // 写入新值
             when (type) {
-                BeltResultType.W -> preferences[CountKeys.W_COUNT] = newValue
-                BeltResultType.L -> preferences[CountKeys.L_COUNT] = newValue
+                BetResultType.W -> preferences[CountKeys.W_COUNT] = newValue
+                BetResultType.L -> preferences[CountKeys.L_COUNT] = newValue
             }
         }
     }
 
     suspend fun saveNoteText(text: String) = withContext(Dispatchers.IO) {
         context.dataStore.edit { preferences -> preferences[NOTE_TEXT] = text }
+    }
+
+    suspend fun getNoteText(): String {
+        try {
+            val preferences = context.dataStore.data.first()
+            return preferences[CountKeys.NOTE_TEXT] ?: ""
+        } catch (e: IOException) {
+            // 处理读取文件时可能发生的 IO 异常
+            e.printStackTrace()
+            return ""
+        }
     }
 
     // 保存 List<InputType>
@@ -83,12 +76,41 @@ class CountRepository @Inject constructor(@ApplicationContext private val contex
         }
     }
 
-    suspend fun saveBetList(list: List<BeltResultType>) {
+    suspend fun getOpendList(): List<InputType> {
+        try {
+            // .data 是 Flow<Preferences>
+            // .first() 挂起当前协程，直到获得第一个 Preferences 对象
+            val preferences = context.dataStore.data.first()
+            val json = preferences[CountKeys.INPUT_TYPE_LIST] ?: return emptyList()
+            return SerializationUtils.deserializeInputTypeList(json)
+        } catch (e: IOException) {
+            // 处理读取文件时可能发生的 IO 异常
+            e.printStackTrace()
+            return emptyList()
+        }
+    }
+
+    suspend fun saveBetList(list: List<BetResultType>) {
         val json = SerializationUtils.serializeBeltResultTypeList(list)
         context.dataStore.edit { preferences ->
             preferences[CountKeys.BET_TYPE_LIST] = json
         }
     }
+
+    suspend fun getBetList(): List<BetResultType> {
+        try {
+            // .data 是 Flow<Preferences>
+            // .first() 挂起当前协程，直到获得第一个 Preferences 对象
+            val preferences = context.dataStore.data.first()
+            val json = preferences[CountKeys.BET_TYPE_LIST] ?: return emptyList()
+            return SerializationUtils.deserializeBeltResultTypeList(json)
+        } catch (e: IOException) {
+            // 处理读取文件时可能发生的 IO 异常
+            e.printStackTrace()
+            return emptyList()
+        }
+    }
+
     companion object {
         private const val WLR_HISTORY_PREFERENCES = "wlr_history_preferences"
         val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = WLR_HISTORY_PREFERENCES)

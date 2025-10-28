@@ -7,7 +7,7 @@ import com.dsd.baccarat.data.InputViewModel.Companion.MIN_TABLE_COLUMN_COUNT
 // 输入类型
 enum class InputType(val value: String) { B("B"), P("P") }
 
-enum class BeltResultType(val value: String) { W("W"), L("L") }
+enum class BetResultType(val value: String) { W("W"), L("L") }
 
 // BP 计数器
 data class Counter(val count1: Int = 0, val count2: Int = 0)
