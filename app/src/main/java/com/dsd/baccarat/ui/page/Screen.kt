@@ -303,7 +303,7 @@ private fun RowScope.RightSide(
     ) {
 
         val timeString = remember {
-            SimpleDateFormat("yyyy-MM-dd EEEE", Locale.getDefault()).format(System.currentTimeMillis())
+            SimpleDateFormat("yyyy-MM-dd EEEE", Locale.CHINESE).format(System.currentTimeMillis())
         }
 
         CounterDisplay(
@@ -430,7 +430,7 @@ private fun CurrentTimeDisplay(
     onDismissReminder: () -> Unit
 ) {
     val timeString = remember {
-        SimpleDateFormat("yyyy-MM-dd EEEE", Locale.getDefault()).format(System.currentTimeMillis())
+        SimpleDateFormat("yyyy-MM-dd EEEE", Locale.CHINESE).format(System.currentTimeMillis())
     }
     val textStyle = remember {
         TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold)

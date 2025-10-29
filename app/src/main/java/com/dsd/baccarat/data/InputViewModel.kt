@@ -80,8 +80,8 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
     val lHistoryCounter: StateFlow<Int> = _lHistoryCounter.asStateFlow()
 
     // 输入文字的 StateFlow
-    private val _inputText = MutableStateFlow("")
-    val inputText: StateFlow<String> = _inputText.asStateFlow()
+    private val _inputTextStateFlow = MutableStateFlow("")
+    val inputText: StateFlow<String> = _inputTextStateFlow.asStateFlow()
 
     // 初始化时启动协程，收集 Repository 的冷流并转换为热流
     init {
@@ -101,7 +101,7 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
 
         // 从 DataStore 恢复输入文字
         viewModelScope.launch {
-            _inputText.value = repository.getNoteText()
+            _inputTextStateFlow.value = repository.getNoteText()
         }
 
         // 从 DataStore 恢复数据
@@ -606,6 +606,7 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
         // 存储在用户点击 新牌、保持之前输入的内容
         viewModelScope.launch { repository.saveNoteText(text) }
         _inputText.value = text
+        _inputTextStateFlow.value = text
     }
 
     fun clearAllStateFlow() {
@@ -619,6 +620,7 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
         _uniqueBppcConbinationList.forEach { it.clear() }
 
         _wlCounterStateFlow.value = DEFAULT_BPCOUNTER
+        _inputTextStateFlow.value = ""
     }
 
     fun newGame() {
