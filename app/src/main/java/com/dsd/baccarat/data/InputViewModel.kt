@@ -85,37 +85,34 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
 
     // 初始化时启动协程，收集 Repository 的冷流并转换为热流
     init {
+        // 每次数据变化都会响应的 Flow
         viewModelScope.launch {
             // 收集 Repository 的冷流（wCountFlow）
-            repository.wCountFlow.collect { newCount ->
+            repository.wHistoryCountFlow.collect { newCount ->
                 // 将新值发射到热流（_wCount）
                 _wHistoryCounter.value = newCount
             }
         }
 
         viewModelScope.launch {
-            repository.lCountFlow.collect { newCount ->
+            repository.lHistoryCountFlow.collect { newCount ->
                 _lHistoryCounter.value = newCount
             }
         }
 
-        // 从 DataStore 恢复输入文字
+        // 只响应一次的 Flow
         viewModelScope.launch {
             _inputTextStateFlow.value = repository.getNoteText()
-        }
 
-        // 从 DataStore 恢复数据
-        viewModelScope.launch {
             _openInputList.clear()
             _openInputList.addAll(repository.getOpendList())
             resumeOpenedData()
-        }
 
-        // 从 DataStore 恢复数据
-        viewModelScope.launch {
             _betResultList.clear()
             _betResultList.addAll(repository.getBetList())
             resumeBetedData()
+
+            _wlCounterStateFlow.value = repository.getWinLossCurCount()
         }
     }
 
@@ -294,7 +291,7 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
         Log.d("InputViewModel", "Current Inputs: $last3Inputs")
         val lastResult = _betResultList.last()
         updateWlCounter(lastResult)
-        viewModelScope.launch { repository.updateCount(lastResult, OperationType.INCREMENT) }
+        viewModelScope.launch { repository.updateWlCount(lastResult, OperationType.INCREMENT) }
 
         updateTableStageFlow(_wlTableStateFlow, result)
         _curBeltInputStageFlow.update { null }
@@ -569,7 +566,7 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
             val last = _betResultList.removeLastOrNull()
             last ?: return
             viewModelScope.launch {
-                repository.updateCount(last, OperationType.DECREMENT)
+                repository.updateWlCount(last, OperationType.DECREMENT)
                 repository.saveBetList(_betResultList)
             }
         }
@@ -605,7 +602,6 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
     fun updateInputText(text: String) {
         // 存储在用户点击 新牌、保持之前输入的内容
         viewModelScope.launch { repository.saveNoteText(text) }
-        _inputText.value = text
         _inputTextStateFlow.value = text
     }
 
@@ -620,6 +616,8 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
         _uniqueBppcConbinationList.forEach { it.clear() }
 
         _wlCounterStateFlow.value = DEFAULT_BPCOUNTER
+        _wlTableStateFlow.value = DEFAULT_TABLE_DISPLAY_LIST
+
         _inputTextStateFlow.value = ""
     }
 
@@ -631,6 +629,7 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
             repository.saveNoteText("")
             repository.saveOpendList(_openInputList)
             repository.saveBetList(_betResultList)
+            repository.clearCurWinLossCount()
         }
     }
 

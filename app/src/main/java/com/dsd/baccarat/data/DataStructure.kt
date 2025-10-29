@@ -78,15 +78,7 @@ data class PredictedStrategy3WaysValue(
 
 enum class TimerStatus { Idle, Running }
 
-object CountKeys {
-    val W_COUNT = intPreferencesKey("w_count")
-    val L_COUNT = intPreferencesKey("l_count")
 
-    val NOTE_TEXT = stringPreferencesKey("note_text")
-
-    val INPUT_TYPE_LIST = stringPreferencesKey("opend_list")
-    val BET_TYPE_LIST = stringPreferencesKey("bet_list")
-}
 
 // 2. 定义操作类型枚举（累加/累减）
 enum class OperationType {
