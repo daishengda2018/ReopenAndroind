@@ -89,7 +89,8 @@ private val TEXT_COLOR_W = Color.Red
 private val TEXT_COLOR_L = Color.Blue
 private val TEXT_COLOR_NEUTRAL = Color.Black
 
-private val RED_COLOR_VALUES = setOf(1, 4, 6, 7)
+private val RED_COLOR_VALUES1 = setOf(1, 4, 6, 7)
+private val RED_COLOR_VALUES2 = setOf(1, 2, 5, 6)
 
 /**
  * 应用的主屏幕可组合函数。
@@ -619,11 +620,11 @@ private fun Strategy3WyasTable(
             Column(Modifier.width(ITEM_SIZE)) {
                 TextItem(
                     text = item?.first?.toString() ?: "",
-                    color = determineColor(item?.first)
+                    color = determineColorFor3Ways(item?.first)
                 )
                 TextItem(
                     text = item?.second?.toString() ?: "",
-                    color = determineColor(item?.second)
+                    color = determineColorFor3Ways(item?.second)
                 )
             }
         }
@@ -837,12 +838,17 @@ private fun InputButtons(viewModel: InputViewModel, timerStatus: TimerStatus, be
  */
 private fun determineColor(value: Int?): Color {
     if (value == null) return TEXT_COLOR_NEUTRAL
-    return if (value in RED_COLOR_VALUES) TEXT_COLOR_B else TEXT_COLOR_P
+    return if (value in RED_COLOR_VALUES1) TEXT_COLOR_B else TEXT_COLOR_P
 }
 
 private fun determineColor(value: String?): Color {
     if (value == null) return TEXT_COLOR_NEUTRAL
     return if (value == "B") TEXT_COLOR_B else TEXT_COLOR_P
+}
+
+private fun determineColorFor3Ways(value: Int?): Color {
+    if (value == null) return TEXT_COLOR_NEUTRAL
+    return if (value in RED_COLOR_VALUES2) Color.Red else Color.Blue
 }
 
 fun Modifier.conditionalBorder(showBorder: Boolean, isWhiteBorder: Boolean): Modifier {
