@@ -33,7 +33,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -91,13 +94,13 @@ private val TEXT_COLOR_NEUTRAL = Color.Black
 
 private val RED_COLOR_VALUES1 = setOf(1, 4, 6, 7)
 private val RED_COLOR_VALUES2 = setOf(1, 2, 5, 6)
+private lateinit var sharedScrollStates: SnapshotStateList<LazyListState>
 
 /**
  * 应用的主屏幕可组合函数。
  */
 @Composable
 fun Screen(viewModel: InputViewModel) {
-    val synchronizedListState = rememberLazyListState()
     val elapsedTime = viewModel.elapsedTime.collectAsStateWithLifecycle().value
     val timerStatus = viewModel.timerStatus.collectAsStateWithLifecycle().value
     val showReminder = viewModel.showReminder.collectAsStateWithLifecycle().value
@@ -117,14 +120,24 @@ fun Screen(viewModel: InputViewModel) {
     // 使用独立的可组合函数来管理提示音的创建/释放与播放
     NotificationSoundEffect(soundFlow = viewModel.soundEvent)
 
-    // 优化自动滚动逻辑
-//    LaunchedEffect(bppcTableData) { // 监听 items 的变化
-//        val lastRealIndex = bppcTableData.indexOfLast { it is BppcDisplayItem.Real }
-//        if (lastRealIndex != -1) {
-//            // 使用 animateScrollToItem 获得更平滑的滚动动画效果
-//            synchronizedListState.animateScrollToItem(bppcTableData.lastIndex)
-//        }
-//    }
+    // 
+    sharedScrollStates = remember { mutableStateListOf() }
+    LaunchedEffect(sharedScrollStates) {
+        snapshotFlow {
+            sharedScrollStates.firstOrNull()?.let {
+                it.firstVisibleItemScrollOffset + it.firstVisibleItemIndex * 1000f
+            }
+        }.collect {
+            val main = sharedScrollStates.firstOrNull() ?: return@collect
+            val index = main.firstVisibleItemIndex
+            val offset = main.firstVisibleItemScrollOffset
+            sharedScrollStates.drop(1).forEach { state ->
+                if (state.firstVisibleItemIndex != index || state.firstVisibleItemScrollOffset != offset) {
+                    state.scrollToItem(index, offset)
+                }
+            }
+        }
+    }
 
     Scaffold { innerPadding ->
         Row(
@@ -140,7 +153,6 @@ fun Screen(viewModel: InputViewModel) {
                 showReminder,
                 viewModel,
                 bppcTableData,
-                synchronizedListState,
                 strategyGridList,
                 strategy3WaysList,
                 predicted3WaysList
@@ -152,7 +164,6 @@ fun Screen(viewModel: InputViewModel) {
                 wlTableData,
                 wHistoryCount,
                 lHistoryCount,
-                synchronizedListState,
                 strategy3WaysList,
                 predicted3WaysList,
                 viewModel,
@@ -172,7 +183,6 @@ private fun RowScope.LeftSide(
     showReminder: Boolean,
     viewModel: InputViewModel,
     bppcTableData: List<TableDisplayItem>,
-    synchronizedListState: LazyListState,
     strategyGridList: List<StrategyGridInfo>,
     strategy3WaysList: List<Strategy3WaysData>,
     predicted3WaysList: List<PredictedStrategy3WaysValue>,
@@ -201,7 +211,7 @@ private fun RowScope.LeftSide(
             Spacer(Modifier.width(SPACE_SIZE))
             Table(
                 items = bppcTableData,
-                listState = synchronizedListState,
+                listState = rememberSyncedLazyListState(),
                 showCharts = true // 这一列显示图表
             )
         }
@@ -215,7 +225,6 @@ private fun RowScope.LeftSide(
                     predictedValue2 = predicted3WaysList[idx].strategy56,
                     displayItems1 = strategy3WaysList[idx].strategy12,
                     displayItems2 = strategy3WaysList[idx].strategy56,
-                    listState = synchronizedListState
                 )
             }
         }
@@ -289,7 +298,6 @@ private fun RowScope.RightSide(
     tableData: List<TableDisplayItem>,
     wHistoryCount: Int,
     lHistoryCount: Int,
-    synchronizedListState: LazyListState,
     strategy3WaysList: List<Strategy3WaysData>,
     predicted3WaysList: List<PredictedStrategy3WaysValue>,
     viewModel: InputViewModel,
@@ -318,7 +326,7 @@ private fun RowScope.RightSide(
         //  复用 BppcTable 组件。
         Table(
             items = tableData,
-            listState = synchronizedListState,
+            listState = rememberLazyListState(),
             showCharts = false // 这一列不显示图表
         )
 
@@ -353,7 +361,6 @@ private fun RowScope.RightSide(
                     predictedValue2 = predicted3WaysList[idx].strategy56,
                     displayItems1 = strategy3WaysList[idx].strategy12,
                     displayItems2 = strategy3WaysList[idx].strategy56,
-                    listState = synchronizedListState
                 )
             }
         }
@@ -550,8 +557,6 @@ private fun Strategy3WaysDisplay(
     predictedValue2: String?,
     displayItems1: List<Strategy3WyasDisplayItem>,
     displayItems2: List<Strategy3WyasDisplayItem>,
-    listState: LazyListState,
-
     ) {
     val selectedOption = remember { mutableIntStateOf(1) }
 
@@ -594,8 +599,8 @@ private fun Strategy3WaysDisplay(
             }
             // 步骤 2: 根据当前选中的状态，决定要显示哪个数据列表。
             when (selectedOption.intValue) {
-                1 -> Strategy3WyasTable(listState, displayItems1)
-                2 -> Strategy3WyasTable(listState, displayItems2)
+                1 -> Strategy3WyasTable(displayItems1)
+                2 -> Strategy3WyasTable(displayItems2)
             }
         }
     }
@@ -607,10 +612,9 @@ private fun Strategy3WaysDisplay(
  */
 @Composable
 private fun Strategy3WyasTable(
-    listState: LazyListState,
     displayItems: List<Strategy3WyasDisplayItem>
 ) {
-    LazyRow(state = listState, modifier = Modifier.fillMaxWidth()) {
+    LazyRow(state = rememberSyncedLazyListState(), modifier = Modifier.fillMaxWidth()) {
         items(
             count = displayItems.size,
             key = { index -> index }
@@ -833,6 +837,15 @@ private fun InputButtons(viewModel: InputViewModel, timerStatus: TimerStatus, be
     }
 }
 
+@Composable
+fun rememberSyncedLazyListState(): LazyListState {
+    val state = rememberLazyListState()
+    LaunchedEffect(Unit) { sharedScrollStates.add(state) }
+    DisposableEffect(Unit) { onDispose { sharedScrollStates.remove(state) } }
+    return state
+}
+
+
 /**
  * 根据数值确定文本颜色的辅助函数。已优化，可以安全处理 null 值。
  */
@@ -893,7 +906,6 @@ private fun BppcTableWithChartsPreview() {
 @Preview(showBackground = true)
 @Composable
 private fun Strategy3WaysPreview() {
-    val synchronizedListState = rememberLazyListState()
     val displayItems1 = remember {
         listOf(
             Strategy3WyasDisplayItem.Real(Strategy3WyasItem(first = 1, second = 2)),
@@ -913,7 +925,6 @@ private fun Strategy3WaysPreview() {
         predictedValue2 = "B",
         displayItems1 = displayItems1,
         displayItems2 = displayItems2,
-        listState = synchronizedListState,
     )
 }
 
