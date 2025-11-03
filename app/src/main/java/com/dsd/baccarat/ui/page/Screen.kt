@@ -43,9 +43,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.tooling.preview.Preview
@@ -194,8 +192,8 @@ private fun RowScope.LeftSide(
     ) {
         Row {
             CounterDisplay(
-                label1 = "B", value1 = bppcCounter.count1, color1 = TEXT_COLOR_B,
-                label2 = "P", value2 = bppcCounter.count2, color2 = TEXT_COLOR_P
+                value1 = bppcCounter.count1, color1 = TEXT_COLOR_B,
+                value2 = bppcCounter.count2, color2 = TEXT_COLOR_P
             )
             Spacer(Modifier.width(ITEM_SIZE))
             // 显示当前时间，需要动态更新
@@ -315,13 +313,23 @@ private fun RowScope.RightSide(
             SimpleDateFormat("yyyy-MM-dd EEEE", Locale.CHINESE).format(System.currentTimeMillis())
         }
 
-        CounterDisplay(
-            label1 = "W", value1 = counter.count1, color1 = TEXT_COLOR_W,
-            label2 = "L", value2 = counter.count2, color2 = TEXT_COLOR_L,
-            padding = 0.dp,
-            isShowWsr = true,
-            isHistory = false
-        )
+        Row {
+            CounterDisplay(
+                value1 = counter.count1, color1 = TEXT_COLOR_W,
+                value2 = counter.count2, color2 = TEXT_COLOR_L,
+                padding = 0.dp,
+                isShowWsr = true,
+                isHistory = false
+            )
+
+            CounterDisplay(
+                value1 = wHistoryCount, color1 = TEXT_COLOR_W,
+                value2 = lHistoryCount, color2 = TEXT_COLOR_L,
+                padding = 0.dp,
+                isShowWsr = true,
+                isHistory = true
+            )
+        }
 
         //  复用 BppcTable 组件。
         Table(
@@ -330,13 +338,7 @@ private fun RowScope.RightSide(
             showCharts = false // 这一列不显示图表
         )
 
-        CounterDisplay(
-            label1 = "W", value1 = wHistoryCount, color1 = TEXT_COLOR_W,
-            label2 = "L", value2 = lHistoryCount, color2 = TEXT_COLOR_L,
-            padding = 0.dp,
-            isShowWsr = true,
-            isHistory = true
-        )
+
 
         // 可输入内容的文本框
         OutlinedTextField(
@@ -391,8 +393,8 @@ private fun NotificationSoundEffect(soundFlow: SharedFlow<Unit>) {
  */
 @Composable
 private fun CounterDisplay(
-    label1: String, value1: Int, color1: Color,
-    label2: String, value2: Int, color2: Color,
+    value1: Int, color1: Color,
+    value2: Int, color2: Color,
     padding: Dp = 5.dp,
     isShowWsr: Boolean = false,
     isHistory: Boolean = false,
@@ -418,14 +420,20 @@ private fun CounterDisplay(
         horizontalArrangement = Arrangement.Start
 
     ) {
-        TextItem("$label1$value1", color1, isHistory = isHistory, width = TITLE_WIDTH_SHORT)
-        TextItem("$label2$value2", color2, isHistory = isHistory, width = TITLE_WIDTH_SHORT)
-        TextItem("$label1 - $label2 =  ${value1 - value2}", color2, isHistory = isHistory, width = TITLE_WIDTH_LONG)
+        TextItem("$value1", color1, isHistory = isHistory, width = ITEM_SIZE)
+        TextItem("$value2", color2, isHistory = isHistory, width = ITEM_SIZE)
         TextItem("Total $total", Color.Black, isHistory = isHistory, width = TITLE_WIDTH_LONG)
+        TextItem("${value1 - value2}", color2, isHistory = isHistory, width = ITEM_SIZE)
+
 
         if (isShowWsr) {
             val wsr = if (total != 0) value1 / total.toFloat() else 0
-            TextItem("WSR ${if (wsr == 1f) "100%" else df.format(wsr)}", Color.Magenta, isHistory = isHistory, width = TITLE_WIDTH_LONG)
+            TextItem(
+                "WSR ${if (wsr == 1f) "100%" else df.format(wsr)}",
+                Color.Magenta,
+                isHistory = isHistory,
+                width = TITLE_WIDTH_LONG
+            )
         }
     }
 }
@@ -467,6 +475,8 @@ private fun CurrentTimeDisplay(
             text = when (timerStatus) {
                 TimerStatus.Idle -> "未开始"
                 TimerStatus.Running -> "运行中"
+                TimerStatus.Paused -> "已暂停"
+                TimerStatus.Finished -> "已完成"
             },
             style = textStyle.copy(fontSize = 12.sp),
             color = Color.Gray
@@ -579,6 +589,7 @@ private fun Strategy3WaysDisplay(
                 {
                     selectedOption.intValue = 1
                 }
+                Spacer(Modifier.width(ITEM_SIZE)) // 与标题行对齐
                 TextItem(titles[2], width = TITLE_WIDTH_SHORT, isSelected = (selectedOption.intValue == 2))
                 {
                     selectedOption.intValue = 2
@@ -694,12 +705,6 @@ fun VerticalBarChart(value: Int?) {
                     topLeft = Offset(size.width / 2 - 1.dp.toPx(), size.height - barHeight),
                     size = Size(2.dp.toPx(), barHeight)
                 )
-                drawText(
-                    textMeasurer = textMeasurer,
-                    text = AnnotatedString("$value"),
-                    topLeft = Offset(6f, size.height - barHeight),
-                    style = textStyle
-                )
             }
         }
     }
@@ -713,8 +718,8 @@ fun TextItem(
     text: String,
     color: Color = Color.Black,
     width: Dp = ITEM_SIZE,
-    fontSize: TextUnit = 14.sp,
-    fontWeight: FontWeight = FontWeight.Normal,
+    fontSize: TextUnit = 15.sp,
+    fontWeight: FontWeight = FontWeight.Bold,
     isSelected: Boolean = false,
     isObslate: Boolean = false,
     isShowBorder: Boolean = true,
@@ -746,16 +751,6 @@ fun TextItem(
         Text(
             text = text, fontSize = fontSize, color = color, fontWeight = fontWeight
         )
-//        if (isObslate) {
-//            Canvas(Modifier.fillMaxSize()) {
-//                drawLine(
-//                    color = Color.Black,
-//                    start = Offset(size.width / 2, 0f),
-//                    end = Offset(size.width / 2, size.height),
-//                    strokeWidth = 1.dp.toPx()
-//                )
-//            }
-//        }
     }
 }
 
@@ -822,14 +817,32 @@ private fun InputButtons(viewModel: InputViewModel, timerStatus: TimerStatus, be
 
         Column(Modifier.weight(1f)) {
             // 计时按钮现在控制传入的计时器
-            Button(modifier = DefaultButtonModifier(), onClick = { viewModel.toggleTimer() }) {
+            val isRunting = (timerStatus == TimerStatus.Running)
+            val isStartedEnable = (timerStatus == TimerStatus.Running || timerStatus == TimerStatus.Paused)
+
+            Button(modifier = DefaultButtonModifier(), enabled = !isRunting, onClick = { viewModel.startTimer() }) {
                 Text(
                     text = when (timerStatus) {
-                        TimerStatus.Idle -> "开始记时"
-                        TimerStatus.Running -> "结束记时"
+                        TimerStatus.Running -> "正在运行"
+                        TimerStatus.Paused -> "重新开始"
+                        else -> "开始记时"
                     }
                 )
             }
+            Button(modifier = DefaultButtonModifier(), enabled = isStartedEnable, onClick = { viewModel.pauseOrResumeTimer() }) {
+                Text(
+                    text = when (timerStatus) {
+                        TimerStatus.Running -> "暂停记时"
+                        TimerStatus.Paused -> "继续记时"
+                        else -> "未开始"
+                    }
+                )
+            }
+            Button(modifier = DefaultButtonModifier(), enabled = isStartedEnable, onClick = { viewModel.stopTimerJob() }) { Text(text = "结束记时") }
+        }
+
+        Column(Modifier.weight(1f)) {
+            Button(modifier = DefaultButtonModifier(), onClick = { /* TODO: 实现撤销逻辑 */ }) { Text(text = "历史") }
             Button(modifier = DefaultButtonModifier(), onClick = { /* TODO: 实现撤销逻辑 */ }) { Text(text = "保存") }
             Button(modifier = DefaultButtonModifier(), onClick = { viewModel.newGame() }) { Text(text = "新牌") }
         }
@@ -877,8 +890,8 @@ fun Modifier.conditionalBorder(showBorder: Boolean, isWhiteBorder: Boolean): Mod
 @Composable
 private fun CounterDisplayPreview() {
     CounterDisplay(
-        label1 = "W", value1 = 15, color1 = TEXT_COLOR_B,
-        label2 = "L", value2 = 20, color2 = TEXT_COLOR_P,
+        value1 = 15, color1 = TEXT_COLOR_B,
+        value2 = 20, color2 = TEXT_COLOR_P,
         isShowWsr = true,
         isHistory = true
     )

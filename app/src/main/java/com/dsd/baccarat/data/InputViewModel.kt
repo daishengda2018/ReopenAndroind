@@ -65,7 +65,7 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
     private val _soundEvent = MutableSharedFlow<Unit>()
     val soundEvent = _soundEvent.asSharedFlow()
 
-    private var timerJob: Job? = null
+    private var _timerJob: Job? = null
 
     // 用于存储去重后的key（自动去重）
     private val _uniqueBppcConbinationList = MutableList<MutableSet<String>>(MAX_COLUMN_COUNT, { mutableSetOf() })
@@ -116,21 +116,14 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
         }
     }
 
-    // 控制计时器：切换/复位/关闭提醒
-    fun toggleTimer() {
-        when (_timerStatus.value) {
-            TimerStatus.Idle -> {
-                _elapsedTime.value = 0
-                _showReminder.value = false
-                _timerStatus.value = TimerStatus.Running
-                startTimer()
-            }
-            TimerStatus.Running -> {
-                _elapsedTime.value = 0
-                _showReminder.value = false
-                _timerStatus.value = TimerStatus.Idle
-                stopTimerJob()
-            }
+    fun pauseOrResumeTimer() {
+        if (_timerStatus.value == TimerStatus.Running) {
+            _timerStatus.value = TimerStatus.Paused
+            _timerJob?.cancel()
+            _timerJob = null
+        } else if (_timerStatus.value == TimerStatus.Paused) {
+            _timerStatus.value = TimerStatus.Running
+            createAndStartNewTimerJob()
         }
     }
 
@@ -138,25 +131,34 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
         _showReminder.value = false
     }
 
-    private fun startTimer() {
-        stopTimerJob()
-        timerJob = viewModelScope.launch {
+    fun startTimer() {
+        _elapsedTime.value = 0
+        _showReminder.value = false
+        _timerStatus.value = TimerStatus.Running
+        createAndStartNewTimerJob()
+    }
+
+    private fun createAndStartNewTimerJob() {
+        _timerJob = viewModelScope.launch {
             while (_timerStatus.value == TimerStatus.Running && _elapsedTime.value < MAX_SECONDS) {
                 delay(1000)
                 // 使用原子 update，避免竞态
                 _elapsedTime.update { it + 1 }
             }
             if (_elapsedTime.value >= MAX_SECONDS) {
-                _timerStatus.value = TimerStatus.Idle
+                _timerStatus.value = TimerStatus.Finished
                 _showReminder.value = true
                 _soundEvent.emit(Unit)
             }
         }
     }
 
-    private fun stopTimerJob() {
-        timerJob?.cancel()
-        timerJob = null
+    fun stopTimerJob() {
+        _elapsedTime.value = 0
+        _showReminder.value = false
+        _timerStatus.value = TimerStatus.Idle
+        _timerJob?.cancel()
+        _timerJob = null
     }
 
     fun openB() {
