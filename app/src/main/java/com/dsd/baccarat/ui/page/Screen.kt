@@ -58,6 +58,7 @@ import com.dsd.baccarat.data.InputType
 import com.dsd.baccarat.data.InputViewModel
 import com.dsd.baccarat.data.InputViewModel.Companion.MAX_COLUMN_COUNT
 import com.dsd.baccarat.data.InputViewModel.Companion.MIN_TABLE_COLUMN_COUNT
+import com.dsd.baccarat.data.InputViewModel.Companion.RELEVANCY_MAP
 import com.dsd.baccarat.data.PredictedStrategy3WaysValue
 import com.dsd.baccarat.data.Strategy3WaysData
 import com.dsd.baccarat.data.Strategy3WyasDisplayItem
@@ -213,19 +214,39 @@ private fun RowScope.LeftSide(
                 showCharts = true // 这一列显示图表
             )
         }
-        ColumnType.entries.forEach { type ->
-            val idx = type.value
-            if (idx < predicted3WaysList.size && idx < strategy3WaysList.size) {
-                Strategy3WaysDisplay(
-                    titles = listOf(type.name, "12", "56"),
-                    predictedIndex = predicted3WaysList[idx].predictionIndex,
-                    predictedValue1 = predicted3WaysList[idx].strategy12,
-                    predictedValue2 = predicted3WaysList[idx].strategy56,
-                    displayItems1 = strategy3WaysList[idx].strategy12,
-                    displayItems2 = strategy3WaysList[idx].strategy56,
-                )
-            }
-        }
+        // A C
+        val idxA = ColumnType.A.value
+        Strategy3WaysDisplay(
+            titles = listOf(ColumnType.A.name, ColumnType.C.name, "12", "56"),
+            predictedIndex = predicted3WaysList[idxA].predictionIndex,
+            predictedValue1 = predicted3WaysList[idxA].strategy12,
+            predictedValue2 = predicted3WaysList[idxA].strategy56,
+            displayItems1 = strategy3WaysList[idxA].strategy12,
+            displayItems2 = strategy3WaysList[idxA].strategy56,
+        )
+
+        // A B
+        val idxB = ColumnType.B.value
+        Strategy3WaysDisplay(
+            titles = listOf(ColumnType.A.name, ColumnType.B.name, "12", "56"),
+            predictedIndex = predicted3WaysList[idxB].predictionIndex,
+            predictedValue1 = predicted3WaysList[idxB].strategy12,
+            predictedValue2 = predicted3WaysList[idxB].strategy56,
+            displayItems1 = strategy3WaysList[idxB].strategy12,
+            displayItems2 = strategy3WaysList[idxB].strategy56,
+        )
+
+        // B C
+        val idxC = ColumnType.C.value
+        Strategy3WaysDisplay(
+            titles = listOf(ColumnType.B.name, ColumnType.C.name, "12", "56"),
+            predictedIndex = predicted3WaysList[idxC].predictionIndex,
+            predictedValue1 = predicted3WaysList[idxC].strategy12,
+            predictedValue2 = predicted3WaysList[idxC].strategy56,
+            displayItems1 = strategy3WaysList[idxC].strategy12,
+            displayItems2 = strategy3WaysList[idxC].strategy56,
+        )
+
         Spacer(Modifier.height(SPACE_SIZE))
         Row {
             StrategyGridDisplay(ColumnType.A.toString(), strategyGridList[ColumnType.A.value])
@@ -352,20 +373,38 @@ private fun RowScope.RightSide(
             label = { Text("$timeString") },
         )
 
-        // 右侧列的策略区块
-        ColumnType.entries.forEach { type ->
-            val idx = type.value
-            if (idx < predicted3WaysList.size && idx < strategy3WaysList.size) {
-                Strategy3WaysDisplay(
-                    titles = listOf(type.name, "34", "78"),
-                    predictedIndex = predicted3WaysList[idx].predictionIndex,
-                    predictedValue1 = predicted3WaysList[idx].strategy12,
-                    predictedValue2 = predicted3WaysList[idx].strategy56,
-                    displayItems1 = strategy3WaysList[idx].strategy12,
-                    displayItems2 = strategy3WaysList[idx].strategy56,
-                )
-            }
-        }
+        // A C
+        val idxA = ColumnType.A.value
+        Strategy3WaysDisplay(
+            titles = listOf(ColumnType.A.name, ColumnType.C.name, "34", "78"),
+            predictedIndex = predicted3WaysList[idxA].predictionIndex,
+            predictedValue1 = predicted3WaysList[idxA].strategy34,
+            predictedValue2 = predicted3WaysList[idxA].strategy78,
+            displayItems1 = strategy3WaysList[idxA].strategy34,
+            displayItems2 = strategy3WaysList[idxA].strategy78,
+        )
+
+        // A B
+        val idxB = ColumnType.B.value
+        Strategy3WaysDisplay(
+            titles = listOf(ColumnType.A.name, ColumnType.B.name, "34", "78"),
+            predictedIndex = predicted3WaysList[idxB].predictionIndex,
+            predictedValue1 = predicted3WaysList[idxB].strategy34,
+            predictedValue2 = predicted3WaysList[idxB].strategy78,
+            displayItems1 = strategy3WaysList[idxB].strategy34,
+            displayItems2 = strategy3WaysList[idxB].strategy78,
+        )
+
+        // B C
+        val idxC = ColumnType.C.value
+        Strategy3WaysDisplay(
+            titles = listOf(ColumnType.B.name, ColumnType.C.name, "34", "78"),
+            predictedIndex = predicted3WaysList[idxC].predictionIndex,
+            predictedValue1 = predicted3WaysList[idxC].strategy34,
+            predictedValue2 = predicted3WaysList[idxC].strategy78,
+            displayItems1 = strategy3WaysList[idxC].strategy34,
+            displayItems2 = strategy3WaysList[idxC].strategy78,
+        )
         Spacer(Modifier.height(SPACE_SIZE))
         InputButtons(viewModel, timerStatus, beltInputState)
     }
@@ -420,10 +459,10 @@ private fun CounterDisplay(
         horizontalArrangement = Arrangement.Start
 
     ) {
-        TextItem("$value1", color1, isHistory = isHistory, width = ITEM_SIZE)
-        TextItem("$value2", color2, isHistory = isHistory, width = ITEM_SIZE)
+        TextItem("$value1", color1, isHistory = isHistory, width = TITLE_WIDTH_SHORT)
+        TextItem("$value2", color2, isHistory = isHistory, width = TITLE_WIDTH_SHORT)
         TextItem("Total $total", Color.Black, isHistory = isHistory, width = TITLE_WIDTH_LONG)
-        TextItem("${value1 - value2}", color2, isHistory = isHistory, width = ITEM_SIZE)
+        TextItem("${value1 - value2}", color2, isHistory = isHistory, width = TITLE_WIDTH_SHORT)
 
 
         if (isShowWsr) {
@@ -573,24 +612,22 @@ private fun Strategy3WaysDisplay(
     Spacer(Modifier.height(SPACE_SIZE))
 
     Row(Modifier.fillMaxWidth()) {
-        val mainTitle = titles[0]
-        if (mainTitle.isNotEmpty()) {
-            Column(Modifier.width(ITEM_SIZE)) {
-                Spacer(Modifier.height(ITEM_SIZE)) // 与标题行对齐
-                TextItem(mainTitle, TEXT_COLOR_NEUTRAL)
-            }
+        Column(Modifier.width(ITEM_SIZE)) {
+            Spacer(Modifier.height(ITEM_SIZE)) // 与标题行对齐
+            TextItem(titles[0], TEXT_COLOR_NEUTRAL)
+            TextItem(titles[1], TEXT_COLOR_NEUTRAL)
         }
 
         Spacer(Modifier.width(SPACE_SIZE))
 
         Column {
             Row {
-                TextItem(titles[1], width = TITLE_WIDTH_SHORT, isSelected = (selectedOption.intValue == 1))
+                TextItem(titles[2], width = TITLE_WIDTH_SHORT, isSelected = (selectedOption.intValue == 1))
                 {
                     selectedOption.intValue = 1
                 }
                 Spacer(Modifier.width(ITEM_SIZE)) // 与标题行对齐
-                TextItem(titles[2], width = TITLE_WIDTH_SHORT, isSelected = (selectedOption.intValue == 2))
+                TextItem(titles[3], width = TITLE_WIDTH_SHORT, isSelected = (selectedOption.intValue == 2))
                 {
                     selectedOption.intValue = 2
                 }
@@ -634,11 +671,11 @@ private fun Strategy3WyasTable(
 
             Column(Modifier.width(ITEM_SIZE)) {
                 TextItem(
-                    text = item?.first?.toString() ?: "",
+                    text = if (item?.first == -1) "/" else item?.first?.toString() ?: "",
                     color = determineColorFor3Ways(item?.first)
                 )
                 TextItem(
-                    text = item?.second?.toString() ?: "",
+                    text = if (item?.second == -1) "/" else item?.second?.toString() ?: "",
                     color = determineColorFor3Ways(item?.second)
                 )
             }
@@ -813,7 +850,7 @@ private fun InputButtons(viewModel: InputViewModel, timerStatus: TimerStatus, be
             Button(modifier = DefaultButtonModifier(), onClick = { viewModel.removeLastOpen() }) { Text(text = "撤销") }
         }
 
-        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.weight(0.5f))
 
         Column(Modifier.weight(1f)) {
             // 计时按钮现在控制传入的计时器
@@ -932,7 +969,7 @@ private fun Strategy3WaysPreview() {
         )
     }
     Strategy3WaysDisplay(
-        titles = listOf("A", "12", "56"),
+        titles = listOf("A","B", "12", "56"),
         predictedIndex = "2",
         predictedValue1 = "P",
         predictedValue2 = "B",

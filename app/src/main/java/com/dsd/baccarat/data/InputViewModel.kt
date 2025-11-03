@@ -25,6 +25,7 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
     private var _openInputList: MutableList<InputType> = mutableListOf()
 
     private var _betResultList: MutableList<BetResultType> = mutableListOf()
+    private var _compareResultList: MutableList<Boolean> = mutableListOf()
 
     private val _wlTableStateFlow = MutableStateFlow<List<TableDisplayItem>>(DEFAULT_TABLE_DISPLAY_LIST)
     val wlTableStateFlow: StateFlow<List<TableDisplayItem>> = _wlTableStateFlow.asStateFlow()
@@ -82,6 +83,9 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
     // 输入文字的 StateFlow
     private val _inputTextStateFlow = MutableStateFlow("")
     val inputText: StateFlow<String> = _inputTextStateFlow.asStateFlow()
+
+    private var _isFirstAFor3Ways = true
+    private var _isFirstBFor3Ways = true
 
     // 初始化时启动协程，收集 Repository 的冷流并转换为热流
     init {
@@ -176,12 +180,19 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
     private fun updateOpenData() {
         // 所有预测，
         updateAllPredictions()
+        updateCompareResultList()
         // BPPC 表格和策略
         val lastInput = _openInputList.last()
         val last3Inputs = _openInputList.takeLast(MIX_CONBINATION_ITEM_COUNT)
         updateBppcAndStrantegy(lastInput, last3Inputs)
         //  WL 表格
         updateWlTable()
+    }
+
+    private fun updateCompareResultList() {
+        if (_openInputList.size < 2) return
+        val last2Inputs = _openInputList.takeLast(2)
+        _compareResultList.add(last2Inputs[0] == last2Inputs[1])
     }
 
     private fun updateBppcAndStrantegy(lastInput: InputType, last3Inputs: List<InputType>) {
@@ -193,7 +204,7 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
         }
 
         updateBppcTable(last3Inputs)?.let { filledColumn ->
-            update3WayStrategy(last3Inputs, filledColumn)
+            update3WayStrategy(filledColumn)
             updateGridStrategy(last3Inputs, filledColumn)
         }
     }
@@ -360,13 +371,41 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
     /**
      * 更新 3 种策略
      */
-    private fun update3WayStrategy(last3Inputs: List<InputType>, filledColumn: ColumnType) {
+    private fun update3WayStrategy(filledColumn: ColumnType) {
         _strategy3WaysStateFlowList[filledColumn.value].update { currentStrategyData ->
+            val compareResultList = _compareResultList.takeLast(2)
+            val compareResultPair = Pair(compareResultList[0], compareResultList[1])
             currentStrategyData.copy(
-                strategy12 = updateSingleStrategyListFor3Ways(StrategyType.STRATEGY_12, currentStrategyData.strategy12, last3Inputs),
-                strategy34 = updateSingleStrategyListFor3Ways(StrategyType.STRATEGY_34, currentStrategyData.strategy34, last3Inputs),
-                strategy56 = updateSingleStrategyListFor3Ways(StrategyType.STRATEGY_56, currentStrategyData.strategy56, last3Inputs),
-                strategy78 = updateSingleStrategyListFor3Ways(StrategyType.STRATEGY_78, currentStrategyData.strategy78, last3Inputs)
+                strategy12 = updateSingleStrategyListFor3Ways(StrategyType.STRATEGY_12, currentStrategyData.strategy12, compareResultPair),
+                strategy34 = updateSingleStrategyListFor3Ways(StrategyType.STRATEGY_34, currentStrategyData.strategy34, compareResultPair),
+                strategy56 = updateSingleStrategyListFor3Ways(StrategyType.STRATEGY_56, currentStrategyData.strategy56, compareResultPair),
+                strategy78 = updateSingleStrategyListFor3Ways(StrategyType.STRATEGY_78, currentStrategyData.strategy78, compareResultPair)
+            )
+        }
+
+        val columnType = RELEVANCY_MAP[filledColumn] ?: return
+        val compareResultList = _compareResultList.takeLast(3)
+        val compareResultPair = if (filledColumn == ColumnType.A && _isFirstAFor3Ways) {
+            _isFirstAFor3Ways = false
+            null
+        } else if (filledColumn == ColumnType.B && _isFirstBFor3Ways) {
+            _isFirstBFor3Ways = false
+            null
+        } else
+        {
+            if (compareResultList.size >= 3) {
+                Pair(compareResultList[0], compareResultList[2])
+            } else {
+                null
+            }
+        }
+
+        _strategy3WaysStateFlowList[columnType.value].update { currentStrategyData ->
+            currentStrategyData.copy(
+                strategy12 = updateSingleStrategyListFor3Ways(StrategyType.STRATEGY_12, currentStrategyData.strategy12, compareResultPair),
+                strategy34 = updateSingleStrategyListFor3Ways(StrategyType.STRATEGY_34, currentStrategyData.strategy34, compareResultPair),
+                strategy56 = updateSingleStrategyListFor3Ways(StrategyType.STRATEGY_56, currentStrategyData.strategy56, compareResultPair),
+                strategy78 = updateSingleStrategyListFor3Ways(StrategyType.STRATEGY_78, currentStrategyData.strategy78, compareResultPair),
             )
         }
     }
@@ -374,9 +413,9 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
     private fun updateSingleStrategyListFor3Ways(
         strategyType: StrategyType,
         currentList: List<Strategy3WyasDisplayItem>,
-        last3Inputs: List<InputType>
+        compareResultPair: Pair<Boolean, Boolean>?
     ): List<Strategy3WyasDisplayItem> {
-        val newValue = computeStrategyValue(strategyType, last3Inputs)
+        val newValue = if (compareResultPair == null) -1 else computeStrategyValue(strategyType, compareResultPair)
         val updatedList = currentList.toMutableList()
         val lastRealIndex = updatedList.indexOfLast { it is Strategy3WyasDisplayItem.Real }
 
@@ -404,15 +443,12 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
         return updatedList
     }
 
-    private fun computeStrategyValue(type: StrategyType, last3Inputs: List<InputType>): Int {
-        val eq01 = last3Inputs[0] == last3Inputs[1]
-        val eq12 = last3Inputs[1] == last3Inputs[2]
-
+    private fun computeStrategyValue(type: StrategyType, compareResultPair: Pair<Boolean, Boolean>): Int {
         return when (type) {
-            StrategyType.STRATEGY_12 -> strategy12Map[Pair(eq01, eq12)] ?: 4
-            StrategyType.STRATEGY_34 -> strategy34Map[Pair(eq01, eq12)] ?: 4
-            StrategyType.STRATEGY_56 -> strategy56Map[Pair(eq01, eq12)] ?: 4
-            StrategyType.STRATEGY_78 -> strategy78Map[Pair(eq01, eq12)] ?: 4
+            StrategyType.STRATEGY_12 -> strategy12Map[compareResultPair] ?: 4
+            StrategyType.STRATEGY_34 -> strategy34Map[compareResultPair] ?: 4
+            StrategyType.STRATEGY_56 -> strategy56Map[compareResultPair] ?: 4
+            StrategyType.STRATEGY_78 -> strategy78Map[compareResultPair] ?: 4
         }
     }
 
@@ -541,6 +577,9 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
         clearAllStateFlow()
         // 从头重建（仅在 i >= 2 时触发表格/策略更新）
         for (i in _openInputList.indices) {
+            if (i >= 1) {
+                _compareResultList.add(_openInputList[i - 1] == _openInputList[i])
+            }
             if (i >= 2) {
                 val last3Inputs = _openInputList.subList(0, i + 1).takeLast(3)
                 val lastInput = _openInputList[i]
@@ -627,6 +666,7 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
         clearAllStateFlow()
         _openInputList.clear()
         _betResultList.clear()
+        _compareResultList.clear()
         viewModelScope.launch {
             repository.saveNoteText("")
             repository.saveOpendList(_openInputList)
@@ -690,5 +730,7 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
         private val strategy78Map = mapOf(
             Pair(true, false) to 1, Pair(false, true) to 2, Pair(true, true) to 3
         )
+
+        val RELEVANCY_MAP = mapOf(ColumnType.A to ColumnType.B, ColumnType.B to ColumnType.C, ColumnType.C to ColumnType.A)
     }
 }
