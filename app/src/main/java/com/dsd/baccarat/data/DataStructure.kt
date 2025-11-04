@@ -3,7 +3,7 @@ package com.dsd.baccarat.data
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
-import com.dsd.baccarat.data.InputViewModel.Companion.MIN_TABLE_COLUMN_COUNT
+import com.dsd.baccarat.data.DefaultViewModel.Companion.MIN_TABLE_COLUMN_COUNT
 import kotlinx.serialization.Serializable
 
 // 输入类型

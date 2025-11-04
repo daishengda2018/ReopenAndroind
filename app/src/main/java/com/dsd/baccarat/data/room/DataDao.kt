@@ -23,7 +23,34 @@ interface InputDataDao {
 
     // 3. 查询所有数据（按时间戳倒序，最新的在前）
     @Query("SELECT * FROM input_data ORDER BY curTime DESC")
-    fun getAllInputs(): Flow<List<InputData>>  // 返回Flow，数据变化时自动通知
+    fun loadAllInputs(): Flow<List<InputData>>  // 返回Flow，数据变化时自动通知
+
+//    @Query("SELECT * FROM input_data  WHERE curTime = :curTime ORDER BY curTime")
+//    suspend fun loadByTime(curTime: Long): Flow<List<InputData>>
+
+    /**
+     * 查询所有数据的时间戳（用于提取日期）
+     */
+    @Query("SELECT curTime FROM input_data")
+    suspend fun getAllCurTimes(): List<Long>
+
+
+    /**
+     * 查询指定日期范围内的 InputData（当天00:00:00 至 23:59:59）
+     * @param startTime 当天开始时间戳（毫秒）
+     * @param endTime 当天结束时间戳（毫秒）
+     */
+    @Query(
+        """
+        SELECT * FROM input_data 
+        WHERE curTime BETWEEN :startTime AND :endTime 
+        ORDER BY curTime ASC
+    """
+    )
+    suspend fun queryByDateRange(
+        startTime: Long,
+        endTime: Long
+    ): List<InputData>
 
     // 5. 根据时间戳删除数据
     @Query("DELETE FROM input_data WHERE curTime = :curTime")
@@ -40,11 +67,20 @@ interface BetDataDao {
     @Insert(onConflict = androidx.room.OnConflictStrategy.REPLACE)
     suspend fun insertAll(betList: List<BetData>)
 
-    // 查询所有数据（按时间戳倒序，最新的在前）
-    @Query("SELECT * FROM bet_data ORDER BY curTime ASC")
-    fun getAllBets(): Flow<List<BetData>>  // Flow 自动监听数据变化
-
-
+    /**
+     * 查询指定日期范围内的 BetData
+     */
+    @Query(
+        """
+        SELECT * FROM bet_data 
+        WHERE curTime BETWEEN :startTime AND :endTime 
+        ORDER BY curTime ASC
+    """
+    )
+    suspend fun queryByDateRange(
+        startTime: Long,
+        endTime: Long
+    ): List<BetData>
 
     /**
      * 查询：今天的全部数据 + 历史数据（最多66条）

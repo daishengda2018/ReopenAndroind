@@ -1,9 +1,12 @@
 // kotlin
 package com.dsd.baccarat.data
 
+import android.content.Context
+import android.content.Intent
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.dsd.baccarat.HistoryActivity
 import com.dsd.baccarat.data.room.BetDataDao
 import com.dsd.baccarat.data.room.InputDataDao
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -19,83 +22,100 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
+import java.time.LocalDate
 import java.util.Locale
 
 /**
  * 输入 ViewModel
  */
 @HiltViewModel
-class InputViewModel @Inject constructor(
-    private val repository: Repository,
-    private val inputDataDao: InputDataDao,
-    private val betDataDao: BetDataDao
+open class DefaultViewModel @Inject constructor(
+    open val repository: Repository,
+    open val betDataDao: BetDataDao,
+    open val inputDataDao: InputDataDao
 ) : ViewModel() {
 
-    private var _openInputList: MutableList<InputData> = mutableListOf()
-    private var _betResultList: MutableList<BetData> = mutableListOf()
-    private var _compareResultList: MutableList<Boolean> = mutableListOf()
+    protected var mOpenInputList: MutableList<InputData> = mutableListOf()
+    protected var mBetResultList: MutableList<BetData> = mutableListOf()
+    protected var mCompareResultList: MutableList<Boolean> = mutableListOf()
 
-    private val _wlTableStateFlow = MutableStateFlow<List<TableDisplayItem>>(DEFAULT_TABLE_DISPLAY_LIST)
-    val wlTableStateFlow: StateFlow<List<TableDisplayItem>> = _wlTableStateFlow.asStateFlow()
+    protected val mWlTableStateFlow = MutableStateFlow<List<TableDisplayItem>>(DEFAULT_TABLE_DISPLAY_LIST)
+    val wlTableStateFlow: StateFlow<List<TableDisplayItem>> = mWlTableStateFlow.asStateFlow()
 
-    private val _wlCounterStateFlow = MutableStateFlow(Counter())
-    val wlCounterStateFlow: StateFlow<Counter> = _wlCounterStateFlow.asStateFlow()
+    protected val mWlCounterStateFlow = MutableStateFlow(Counter())
+    val wlCounterStateFlow: StateFlow<Counter> = mWlCounterStateFlow.asStateFlow()
 
-    private val _bppcTableStateFlow = MutableStateFlow<List<TableDisplayItem>>(DEFAULT_TABLE_DISPLAY_LIST)
+    protected val _bppcTableStateFlow = MutableStateFlow<List<TableDisplayItem>>(DEFAULT_TABLE_DISPLAY_LIST)
     val bppcTableStateFlow: StateFlow<List<TableDisplayItem>> = _bppcTableStateFlow.asStateFlow()
 
-    private val _bppcCounterStateFlow = MutableStateFlow(Counter())
+    protected val _bppcCounterStateFlow = MutableStateFlow(Counter())
     val bppcCounterStateFlow: StateFlow<Counter> = _bppcCounterStateFlow.asStateFlow()
 
-    private val _strategy3WaysStateFlowList = List(MAX_COLUMN_COUNT) { MutableStateFlow(DEFAULT_STRATEGY_3WAYS) }
+    protected val _strategy3WaysStateFlowList = List(MAX_COLUMN_COUNT) { MutableStateFlow(DEFAULT_STRATEGY_3WAYS) }
     val strategy3WaysStateFlowList: List<StateFlow<Strategy3WaysData>> = _strategy3WaysStateFlowList.map { it.asStateFlow() }
 
-    private val _stragetyGridStateFlow: List<MutableStateFlow<StrategyGridInfo>> = List(MAX_COLUMN_COUNT) { MutableStateFlow(DEFAULT_STRANTYGE_GRID) }
+    protected val _stragetyGridStateFlow: List<MutableStateFlow<StrategyGridInfo>> =
+        List(MAX_COLUMN_COUNT) { MutableStateFlow(DEFAULT_STRANTYGE_GRID) }
     val stragetyGridStateFlow: List<StateFlow<StrategyGridInfo>> = _stragetyGridStateFlow.map { it.asStateFlow() }
 
     // 每列的动态预告 StateFlow（null 表示未知）
-    private val _predictionStateFlowList = List(MAX_COLUMN_COUNT) { MutableStateFlow(DEFAULT_PREDICTED_3WAYS) }
+    protected val _predictionStateFlowList = List(MAX_COLUMN_COUNT) { MutableStateFlow(DEFAULT_PREDICTED_3WAYS) }
     val predictedStateFlowList: List<StateFlow<PredictedStrategy3WaysValue>> = _predictionStateFlowList.map { it.asStateFlow() }
 
-    private val _curBeltInputStageFlow: MutableStateFlow<InputData?> = MutableStateFlow(null)
+    protected val _curBeltInputStageFlow: MutableStateFlow<InputData?> = MutableStateFlow(null)
     val curBeltInputStageFlow = _curBeltInputStageFlow.asStateFlow()
 
     // Timer state moved to ViewModel
-    private val _timerStatus = MutableStateFlow(TimerStatus.Idle)
+    protected val _timerStatus = MutableStateFlow(TimerStatus.Idle)
     val timerStatus: StateFlow<TimerStatus> = _timerStatus.asStateFlow()
 
-    private val _elapsedTime = MutableStateFlow(0) // 秒
+    protected val _elapsedTime = MutableStateFlow(0) // 秒
     val elapsedTime: StateFlow<Int> = _elapsedTime.asStateFlow()
 
-    private val _showReminder = MutableStateFlow(false)
+    protected val _showReminder = MutableStateFlow(false)
     val showReminder: StateFlow<Boolean> = _showReminder.asStateFlow()
 
     // 用于通知 UI 播放提示音（UI 层收集并调用 Android API）
-    private val _soundEvent = MutableSharedFlow<Unit>()
+    protected val _soundEvent = MutableSharedFlow<Unit>()
     val soundEvent = _soundEvent.asSharedFlow()
 
-    private var _timerJob: Job? = null
+    protected var _timerJob: Job? = null
 
     // 用于存储去重后的key（自动去重）
-    private val _uniqueBppcConbinationList = MutableList<MutableSet<String>>(MAX_COLUMN_COUNT, { mutableSetOf() })
-    private val _strategyGridStateMap: MutableMap<ColumnType, Boolean?> = HashMap(MAX_COLUMN_COUNT)
+    protected val _uniqueBppcConbinationList = MutableList<MutableSet<String>>(MAX_COLUMN_COUNT, { mutableSetOf() })
+    protected val _strategyGridStateMap: MutableMap<ColumnType, Boolean?> = HashMap(MAX_COLUMN_COUNT)
 
     // 1. 定义 W 类型的热流（MutableStateFlow 作为容器，初始值 0）
-    private val _wHistoryCounter = MutableStateFlow(0)
+    protected val _wHistoryCounter = MutableStateFlow(0)
     val wHistoryCounter: StateFlow<Int> = _wHistoryCounter.asStateFlow() // 暴露不可变的 StateFlow
 
     // 2. 定义 L 类型的热流
-    private val _lHistoryCounter = MutableStateFlow(0)
+    protected val _lHistoryCounter = MutableStateFlow(0)
     val lHistoryCounter: StateFlow<Int> = _lHistoryCounter.asStateFlow()
 
     // 输入文字的 StateFlow
-    private val _inputTextStateFlow = MutableStateFlow("")
-    val inputText: StateFlow<String> = _inputTextStateFlow.asStateFlow()
+    protected val mInputTextStateFlow = MutableStateFlow("")
+    val inputText: StateFlow<String> = mInputTextStateFlow.asStateFlow()
 
-    private var _isFirstAFor3Ways = true
-    private var _isFirstBFor3Ways = true
+    protected var mIsFirstAFor3Ways = true
+    protected var mIsFirstBFor3Ways = true
 
-    // 初始化时启动协程，收集 Repository 的冷流并转换为热流
+    // 所有存在数据的日期（去重后）
+    private val _availableDates = MutableStateFlow<List<LocalDate>>(emptyList())
+    val availableDates: StateFlow<List<LocalDate>> = _availableDates
+
+    // 当前选中的日期
+    private val _selectedDate = MutableStateFlow<LocalDate?>(null)
+    val selectedDate: StateFlow<LocalDate?> = _selectedDate
+
+    // 日期选择 Dialog 是否显示
+    private val _isDialogVisible = MutableStateFlow(false)
+    val isDialogVisible: StateFlow<Boolean> = _isDialogVisible
+
+    // 加载状态
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading
+
     init {
         // 每次数据变化都会响应的 Flow
         viewModelScope.launch {
@@ -114,21 +134,85 @@ class InputViewModel @Inject constructor(
 
         // 只响应一次的 Flow
         viewModelScope.launch {
-            _inputTextStateFlow.value = repository.getNoteText()
+            mInputTextStateFlow.value = repository.getNoteText()
 
-            _openInputList.clear()
-            _openInputList.addAll(repository.getOpendList())
+            mOpenInputList.clear()
+            mOpenInputList.addAll(repository.getOpendList())
             resumeOpenedData()
 
-            _wlCounterStateFlow.value = repository.getWinLossCurCount()
+            mWlCounterStateFlow.value = repository.getWinLossCurCount()
         }
 
         viewModelScope.launch {
             val allBets = betDataDao.getTodayAndHistory().first()
-            _betResultList.clear()
-            _betResultList.addAll(allBets)
+            mBetResultList.clear()
+            mBetResultList.addAll(allBets)
             resumeBetedData()
         }
+
+        // 初始化时加载所有存在的日期
+        loadAvailableDates()
+    }
+
+    /**
+     * 从 InputDao 加载所有存在数据的日期
+     */
+    fun loadAvailableDates() {
+        _isLoading.value = true
+        viewModelScope.launch {
+            try {
+                val timestamps = inputDataDao.getAllCurTimes()
+                val dates = DateUtils.extractUniqueDates(timestamps)
+                _availableDates.value = dates
+                // 默认选中最新的日期（如果有）
+                if (dates.isNotEmpty()) {
+                    _selectedDate.value = dates.last()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _availableDates.value = emptyList()
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    /**
+     * 更新选中的日期
+     */
+    fun selectDate(date: LocalDate) {
+        _selectedDate.value = date
+    }
+
+    /**
+     * 显示日期选择 Dialog
+     */
+    fun showDialog() {
+        _isDialogVisible.value = true
+    }
+
+    /**
+     * 隐藏日期选择 Dialog
+     */
+    fun dismissDialog() {
+        _isDialogVisible.value = false
+    }
+
+    /**
+     * 确认选择（可选：触发查询等后续操作）
+     */
+    fun confirmSelection(context: Context) {
+        dismissDialog()
+        _selectedDate.value ?: return
+
+        // 此处可添加选择后的逻辑（如查询该日期的数据）
+        val dayStartAndEnd = DateUtils.getDayStartAndEnd(_selectedDate.value!!)
+        val intent = Intent(context, HistoryActivity::class.java)
+        // 将 LocalDate 转为 ISO 字符串并传递
+        intent.putExtra(KEY_SELECTED_START_TIME, dayStartAndEnd.first)
+        intent.putExtra(KEY_SELECTED_END_TIME, dayStartAndEnd.second)
+        // 启动 Activity
+        context.startActivity(intent)
     }
 
     fun pauseOrResumeTimer() {
@@ -177,14 +261,14 @@ class InputViewModel @Inject constructor(
     }
 
     fun openB() {
-        _openInputList.add(InputData.createB())
-        updateOpendList(_openInputList)
+        mOpenInputList.add(InputData.createB())
+        updateOpendList(mOpenInputList)
         updateOpenData()
     }
 
     fun openP() {
-        _openInputList.add(InputData.createP())
-        updateOpendList(_openInputList)
+        mOpenInputList.add(InputData.createP())
+        updateOpendList(mOpenInputList)
         updateOpenData()
     }
 
@@ -193,21 +277,21 @@ class InputViewModel @Inject constructor(
         updateAllPredictions()
         updateCompareResultList()
         // BPPC 表格和策略
-        val lastInput = _openInputList.last()
-        val last3Inputs = _openInputList.takeLast(MIX_CONBINATION_ITEM_COUNT)
+        val lastInput = mOpenInputList.last()
+        val last3Inputs = mOpenInputList.takeLast(MIX_CONBINATION_ITEM_COUNT)
         updateBppcAndStrantegy(lastInput, last3Inputs)
         //  WL 表格
         updateWlTable()
     }
 
     private fun updateCompareResultList() {
-        if (_openInputList.size < 2) return
-        val last2Inputs = _openInputList.takeLast(2)
-        _compareResultList.add(last2Inputs[0].inputType == last2Inputs[1].inputType)
+        if (mOpenInputList.size < 2) return
+        val last2Inputs = mOpenInputList.takeLast(2)
+        mCompareResultList.add(last2Inputs[0].inputType == last2Inputs[1].inputType)
     }
 
     private fun updateBppcAndStrantegy(lastInput: InputData, last3Inputs: List<InputData>) {
-        if (_openInputList.isNotEmpty()) {
+        if (mOpenInputList.isNotEmpty()) {
             updateBppcCounter(lastInput)
         }
         if (last3Inputs.size < MIX_CONBINATION_ITEM_COUNT) {
@@ -244,25 +328,25 @@ class InputViewModel @Inject constructor(
 
     private fun updateAllPredictions() {
         // 如果没有输入，则不更新预测
-        if (_openInputList.isEmpty()) return
+        if (mOpenInputList.isEmpty()) return
 
         _predictionStateFlowList.forEach { it.value = DEFAULT_PREDICTION }
-        val lastIndex = _openInputList.lastIndex
+        val lastIndex = mOpenInputList.lastIndex
 
         when (lastIndex % 3) {
             ColumnType.A.value -> {
-                if (_openInputList.size > 3) _predictionStateFlowList[ColumnType.C.value].value = predictNextStrategyValue("3", _openInputList)
-                _predictionStateFlowList[ColumnType.A.value].value = predictNextStrategyValue("2", _openInputList)
+                if (mOpenInputList.size > 3) _predictionStateFlowList[ColumnType.C.value].value = predictNextStrategyValue("3", mOpenInputList)
+                _predictionStateFlowList[ColumnType.A.value].value = predictNextStrategyValue("2", mOpenInputList)
             }
 
             ColumnType.B.value -> {
-                _predictionStateFlowList[ColumnType.A.value].value = predictNextStrategyValue("3", _openInputList)
-                _predictionStateFlowList[ColumnType.B.value].value = predictNextStrategyValue("2", _openInputList)
+                _predictionStateFlowList[ColumnType.A.value].value = predictNextStrategyValue("3", mOpenInputList)
+                _predictionStateFlowList[ColumnType.B.value].value = predictNextStrategyValue("2", mOpenInputList)
             }
 
             ColumnType.C.value -> {
-                _predictionStateFlowList[ColumnType.B.value].value = predictNextStrategyValue("3", _openInputList)
-                _predictionStateFlowList[ColumnType.C.value].value = predictNextStrategyValue("2", _openInputList)
+                _predictionStateFlowList[ColumnType.B.value].value = predictNextStrategyValue("3", mOpenInputList)
+                _predictionStateFlowList[ColumnType.C.value].value = predictNextStrategyValue("2", mOpenInputList)
             }
         }
     }
@@ -291,18 +375,18 @@ class InputViewModel @Inject constructor(
         if (inputType == null) {
             return
         }
-        if (_openInputList.last().inputType == inputType.inputType) {
+        if (mOpenInputList.last().inputType == inputType.inputType) {
             val element = BetData.createW()
-            _betResultList.add(element)
+            mBetResultList.add(element)
             viewModelScope.launch { betDataDao.insert(element) }
 
         } else {
             val element = BetData.createL()
-            _betResultList.add(element)
+            mBetResultList.add(element)
             viewModelScope.launch { betDataDao.insert(element) }
         }
 
-        val last3Inputs = _betResultList.takeLast(3)
+        val last3Inputs = mBetResultList.takeLast(3)
         if (last3Inputs.size < 3) {
             _curBeltInputStageFlow.update { null }
             return
@@ -315,11 +399,11 @@ class InputViewModel @Inject constructor(
         }
 
         Log.d("InputViewModel", "Current Inputs: $last3Inputs")
-        val lastResult = _betResultList.last()
+        val lastResult = mBetResultList.last()
         updateWlCounter(lastResult)
         viewModelScope.launch { repository.updateWlCount(lastResult, OperationType.INCREMENT) }
 
-        updateTableStageFlow(_wlTableStateFlow, result, lastResult.curTime)
+        updateTableStageFlow(mWlTableStateFlow, result, lastResult.curTime)
         _curBeltInputStageFlow.update { null }
     }
 
@@ -379,7 +463,7 @@ class InputViewModel @Inject constructor(
 
 
     private fun updateWlCounter(lastResult: BetData) {
-        _wlCounterStateFlow.update { currentCounter ->
+        mWlCounterStateFlow.update { currentCounter ->
             when (lastResult.type) {
                 BetResultType.W -> currentCounter.copy(count1 = currentCounter.count1 + 1)
                 BetResultType.L -> currentCounter.copy(count2 = currentCounter.count2 + 1)
@@ -392,7 +476,7 @@ class InputViewModel @Inject constructor(
      */
     private fun update3WayStrategy(filledColumn: ColumnType) {
         _strategy3WaysStateFlowList[filledColumn.value].update { currentStrategyData ->
-            val compareResultList = _compareResultList.takeLast(2)
+            val compareResultList = mCompareResultList.takeLast(2)
             val compareResultPair = Pair(compareResultList[0], compareResultList[1])
             currentStrategyData.copy(
                 strategy12 = updateSingleStrategyListFor3Ways(StrategyType.STRATEGY_12, currentStrategyData.strategy12, compareResultPair),
@@ -403,15 +487,14 @@ class InputViewModel @Inject constructor(
         }
 
         val columnType = RELEVANCY_MAP[filledColumn] ?: return
-        val compareResultList = _compareResultList.takeLast(3)
-        val compareResultPair = if (filledColumn == ColumnType.A && _isFirstAFor3Ways) {
-            _isFirstAFor3Ways = false
+        val compareResultList = mCompareResultList.takeLast(3)
+        val compareResultPair = if (filledColumn == ColumnType.A && mIsFirstAFor3Ways) {
+            mIsFirstAFor3Ways = false
             null
-        } else if (filledColumn == ColumnType.B && _isFirstBFor3Ways) {
-            _isFirstBFor3Ways = false
+        } else if (filledColumn == ColumnType.B && mIsFirstBFor3Ways) {
+            mIsFirstBFor3Ways = false
             null
-        } else
-        {
+        } else {
             if (compareResultList.size >= 3) {
                 Pair(compareResultList[0], compareResultList[2])
             } else {
@@ -452,6 +535,7 @@ class InputViewModel @Inject constructor(
                 currentData.second == null -> {
                     updatedList[lastRealIndex] = lastRealItem.copy(data = currentData.copy(second = newValue))
                 }
+
                 else -> {
                     val insertIndex = lastRealIndex + 1
                     updatedList.add(insertIndex, Strategy3WyasDisplayItem.Real(Strategy3WyasItem(first = newValue)))
@@ -484,7 +568,7 @@ class InputViewModel @Inject constructor(
 
         _strategyGridStateMap.forEach { it ->
             if (it.value == true) {
-                updateGridStrategyData(_openInputList.last(), it.key)
+                updateGridStrategyData(mOpenInputList.last(), it.key)
             }
         }
 
@@ -588,27 +672,27 @@ class InputViewModel @Inject constructor(
      * 撤销最后一个开
      */
     fun removeLastOpen() {
-        _openInputList.removeLastOrNull() ?: return
-        updateOpendList(_openInputList)
+        mOpenInputList.removeLastOrNull() ?: return
+        updateOpendList(mOpenInputList)
         // 重置展示相关状态
         resumeOpenedData()
     }
 
-    private fun resumeOpenedData() {
+    protected fun resumeOpenedData() {
         clearAllStateFlow()
         // 从头重建（仅在 i >= 2 时触发表格/策略更新）
-        for (i in _openInputList.indices) {
+        for (i in mOpenInputList.indices) {
             if (i >= 1) {
-                _compareResultList.add(_openInputList[i - 1].inputType == _openInputList[i].inputType)
+                mCompareResultList.add(mOpenInputList[i - 1].inputType == mOpenInputList[i].inputType)
             }
             if (i >= 2) {
-                val last3Inputs = _openInputList.subList(0, i + 1).takeLast(3)
-                val lastInput = _openInputList[i]
+                val last3Inputs = mOpenInputList.subList(0, i + 1).takeLast(3)
+                val lastInput = mOpenInputList[i]
                 updateBppcAndStrantegy(lastInput, last3Inputs)
             }
         }
 
-        if (_openInputList.isNotEmpty()) {
+        if (mOpenInputList.isNotEmpty()) {
             updateAllPredictions()
         }
     }
@@ -625,7 +709,7 @@ class InputViewModel @Inject constructor(
         if (_curBeltInputStageFlow.value != null) {
             _curBeltInputStageFlow.update { null }
         } else {
-            val last = _betResultList.removeLastOrNull()
+            val last = mBetResultList.removeLastOrNull()
             last ?: return
             viewModelScope.launch {
                 repository.updateWlCount(last, OperationType.DECREMENT)
@@ -637,18 +721,18 @@ class InputViewModel @Inject constructor(
         resumeBetedData()
     }
 
-    private fun resumeBetedData() {
+    protected fun resumeBetedData() {
         // 重置展示相关状态
-        _wlTableStateFlow.value = DEFAULT_TABLE_DISPLAY_LIST
-        _wlCounterStateFlow.value = DEFAULT_BPCOUNTER
+        mWlTableStateFlow.value = DEFAULT_TABLE_DISPLAY_LIST
+        mWlCounterStateFlow.value = DEFAULT_BPCOUNTER
 
-        for (i in _betResultList.indices) {
+        for (i in mBetResultList.indices) {
             if (i >= 2) {
-                val last3Inputs = _betResultList.subList(0, i + 1).takeLast(3)
-                updateWlCounter(_betResultList[i])
+                val last3Inputs = mBetResultList.subList(0, i + 1).takeLast(3)
+                updateWlCounter(mBetResultList[i])
                 val inputCombination = last3Inputs.map { it.type }.joinToString("")
                 wlCombinationToResult[inputCombination]?.let { result ->
-                    updateTableStageFlow(_wlTableStateFlow, result, last3Inputs.last().curTime)
+                    updateTableStageFlow(mWlTableStateFlow, result, last3Inputs.last().curTime)
                 }
             }
         }
@@ -664,7 +748,7 @@ class InputViewModel @Inject constructor(
     fun updateInputText(text: String) {
         // 存储在用户点击 新牌、保持之前输入的内容
         viewModelScope.launch { repository.saveNoteText(text) }
-        _inputTextStateFlow.value = text
+        mInputTextStateFlow.value = text
     }
 
     fun clearAllStateFlow() {
@@ -677,27 +761,27 @@ class InputViewModel @Inject constructor(
 
         _uniqueBppcConbinationList.forEach { it.clear() }
 
-        _wlCounterStateFlow.value = DEFAULT_BPCOUNTER
-        _wlTableStateFlow.value = DEFAULT_TABLE_DISPLAY_LIST
+        mWlCounterStateFlow.value = DEFAULT_BPCOUNTER
+        mWlTableStateFlow.value = DEFAULT_TABLE_DISPLAY_LIST
 
-        _inputTextStateFlow.value = ""
+        mInputTextStateFlow.value = ""
     }
 
     fun newGame() {
         clearAllStateFlow()
-        _openInputList.clear()
-        _betResultList.clear()
-        _compareResultList.clear()
+        mOpenInputList.clear()
+        mBetResultList.clear()
+        mCompareResultList.clear()
         viewModelScope.launch {
             repository.saveNoteText("")
-            repository.saveOpendList(_openInputList)
+            repository.saveOpendList(mOpenInputList)
             repository.clearCurWinLossCount()
         }
     }
 
     fun save() {
         viewModelScope.launch {
-            inputDataDao.insertAll(_openInputList)
+            inputDataDao.insertAll(mOpenInputList)
         }
     }
 
@@ -758,5 +842,7 @@ class InputViewModel @Inject constructor(
         )
 
         val RELEVANCY_MAP = mapOf(ColumnType.A to ColumnType.B, ColumnType.B to ColumnType.C, ColumnType.C to ColumnType.A)
+        const val KEY_SELECTED_START_TIME = "key_selected_start_time"
+        const val KEY_SELECTED_END_TIME = "key_selected_END_time"
     }
 }

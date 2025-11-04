@@ -22,16 +22,21 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
@@ -43,9 +48,9 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -53,14 +58,13 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dsd.baccarat.data.ColumnType
 import com.dsd.baccarat.data.Counter
+import com.dsd.baccarat.data.DefaultViewModel
+import com.dsd.baccarat.data.DefaultViewModel.Companion.MAX_COLUMN_COUNT
 import com.dsd.baccarat.data.InputData
 import com.dsd.baccarat.data.InputType
-import com.dsd.baccarat.data.InputViewModel
-import com.dsd.baccarat.data.InputViewModel.Companion.MAX_COLUMN_COUNT
 import com.dsd.baccarat.data.PredictedStrategy3WaysValue
 import com.dsd.baccarat.data.Strategy3WaysData
 import com.dsd.baccarat.data.Strategy3WyasDisplayItem
-import com.dsd.baccarat.data.Strategy3WyasItem
 import com.dsd.baccarat.data.StrategyGridInfo
 import com.dsd.baccarat.data.TableDisplayItem
 import com.dsd.baccarat.data.TimerStatus
@@ -69,6 +73,8 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.collectLatest
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 //  常量在顶部统一组织，清晰明了。
@@ -92,11 +98,14 @@ private val RED_COLOR_VALUES1 = setOf(1, 4, 6, 7)
 private val RED_COLOR_VALUES2 = setOf(1, 2, 5, 6)
 private lateinit var sharedScrollStates: SnapshotStateList<LazyListState>
 
+// 日期显示格式（如：2025-11-05）
+private val dateFormatter = SimpleDateFormat("yyyy-MM-dd EEEE", Locale.CHINESE)
+
 /**
  * 应用的主屏幕可组合函数。
  */
 @Composable
-fun Screen(viewModel: InputViewModel) {
+fun Screen(viewModel: DefaultViewModel) {
     val elapsedTime = viewModel.elapsedTime.collectAsStateWithLifecycle().value
     val timerStatus = viewModel.timerStatus.collectAsStateWithLifecycle().value
     val showReminder = viewModel.showReminder.collectAsStateWithLifecycle().value
@@ -126,6 +135,7 @@ fun Screen(viewModel: InputViewModel) {
             val index = main.firstVisibleItemIndex
             val offset = main.firstVisibleItemScrollOffset
             sharedScrollStates.drop(1).forEach { state ->
+                3
                 if (state.firstVisibleItemIndex != index || state.firstVisibleItemScrollOffset != offset) {
                     state.scrollToItem(index, offset)
                 }
@@ -218,7 +228,7 @@ private fun RowScope.LeftSide(
     elapsedTime: Int,
     timerStatus: TimerStatus,
     showReminder: Boolean,
-    viewModel: InputViewModel,
+    viewModel: DefaultViewModel,
     bppcTableData: List<TableDisplayItem>,
     strategyGridList: List<StrategyGridInfo>,
     strategy3WaysList: List<Strategy3WaysData>,
@@ -358,7 +368,7 @@ private fun RowScope.RightSide(
     lHistoryCount: Int,
     strategy3WaysList: List<Strategy3WaysData>,
     predicted3WaysList: List<PredictedStrategy3WaysValue>,
-    viewModel: InputViewModel,
+    viewModel: DefaultViewModel,
     timerStatus: TimerStatus,
     inputText: String,
     beltInputState: InputData?
@@ -370,7 +380,7 @@ private fun RowScope.RightSide(
     ) {
 
         val timeString = remember {
-            SimpleDateFormat("yyyy-MM-dd EEEE", Locale.CHINESE).format(System.currentTimeMillis())
+            dateFormatter.format(System.currentTimeMillis())
         }
 
         Row {
@@ -526,9 +536,7 @@ private fun CurrentTimeDisplay(
     showReminder: Boolean,
     onDismissReminder: () -> Unit
 ) {
-    val timeString = remember {
-        SimpleDateFormat("yyyy-MM-dd EEEE", Locale.CHINESE).format(System.currentTimeMillis())
-    }
+    val timeString = remember { dateFormatter.format(System.currentTimeMillis()) }
     val textStyle = remember {
         TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold)
     }
@@ -844,7 +852,9 @@ fun TextItem(
  *  输入按钮现在通过 lambda 表达式接收回调，从而与 ViewModel 解耦，提升了组件的独立性。
  */
 @Composable
-private fun InputButtons(viewModel: InputViewModel, timerStatus: TimerStatus, beltInputState: InputData?) {
+private fun InputButtons(viewModel: DefaultViewModel, timerStatus: TimerStatus, beltInputState: InputData?) {
+    val context = LocalContext.current
+
     @Composable
     fun ColumnScope.DefaultButtonModifier(): Modifier = remember {
         Modifier
@@ -852,6 +862,18 @@ private fun InputButtons(viewModel: InputViewModel, timerStatus: TimerStatus, be
             .fillMaxWidth()
             .weight(1f)
     }
+    val selectedDate by viewModel.selectedDate.collectAsState()
+    val isDialogVisible by viewModel.isDialogVisible.collectAsState()
+
+    // 显示日期选择 Dialog
+    if (isDialogVisible) {
+        DateSelectDialog(
+            viewModel = viewModel,
+            onDismiss = { viewModel.dismissDialog() },
+            onConfirm = { viewModel.confirmSelection(context) }
+        )
+    }
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -928,13 +950,100 @@ private fun InputButtons(viewModel: InputViewModel, timerStatus: TimerStatus, be
         }
 
         Column(Modifier.weight(1f)) {
-            Button(modifier = DefaultButtonModifier(), onClick = { /* TODO: 实现撤销逻辑 */ }) { Text(text = "历史") }
+            Button(modifier = DefaultButtonModifier(), onClick = { viewModel.showDialog() }) { Text(text = "历史") }
             Button(modifier = DefaultButtonModifier(), onClick = { viewModel.save()}) { Text(text = "保存") }
             Button(modifier = DefaultButtonModifier(), onClick = { viewModel.newGame() }) { Text(text = "新牌") }
         }
     }
 }
 
+/**
+ * 日期选择 Dialog（仅显示 InputDao 中存在的日期）
+ */
+@Composable
+private fun DateSelectDialog(
+    viewModel: DefaultViewModel,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    val availableDates by viewModel.availableDates.collectAsState()
+    val selectedDate by viewModel.selectedDate.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("选择日期") },
+        text = {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(300.dp) // 固定高度，避免内容过多时拉伸
+            ) {
+                if (isLoading) {
+                    // 加载中显示进度条
+                    CircularProgressIndicator(
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                } else if (availableDates.isEmpty()) {
+                    // 无数据时提示
+                    Text(
+                        text = "暂无数据",
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                } else {
+                    // 显示可选日期列表
+                    LazyRow(
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        items(availableDates) { date ->
+                            val isSelected = (date == selectedDate)
+                            DateItem(
+                                date = date,
+                                isSelected = isSelected,
+                                onClick = { viewModel.selectDate(date) }
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("确认")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("取消")
+            }
+        }
+    )
+}
+
+/**
+ * 单个日期项（可点击选择）
+ */
+@Composable
+private fun DateItem(
+    date: LocalDate,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val format = remember { DateTimeFormatter.ofPattern("yyyy-MM-dd") }
+    Text(
+        text = date.format(format),
+        fontSize = 16.sp,
+        color = if (isSelected) {
+            Color.Blue // 选中状态高亮
+        } else {
+            Color.Black
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(vertical = 12.dp, horizontal = 16.dp)
+    )
+}
 @Composable
 fun rememberSyncedLazyListState(): LazyListState {
     val state = rememberLazyListState()
@@ -942,7 +1051,6 @@ fun rememberSyncedLazyListState(): LazyListState {
     DisposableEffect(Unit) { onDispose { sharedScrollStates.remove(state) } }
     return state
 }
-
 
 /**
  * 根据数值确定文本颜色的辅助函数。已优化，可以安全处理 null 值。
@@ -969,70 +1077,3 @@ fun Modifier.conditionalBorder(showBorder: Boolean, isWhiteBorder: Boolean): Mod
         this
     }
 }
-
-// 预览1：预览计数器
-@Preview(showBackground = true)
-@Composable
-private fun CounterDisplayPreview() {
-    CounterDisplay(
-        value1 = 15, color1 = TEXT_COLOR_B,
-        value2 = 20, color2 = TEXT_COLOR_P,
-        isShowWsr = true,
-        isHistory = true
-    )
-}
-
-// 预览2：预览带图表的 Bppc 表格
-//@Preview(showBackground = true)
-//@Composable
-//private fun BppcTableWithChartsPreview() {
-//    val synchronizedListState = rememberLazyListState()
-//    val mockBppcData = remember {
-//        val realItems = listOf(
-//            TableDisplayItem.Real(TableItem(dataA = 1, dataB = 2, dataC = 3)),
-//            TableDisplayItem.Real(TableItem(dataA = 4, dataB = 5, dataC = null)),
-//            TableDisplayItem.Real(TableItem(dataA = 7, dataB = 8, dataC = 1))
-//        )
-//        val emptyItems = List(MIN_TABLE_COLUMN_COUNT - realItems.size) { TableDisplayItem.Empty }
-//        realItems + emptyItems
-//    }
-//    Table(items = mockBppcData, listState = synchronizedListState, showCharts = true)
-//}
-
-
-// 预览3：预览策略区块
-@Preview(showBackground = true)
-@Composable
-private fun Strategy3WaysPreview() {
-    val displayItems1 = remember {
-        listOf(
-            Strategy3WyasDisplayItem.Real(Strategy3WyasItem(first = 1, second = 2)),
-            Strategy3WyasDisplayItem.Real(Strategy3WyasItem(first = 3, second = null))
-        )
-    }
-    val displayItems2 = remember {
-        listOf(
-            Strategy3WyasDisplayItem.Real(Strategy3WyasItem(first = 3, second = 2)),
-            Strategy3WyasDisplayItem.Real(Strategy3WyasItem(first = 1, second = null))
-        )
-    }
-    Strategy3WaysDisplay(
-        titles = listOf("A","B", "12", "56"),
-        predictedIndex = "2",
-        predictedValue1 = "P",
-        predictedValue2 = "B",
-        displayItems1 = displayItems1,
-        displayItems2 = displayItems2,
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun TextItemPreveiw() {
-    Column {
-        TextItem("B", determineColor("B"), isObslate = true, width = TITLE_WIDTH_SHORT)
-        TextItem("B", determineColor("B"), isObslate = true, width = TITLE_WIDTH_SHORT)
-        TextItem("B", determineColor("B"), isObslate = true, width = TITLE_WIDTH_SHORT)
-    }
-}
-
