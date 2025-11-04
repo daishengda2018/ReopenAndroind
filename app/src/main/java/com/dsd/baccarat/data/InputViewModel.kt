@@ -347,7 +347,9 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
                         val insertIndex = lastRealIndex + 1
                         updatedList.add(insertIndex, TableDisplayItem.Real(TableItem(dataA = data)))
                         filledColumn = ColumnType.A
-                        if (updatedList.size > MIN_TABLE_COLUMN_COUNT) updatedList.removeLastOrNull()
+                        if (updatedList.size > MIN_TABLE_COLUMN_COUNT && updatedList.last() is TableDisplayItem.Empty) {
+                            updatedList.removeLastOrNull()
+                        }
                     }
                 }
             }

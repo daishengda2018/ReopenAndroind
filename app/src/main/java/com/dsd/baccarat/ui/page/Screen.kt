@@ -115,8 +115,6 @@ fun Screen(viewModel: InputViewModel) {
 
     // 使用独立的可组合函数来管理提示音的创建/释放与播放
     NotificationSoundEffect(soundFlow = viewModel.soundEvent)
-
-    // 
     sharedScrollStates = remember { mutableStateListOf() }
     LaunchedEffect(sharedScrollStates) {
         snapshotFlow {
@@ -134,6 +132,7 @@ fun Screen(viewModel: InputViewModel) {
             }
         }
     }
+    HandleLayRowScroll(bppcTableData, sharedScrollStates.firstOrNull())
 
     Scaffold { innerPadding ->
         Row(
@@ -167,6 +166,48 @@ fun Screen(viewModel: InputViewModel) {
                 inputText,
                 beltInputState
             )
+        }
+    }
+}
+
+@Composable
+private fun HandleLayRowScroll(tableData: List<TableDisplayItem>, mainState: LazyListState?) {
+    mainState ?: return
+
+    LaunchedEffect(tableData) {
+        // 找到最后一个 Real 项的索引
+        val lastRealIndex = tableData.indexOfLast { it is TableDisplayItem.Real }
+
+        if (lastRealIndex == -1) return@LaunchedEffect
+
+        // 获取当前 layoutInfo 快照
+        val layoutInfo = mainState.layoutInfo
+        val viewportStart = layoutInfo.viewportStartOffset
+        val viewportEnd = layoutInfo.viewportEndOffset
+
+        // 尝试在可见项中找到目标 item 的信息
+        val targetInfo = layoutInfo.visibleItemsInfo.find { it.index == lastRealIndex }
+
+        // 如果目标 item 在可见项中，则判断是否完全可见
+        val isFullyVisible = targetInfo != null &&
+                targetInfo.offset >= viewportStart &&
+                (targetInfo.offset + targetInfo.size) <= viewportEnd
+
+        // 如果没有可见信息（即目标不在可见项）或未完全可见，则滚动到最后
+        if (!isFullyVisible) {
+            // 平滑滚动到最后一项（suspend，可直接在 LaunchedEffect 中调用）
+            mainState.animateScrollToItem(lastRealIndex)
+
+            // 如果你仍然需要同步其它 registered states（之前的同步逻辑），
+            // 下面这段会把主状态的位置同步给其它 states（根据你现有逻辑可选执行）：
+            val newIndex = mainState.firstVisibleItemIndex
+            val newOffset = mainState.firstVisibleItemScrollOffset
+            sharedScrollStates.drop(1).forEach { state ->
+                if (state.firstVisibleItemIndex != newIndex || state.firstVisibleItemScrollOffset != newOffset) {
+                    // 这里用 scrollToItem 避开循环（若想更平滑可改为 animate，但注意循环触发）
+                    state.scrollToItem(newIndex, newOffset)
+                }
+            }
         }
     }
 }
@@ -349,14 +390,16 @@ private fun RowScope.RightSide(
             )
         }
 
-        //  复用 BppcTable 组件。
+        // 处理自动滑动
+        val listState = rememberLazyListState()
+        HandleLayRowScroll(tableData, listState)
+
+        //  WL 表
         Table(
             items = tableData,
-            listState = rememberLazyListState(),
+            listState = listState,
             showCharts = false // 这一列不显示图表
         )
-
-
 
         // 可输入内容的文本框
         OutlinedTextField(
