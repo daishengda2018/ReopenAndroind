@@ -409,7 +409,7 @@ private fun RowScope.RightSide(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color.Transparent)
-                .height(TABLE_HEIGHT * 3 + SPACE_SIZE * 3 - ITEM_SIZE),
+                .height(TABLE_HEIGHT * 3 + SPACE_SIZE * 3 ),
             label = { Text("$timeString") },
         )
 

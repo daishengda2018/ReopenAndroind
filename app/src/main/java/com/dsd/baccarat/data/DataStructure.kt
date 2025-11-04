@@ -9,6 +9,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 enum class InputType(val value: String) { B("B"), P("P") }
 
+@Serializable
 enum class BetResultType(val value: String) { W("W"), L("L") }
 
 enum class TimerStatus { Idle, Running, Paused, Finished }
@@ -38,6 +39,23 @@ data class InputData(
         fun createB() = InputData(InputType.B)
     }
 }
+
+@Serializable
+@Entity(tableName = "bet_data")
+data class BetData(
+    @PrimaryKey
+    val curTime: Long = 0,
+    val type: BetResultType,
+) {
+    // 次构造函数（不影响序列化，序列化器仅关注主构造函数属性）
+    constructor(type: BetResultType) : this(System.currentTimeMillis(), type)
+
+    companion object {
+        fun createW() = BetData(BetResultType.W)
+        fun createL() = BetData(BetResultType.L)
+    }
+}
+
 
 // 策略类型
 enum class StrategyType { STRATEGY_12, STRATEGY_34, STRATEGY_56, STRATEGY_78 }

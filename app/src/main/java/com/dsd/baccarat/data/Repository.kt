@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import java.io.IOException
 
-class CountRepository @Inject constructor(@ApplicationContext private val context: Context) {
+class Repository @Inject constructor(@ApplicationContext private val context: Context) {
 
     // 1. 获取W类型数量的Flow（供UI观察）
     val wHistoryCountFlow: Flow<Int> = context.dataStore.data
@@ -32,14 +32,14 @@ class CountRepository @Inject constructor(@ApplicationContext private val contex
 
     // 3. 更新数量（核心：根据类型和操作，自动累加/累减）
     suspend fun updateWlCount(
-        type: BetResultType, // W或L
+        betData: BetData, // W或L
         operation: OperationType // 加或减
     ) = withContext(Dispatchers.IO) {
-        val historyKey = when (type) {
+        val historyKey = when (betData.type) {
             BetResultType.W -> W_COUNT_HISTORY
             BetResultType.L -> L_COUNT_HISTORY
         }
-        val currentKey = when (type) {
+        val currentKey = when (betData.type) {
             BetResultType.W -> W_COUNT_CUR
             BetResultType.L -> L_COUNT_CUR
         }
@@ -118,7 +118,7 @@ class CountRepository @Inject constructor(@ApplicationContext private val contex
         }
     }
 
-    suspend fun saveBetList(list: List<BetResultType>) {
+    suspend fun saveBetList(list: List<BetData>) {
         val result = if (list.size > 63) {
             list.toMutableList().apply { removeFirstOrNull() }
         } else {
@@ -130,7 +130,7 @@ class CountRepository @Inject constructor(@ApplicationContext private val contex
         }
     }
 
-    suspend fun getBetList(): List<BetResultType> {
+    suspend fun getBetList(): List<BetData> {
         try {
             // .data 是 Flow<Preferences>
             // .first() 挂起当前协程，直到获得第一个 Preferences 对象
@@ -143,7 +143,6 @@ class CountRepository @Inject constructor(@ApplicationContext private val contex
             return emptyList()
         }
     }
-
 
     companion object {
         private val W_COUNT_HISTORY = intPreferencesKey("w_count_history")

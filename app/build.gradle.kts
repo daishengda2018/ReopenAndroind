@@ -8,6 +8,7 @@ plugins {
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
     id("org.jetbrains.kotlin.plugin.serialization") version "2.2.21"
+    id("androidx.room") version "2.8.3" // 添加 Room 插件（版本与 room-runtime 一致）
 }
 
 android {
@@ -30,9 +31,15 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+    }
+
+    // 关键：通过 Room 插件 DSL 配置 schema 目录
+    room {
+        schemaDirectory("$projectDir/schemas") // schema 保存到 app/schemas 目录
     }
 
     kotlin {
@@ -44,6 +51,7 @@ android {
     buildFeatures {
         compose = true
     }
+
     kotlinOptions {
         freeCompilerArgs = listOf("-XXLanguage:+PropertyParamAnnotationDefaultTargetMode")
     }
@@ -65,6 +73,7 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     // Room 协程支持（用于在协程中调用数据库操作）
     implementation(libs.androidx.room.ktx)
+
     // 添加 Hilt 依赖
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

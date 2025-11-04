@@ -19,11 +19,11 @@ object SerializationUtils {
         return json.decodeFromString(jsonString)
     }
 
-    fun serializeBeltResultTypeList(list: List<BetResultType>): String {
+    fun serializeBeltResultTypeList(list: List<BetData>): String {
         return json.encodeToString(list)
     }
 
-    fun deserializeBeltResultTypeList(jsonString: String): List<BetResultType> {
+    fun deserializeBeltResultTypeList(jsonString: String): List<BetData> {
         return json.decodeFromString(jsonString)
     }
 }

@@ -1,0 +1,61 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "0f2e4e7009ff6ed65564d1addc473aa0",
+    "entities": [
+      {
+        "tableName": "input_data",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`curTime` INTEGER NOT NULL, `inputType` TEXT NOT NULL, PRIMARY KEY(`curTime`))",
+        "fields": [
+          {
+            "fieldPath": "curTime",
+            "columnName": "curTime",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "inputType",
+            "columnName": "inputType",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "curTime"
+          ]
+        }
+      },
+      {
+        "tableName": "bet_data",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`curTime` INTEGER NOT NULL, `type` TEXT NOT NULL, PRIMARY KEY(`curTime`))",
+        "fields": [
+          {
+            "fieldPath": "curTime",
+            "columnName": "curTime",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "curTime"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '0f2e4e7009ff6ed65564d1addc473aa0')"
+    ]
+  }
+}

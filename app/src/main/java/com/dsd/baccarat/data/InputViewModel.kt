@@ -4,6 +4,8 @@ package com.dsd.baccarat.data
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.dsd.baccarat.data.room.BetDataDao
+import com.dsd.baccarat.data.room.InputDataDao
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
 import kotlinx.coroutines.Job
@@ -22,10 +24,14 @@ import java.util.Locale
  * 输入 ViewModel
  */
 @HiltViewModel
-class InputViewModel @Inject constructor(private val repository: CountRepository) : ViewModel() {
+class InputViewModel @Inject constructor(
+    private val repository: Repository,
+    private val inputDataDao: InputDataDao,
+    private val betDataDao: BetDataDao
+) : ViewModel() {
 
     private var _openInputList: MutableList<InputData> = mutableListOf()
-    private var _betResultList: MutableList<BetResultType> = mutableListOf()
+    private var _betResultList: MutableList<BetData> = mutableListOf()
     private var _compareResultList: MutableList<Boolean> = mutableListOf()
 
     private val _wlTableStateFlow = MutableStateFlow<List<TableDisplayItem>>(DEFAULT_TABLE_DISPLAY_LIST)
@@ -282,11 +288,11 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
             return
         }
         if (_openInputList.last().inputType == inputType.inputType) {
-            _betResultList.add(BetResultType.W)
+            _betResultList.add(BetData.createW())
             updateBetList(_betResultList)
 
         } else {
-            _betResultList.add(BetResultType.L)
+            _betResultList.add(BetData.createL())
             updateBetList(_betResultList)
         }
 
@@ -296,7 +302,7 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
             return
         }
 
-        val inputCombination = last3Inputs.joinToString("")
+        val inputCombination = last3Inputs.map { it.type }.joinToString("")
         val result = wlCombinationToResult[inputCombination] ?: run {
             _curBeltInputStageFlow.update { null }
             return
@@ -366,15 +372,15 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
     }
 
 
-    fun updateBetList(newList: List<BetResultType>) {
+    fun updateBetList(newList: List<BetData>) {
         viewModelScope.launch {
             repository.saveBetList(newList)
         }
     }
 
-    private fun updateWlCounter(lastResult: BetResultType) {
+    private fun updateWlCounter(lastResult: BetData) {
         _wlCounterStateFlow.update { currentCounter ->
-            when (lastResult) {
+            when (lastResult.type) {
                 BetResultType.W -> currentCounter.copy(count1 = currentCounter.count1 + 1)
                 BetResultType.L -> currentCounter.copy(count2 = currentCounter.count2 + 1)
             }
@@ -449,7 +455,9 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
                 else -> {
                     val insertIndex = lastRealIndex + 1
                     updatedList.add(insertIndex, Strategy3WyasDisplayItem.Real(Strategy3WyasItem(first = newValue)))
-                    if (updatedList.size > MIN_TABLE_COLUMN_COUNT) updatedList.removeLastOrNull()
+                    if (updatedList.size > MIN_TABLE_COLUMN_COUNT && updatedList.last() is Strategy3WyasDisplayItem.Empty) {
+                        updatedList.removeLastOrNull()
+                    }
                 }
             }
         }
@@ -591,7 +599,7 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
         // 从头重建（仅在 i >= 2 时触发表格/策略更新）
         for (i in _openInputList.indices) {
             if (i >= 1) {
-                _compareResultList.add(_openInputList[i - 1] == _openInputList[i])
+                _compareResultList.add(_openInputList[i - 1].inputType == _openInputList[i].inputType)
             }
             if (i >= 2) {
                 val last3Inputs = _openInputList.subList(0, i + 1).takeLast(3)
