@@ -193,7 +193,7 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
     private fun updateCompareResultList() {
         if (_openInputList.size < 2) return
         val last2Inputs = _openInputList.takeLast(2)
-        _compareResultList.add(last2Inputs[0] == last2Inputs[1])
+        _compareResultList.add(last2Inputs[0].inputType == last2Inputs[1].inputType)
     }
 
     private fun updateBppcAndStrantegy(lastInput: InputData, last3Inputs: List<InputData>) {
