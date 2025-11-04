@@ -1,26 +1,55 @@
 package com.dsd.baccarat.data
 
+import androidx.room.Entity
+import androidx.room.PrimaryKey
 import com.dsd.baccarat.data.InputViewModel.Companion.MIN_TABLE_COLUMN_COUNT
+import kotlinx.serialization.Serializable
 
 // 输入类型
+@Serializable
 enum class InputType(val value: String) { B("B"), P("P") }
 
 enum class BetResultType(val value: String) { W("W"), L("L") }
 
-// BP 计数器
-data class Counter(val count1: Int = 0, val count2: Int = 0)
+enum class TimerStatus { Idle, Running, Paused, Finished }
+
+// 2. 定义操作类型枚举（累加/累减）
+enum class OperationType {
+    INCREMENT, // 累加
+    DECREMENT  // 累减
+}
 
 // 列类型
 enum class ColumnType(val value: Int) { A(0), B(1), C(2) }
 
+// 表名默认是类名，可通过 tableName
+@Serializable
+@Entity(tableName = "input_data")
+data class InputData(
+    @PrimaryKey
+    val curTime: Long = 0,
+    val inputType: InputType,
+) {
+    // 次构造函数（不影响序列化，序列化器仅关注主构造函数属性）
+    constructor(inputType: InputType) : this(System.currentTimeMillis(), inputType)
+
+    companion object {
+        fun createP() = InputData(InputType.P)
+        fun createB() = InputData(InputType.B)
+    }
+}
+
 // 策略类型
 enum class StrategyType { STRATEGY_12, STRATEGY_34, STRATEGY_56, STRATEGY_78 }
 
+// BP 计数器
+data class Counter(val count1: Int = 0, val count2: Int = 0)
+
 // 主列表项 (使用可空类型)
 data class TableItem(
-    val dataA: Int? = null,
-    val dataB: Int? = null,
-    val dataC: Int? = null
+    val dataA: Pair<Boolean, Int?>? = null,
+    val dataB: Pair<Boolean, Int?>? = null,
+    val dataC: Pair<Boolean, Int?>? = null
 )
 
 data class StrategyGridInfo(
@@ -74,14 +103,6 @@ data class PredictedStrategy3WaysValue(
     val strategy78: String? = null
 )
 
-enum class TimerStatus { Idle, Running, Paused, Finished }
 
-
-
-// 2. 定义操作类型枚举（累加/累减）
-enum class OperationType {
-    INCREMENT, // 累加
-    DECREMENT  // 累减
-}
 
 

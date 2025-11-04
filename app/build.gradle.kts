@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.detekt)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.2.21"
 }
 
 android {
@@ -15,7 +16,7 @@ android {
 
     defaultConfig {
         applicationId = "com.dsd.baccarat"
-        minSdk = 21
+        minSdk = 23
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
@@ -57,9 +58,17 @@ android {
 
 dependencies {
 //    detektPlugins(libs.detekt)
+
+    // Room 核心库
+    implementation(libs.androidx.room.runtime)
+    // 注解处理器（KSP，必须与 runtime 版本一致）
+    ksp(libs.androidx.room.compiler)
+    // Room 协程支持（用于在协程中调用数据库操作）
+    implementation(libs.androidx.room.ktx)
     // 添加 Hilt 依赖
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
+    // Room 核心库
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)

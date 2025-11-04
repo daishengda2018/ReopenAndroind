@@ -45,7 +45,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
@@ -54,18 +53,16 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dsd.baccarat.data.ColumnType
 import com.dsd.baccarat.data.Counter
+import com.dsd.baccarat.data.InputData
 import com.dsd.baccarat.data.InputType
 import com.dsd.baccarat.data.InputViewModel
 import com.dsd.baccarat.data.InputViewModel.Companion.MAX_COLUMN_COUNT
-import com.dsd.baccarat.data.InputViewModel.Companion.MIN_TABLE_COLUMN_COUNT
-import com.dsd.baccarat.data.InputViewModel.Companion.RELEVANCY_MAP
 import com.dsd.baccarat.data.PredictedStrategy3WaysValue
 import com.dsd.baccarat.data.Strategy3WaysData
 import com.dsd.baccarat.data.Strategy3WyasDisplayItem
 import com.dsd.baccarat.data.Strategy3WyasItem
 import com.dsd.baccarat.data.StrategyGridInfo
 import com.dsd.baccarat.data.TableDisplayItem
-import com.dsd.baccarat.data.TableItem
 import com.dsd.baccarat.data.TimerStatus
 import com.dsd.baccarat.ui.theme.PurpleGrey80
 import kotlinx.coroutines.flow.SharedFlow
@@ -322,7 +319,7 @@ private fun RowScope.RightSide(
     viewModel: InputViewModel,
     timerStatus: TimerStatus,
     inputText: String,
-    beltInputState: InputType?
+    beltInputState: InputData?
 ) {
     Column(
         Modifier
@@ -570,16 +567,19 @@ private fun Table(
                 TextItem("${idx + 1}", TEXT_COLOR_NEUTRAL, fontSize = 10.sp)
                 // 数据行 (A, B, C)
                 TextItem(
-                    text = data?.dataA?.toString() ?: "",
-                    color = determineColor(data?.dataA)
+                    text = data?.dataA?.second?.toString() ?: "",
+                    color = determineColor(data?.dataA?.second),
+                    isHistory = data?.dataA?.first ?: false
                 )
                 TextItem(
-                    text = data?.dataB?.toString() ?: "",
-                    color = determineColor(data?.dataB)
+                    text = data?.dataB?.second?.toString() ?: "",
+                    color = determineColor(data?.dataB?.second),
+                    isHistory = data?.dataB?.first ?: false
                 )
                 TextItem(
-                    text = data?.dataC?.toString() ?: "",
-                    color = determineColor(data?.dataC)
+                    text = data?.dataC?.second?.toString() ?: "",
+                    color = determineColor(data?.dataC?.second),
+                    isHistory = data?.dataC?.first ?: false
                 )
 
                 if (showCharts) {
@@ -687,12 +687,8 @@ private fun Strategy3WyasTable(
  *  将 Canvas 绘制逻辑提取到独立的可组合函数中，使 BppcTable 更简洁。
  */
 @Composable
-fun VerticalBarChart(value: Int?) {
-    val color = determineColor(value)
-    val textMeasurer = rememberTextMeasurer()
-    val textStyle = remember(color) {
-        TextStyle(fontWeight = FontWeight.Bold, fontSize = 10.sp, color = color)
-    }
+fun VerticalBarChart(value: Pair<Boolean, Int?>?) {
+    val color = determineColor(value?.second)
 
     Box(
         Modifier
@@ -735,7 +731,8 @@ fun VerticalBarChart(value: Int?) {
             )
 
             // 如果有值，则绘制柱状图和数值文本
-            if (value != null && value > 0) {
+            val value = value?.second ?: 0
+            if (value > 0) {
                 val barHeight = (value.toFloat() / MAX_VALUE) * size.height
                 drawRect(
                     color = color,
@@ -768,7 +765,7 @@ fun TextItem(
     {
         if (isSelected) {
             PurpleGrey80 // 选中时，使用主题色的淡色作为背景
-        } else if (isObslate) {
+        } else if (isObslate || isHistory) {
             Color.LightGray
         } else {
             Color.Transparent // 未选中时，背景透明
@@ -795,7 +792,7 @@ fun TextItem(
  *  输入按钮现在通过 lambda 表达式接收回调，从而与 ViewModel 解耦，提升了组件的独立性。
  */
 @Composable
-private fun InputButtons(viewModel: InputViewModel, timerStatus: TimerStatus, beltInputState: InputType?) {
+private fun InputButtons(viewModel: InputViewModel, timerStatus: TimerStatus, beltInputState: InputData?) {
     @Composable
     fun ColumnScope.DefaultButtonModifier(): Modifier = remember {
         Modifier
@@ -813,7 +810,7 @@ private fun InputButtons(viewModel: InputViewModel, timerStatus: TimerStatus, be
             var isInputB = false
             var isInputP = false
 
-            when (beltInputState) {
+            when (beltInputState?.inputType) {
                 InputType.B -> {
                     isInputB = true
                     isBeltPEnable = false
@@ -883,7 +880,6 @@ private fun InputButtons(viewModel: InputViewModel, timerStatus: TimerStatus, be
             Button(modifier = DefaultButtonModifier(), onClick = { /* TODO: 实现撤销逻辑 */ }) { Text(text = "保存") }
             Button(modifier = DefaultButtonModifier(), onClick = { viewModel.newGame() }) { Text(text = "新牌") }
         }
-
     }
 }
 
@@ -935,21 +931,21 @@ private fun CounterDisplayPreview() {
 }
 
 // 预览2：预览带图表的 Bppc 表格
-@Preview(showBackground = true)
-@Composable
-private fun BppcTableWithChartsPreview() {
-    val synchronizedListState = rememberLazyListState()
-    val mockBppcData = remember {
-        val realItems = listOf(
-            TableDisplayItem.Real(TableItem(dataA = 1, dataB = 2, dataC = 3)),
-            TableDisplayItem.Real(TableItem(dataA = 4, dataB = 5, dataC = null)),
-            TableDisplayItem.Real(TableItem(dataA = 7, dataB = 8, dataC = 1))
-        )
-        val emptyItems = List(MIN_TABLE_COLUMN_COUNT - realItems.size) { TableDisplayItem.Empty }
-        realItems + emptyItems
-    }
-    Table(items = mockBppcData, listState = synchronizedListState, showCharts = true)
-}
+//@Preview(showBackground = true)
+//@Composable
+//private fun BppcTableWithChartsPreview() {
+//    val synchronizedListState = rememberLazyListState()
+//    val mockBppcData = remember {
+//        val realItems = listOf(
+//            TableDisplayItem.Real(TableItem(dataA = 1, dataB = 2, dataC = 3)),
+//            TableDisplayItem.Real(TableItem(dataA = 4, dataB = 5, dataC = null)),
+//            TableDisplayItem.Real(TableItem(dataA = 7, dataB = 8, dataC = 1))
+//        )
+//        val emptyItems = List(MIN_TABLE_COLUMN_COUNT - realItems.size) { TableDisplayItem.Empty }
+//        realItems + emptyItems
+//    }
+//    Table(items = mockBppcData, listState = synchronizedListState, showCharts = true)
+//}
 
 
 // 预览3：预览策略区块

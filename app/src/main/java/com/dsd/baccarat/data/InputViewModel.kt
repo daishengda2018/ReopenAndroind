@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 /**
  * 输入 ViewModel
@@ -22,8 +24,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class InputViewModel @Inject constructor(private val repository: CountRepository) : ViewModel() {
 
-    private var _openInputList: MutableList<InputType> = mutableListOf()
-
+    private var _openInputList: MutableList<InputData> = mutableListOf()
     private var _betResultList: MutableList<BetResultType> = mutableListOf()
     private var _compareResultList: MutableList<Boolean> = mutableListOf()
 
@@ -49,7 +50,7 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
     private val _predictionStateFlowList = List(MAX_COLUMN_COUNT) { MutableStateFlow(DEFAULT_PREDICTED_3WAYS) }
     val predictedStateFlowList: List<StateFlow<PredictedStrategy3WaysValue>> = _predictionStateFlowList.map { it.asStateFlow() }
 
-    private val _curBeltInputStageFlow: MutableStateFlow<InputType?> = MutableStateFlow(null)
+    private val _curBeltInputStageFlow: MutableStateFlow<InputData?> = MutableStateFlow(null)
     val curBeltInputStageFlow = _curBeltInputStageFlow.asStateFlow()
 
     // Timer state moved to ViewModel
@@ -166,13 +167,13 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
     }
 
     fun openB() {
-        _openInputList.add(InputType.B)
+        _openInputList.add(InputData.createB())
         updateOpendList(_openInputList)
         updateOpenData()
     }
 
     fun openP() {
-        _openInputList.add(InputType.P)
+        _openInputList.add(InputData.createP())
         updateOpendList(_openInputList)
         updateOpenData()
     }
@@ -195,7 +196,7 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
         _compareResultList.add(last2Inputs[0] == last2Inputs[1])
     }
 
-    private fun updateBppcAndStrantegy(lastInput: InputType, last3Inputs: List<InputType>) {
+    private fun updateBppcAndStrantegy(lastInput: InputData, last3Inputs: List<InputData>) {
         if (_openInputList.isNotEmpty()) {
             updateBppcCounter(lastInput)
         }
@@ -212,9 +213,9 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
     /**
      * 更新 BPPC 计数器
      */
-    private fun updateBppcCounter(lastInput: InputType) {
+    private fun updateBppcCounter(lastInput: InputData) {
         _bppcCounterStateFlow.update { currentCounter ->
-            when (lastInput) {
+            when (lastInput.inputType) {
                 InputType.B -> currentCounter.copy(count1 = currentCounter.count1 + 1)
                 InputType.P -> currentCounter.copy(count2 = currentCounter.count2 + 1)
             }
@@ -224,10 +225,10 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
     /**
      * 更新 BPPC 表格
      */
-    private fun updateBppcTable(last3Inputs: List<InputType>): ColumnType? {
-        val inputCombination = last3Inputs.joinToString("")
+    private fun updateBppcTable(last3Inputs: List<InputData>): ColumnType? {
+        val inputCombination = last3Inputs.map { it.inputType }.joinToString("")
         val result = bppcCombinationToResult[inputCombination] ?: return null
-        val columnType = updateTableStageFlow(_bppcTableStateFlow, result)
+        val columnType = updateTableStageFlow(_bppcTableStateFlow, result, last3Inputs.last().curTime)
         return columnType
     }
 
@@ -259,8 +260,8 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
     /**
      * 将预测逻辑做少量简化，便于阅读
      */
-    private fun predictNextStrategyValue(title: String, inputHistory: MutableList<InputType>): PredictedStrategy3WaysValue {
-        val lastInput = inputHistory.last()
+    private fun predictNextStrategyValue(title: String, inputHistory: MutableList<InputData>): PredictedStrategy3WaysValue {
+        val lastInput = inputHistory.last().inputType
         val isLastIndexEven = inputHistory.lastIndex % 2 == 0
         fun flip(input: InputType) = if (input == InputType.B) InputType.P else InputType.B
 
@@ -280,7 +281,7 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
         if (inputType == null) {
             return
         }
-        if (_openInputList.last() == inputType) {
+        if (_openInputList.last().inputType == inputType.inputType) {
             _betResultList.add(BetResultType.W)
             updateBetList(_betResultList)
 
@@ -306,19 +307,21 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
         updateWlCounter(lastResult)
         viewModelScope.launch { repository.updateWlCount(lastResult, OperationType.INCREMENT) }
 
-        updateTableStageFlow(_wlTableStateFlow, result)
+        updateTableStageFlow(_wlTableStateFlow, result, System.currentTimeMillis())
         _curBeltInputStageFlow.update { null }
     }
 
-    private fun updateTableStageFlow(tableStateFlow: MutableStateFlow<List<TableDisplayItem>>, result: Int): ColumnType? {
+    private fun updateTableStageFlow(tableStateFlow: MutableStateFlow<List<TableDisplayItem>>, result: Int, curTime: Long): ColumnType? {
         var filledColumn: ColumnType? = null
+        val isSameDayLegacy = isSameDayLegacy(System.currentTimeMillis(), curTime)
+        val data = Pair(!isSameDayLegacy, result)
 
         tableStateFlow.update { currentList ->
             val updatedList = currentList.toMutableList()
             val lastRealIndex = updatedList.indexOfLast { it is TableDisplayItem.Real }
 
             if (lastRealIndex == -1) {
-                updatedList[0] = TableDisplayItem.Real(TableItem(dataA = result))
+                updatedList[0] = TableDisplayItem.Real(TableItem(dataA = data))
                 filledColumn = ColumnType.A
             } else {
                 val lastRealItem = updatedList[lastRealIndex] as TableDisplayItem.Real
@@ -326,23 +329,23 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
 
                 when {
                     currentData.dataA == null -> {
-                        updatedList[lastRealIndex] = lastRealItem.copy(data = currentData.copy(dataA = result))
+                        updatedList[lastRealIndex] = lastRealItem.copy(data = currentData.copy(dataA = data))
                         filledColumn = ColumnType.A
                     }
 
                     currentData.dataB == null -> {
-                        updatedList[lastRealIndex] = lastRealItem.copy(data = currentData.copy(dataB = result))
+                        updatedList[lastRealIndex] = lastRealItem.copy(data = currentData.copy(dataB = data))
                         filledColumn = ColumnType.B
                     }
 
                     currentData.dataC == null -> {
-                        updatedList[lastRealIndex] = lastRealItem.copy(data = currentData.copy(dataC = result))
+                        updatedList[lastRealIndex] = lastRealItem.copy(data = currentData.copy(dataC = data))
                         filledColumn = ColumnType.C
                     }
 
                     else -> {
                         val insertIndex = lastRealIndex + 1
-                        updatedList.add(insertIndex, TableDisplayItem.Real(TableItem(dataA = result)))
+                        updatedList.add(insertIndex, TableDisplayItem.Real(TableItem(dataA = data)))
                         filledColumn = ColumnType.A
                         if (updatedList.size > MIN_TABLE_COLUMN_COUNT) updatedList.removeLastOrNull()
                     }
@@ -352,6 +355,14 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
         }
         return filledColumn
     }
+
+    private fun isSameDayLegacy(time1: Long, time2: Long): Boolean {
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) // 每次创建新实例（避免线程安全问题）
+        val dateStr1 = sdf.format(time1)
+        val dateStr2 = sdf.format(time2)
+        return dateStr1 == dateStr2
+    }
+
 
     fun updateBetList(newList: List<BetResultType>) {
         viewModelScope.launch {
@@ -455,10 +466,10 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
     /**
      * 更新 BPPC 表格和策略
      */
-    private fun updateGridStrategy(last3Inputs: List<InputType>, filledColumn: ColumnType) {
+    private fun updateGridStrategy(last3Inputs: List<InputData>, filledColumn: ColumnType) {
         // 收集已经出现的且不重复的组合
         val currentConbinations = _uniqueBppcConbinationList[filledColumn.value]
-        val inputCombination = last3Inputs.joinToString("")
+        val inputCombination = last3Inputs.map { it.inputType }.joinToString("")
         currentConbinations.add(inputCombination)
 
         _strategyGridStateMap.forEach { it ->
@@ -496,14 +507,14 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
         }
     }
 
-    private fun updateGridStrategyData(inputType: InputType?, filledColumn: ColumnType) {
+    private fun updateGridStrategyData(inputData: InputData?, filledColumn: ColumnType) {
         _stragetyGridStateFlow[filledColumn.value].update { currentData ->
             var result = currentData.copy()
 
             // 1. 更新 actualOpenedList
             val actualOpenedList = result.actualOpenedList.toMutableList().apply {
                 if (size >= MAX_COLUMN_COUNT) clear()
-                inputType?.let { add(it.toString()) }
+                inputData?.let { add(it.inputType.toString()) }
             }
             // 2. 准备数据
             val predictedList = result.predictedList.toMutableList().apply {
@@ -593,11 +604,11 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
     }
 
     fun betB() {
-        _curBeltInputStageFlow.update { InputType.B }
+        _curBeltInputStageFlow.update { InputData.createB() }
     }
 
     fun betP() {
-        _curBeltInputStageFlow.update { InputType.P }
+        _curBeltInputStageFlow.update { InputData.createP() }
     }
 
     fun removeLastBet() {
@@ -627,14 +638,14 @@ class InputViewModel @Inject constructor(private val repository: CountRepository
                 updateWlCounter(_betResultList[i])
                 val inputCombination = last3Inputs.joinToString("")
                 wlCombinationToResult[inputCombination]?.let { result ->
-                    updateTableStageFlow(_wlTableStateFlow, result)
+                    updateTableStageFlow(_wlTableStateFlow, result, System.currentTimeMillis())
                 }
             }
         }
     }
 
     // 更新并保存数据
-    fun updateOpendList(newList: List<InputType>) {
+    fun updateOpendList(newList: List<InputData>) {
         viewModelScope.launch {
             repository.saveOpendList(newList)
         }

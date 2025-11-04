@@ -97,20 +97,20 @@ class CountRepository @Inject constructor(@ApplicationContext private val contex
     }
 
     // 保存 List<InputType>
-    suspend fun saveOpendList(list: List<InputType>) {
+    suspend fun saveOpendList(list: List<InputData>) {
         val json = SerializationUtils.serializeInputTypeList(list)
         context.dataStore.edit { preferences ->
             preferences[INPUT_TYPE_LIST] = json
         }
     }
 
-    suspend fun getOpendList(): List<InputType> {
+    suspend fun getOpendList(): List<InputData> {
         try {
             // .data 是 Flow<Preferences>
             // .first() 挂起当前协程，直到获得第一个 Preferences 对象
             val preferences = context.dataStore.data.first()
             val json = preferences[INPUT_TYPE_LIST] ?: return emptyList()
-            return SerializationUtils.deserializeInputTypeList(json)
+            return SerializationUtils.deserializeInputDataList(json)
         } catch (e: IOException) {
             // 处理读取文件时可能发生的 IO 异常
             e.printStackTrace()
@@ -143,6 +143,7 @@ class CountRepository @Inject constructor(@ApplicationContext private val contex
             return emptyList()
         }
     }
+
 
     companion object {
         private val W_COUNT_HISTORY = intPreferencesKey("w_count_history")
