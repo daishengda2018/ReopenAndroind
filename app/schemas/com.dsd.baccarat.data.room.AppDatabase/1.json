@@ -1,8 +1,9 @@
+@ -0,0 +1,83 @@
 {
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "0f2e4e7009ff6ed65564d1addc473aa0",
+    "identityHash": "0a0c48fbd240b88585030ad918dcd238",
     "entities": [
       {
         "tableName": "input_data",
@@ -26,7 +27,18 @@
           "columnNames": [
             "curTime"
           ]
-        }
+        },
+        "indices": [
+          {
+            "name": "index_input_data_curTime",
+            "unique": false,
+            "columnNames": [
+              "curTime"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_input_data_curTime` ON `${TABLE_NAME}` (`curTime`)"
+          }
+        ]
       },
       {
         "tableName": "bet_data",
@@ -50,12 +62,23 @@
           "columnNames": [
             "curTime"
           ]
-        }
+        },
+        "indices": [
+          {
+            "name": "index_bet_data_curTime",
+            "unique": false,
+            "columnNames": [
+              "curTime"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_bet_data_curTime` ON `${TABLE_NAME}` (`curTime`)"
+          }
+        ]
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '0f2e4e7009ff6ed65564d1addc473aa0')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '0a0c48fbd240b88585030ad918dcd238')"
     ]
   }
 }

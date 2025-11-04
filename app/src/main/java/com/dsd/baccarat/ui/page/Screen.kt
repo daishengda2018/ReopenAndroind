@@ -250,6 +250,7 @@ private fun RowScope.LeftSide(
                 items = bppcTableData,
                 listState = rememberSyncedLazyListState(),
                 showCharts = true // 这一列显示图表
+
             )
         }
         // A C
@@ -398,7 +399,8 @@ private fun RowScope.RightSide(
         Table(
             items = tableData,
             listState = listState,
-            showCharts = false // 这一列不显示图表
+            showCharts = false, // 这一列不显示图表
+            showHistory = true
         )
 
         // 可输入内容的文本框
@@ -409,7 +411,7 @@ private fun RowScope.RightSide(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color.Transparent)
-                .height(TABLE_HEIGHT * 3 + SPACE_SIZE * 3 ),
+                .height(TABLE_HEIGHT * 3 + SPACE_SIZE * 3),
             label = { Text("$timeString") },
         )
 
@@ -597,7 +599,8 @@ private fun BppcTableTitles() {
 private fun Table(
     items: List<TableDisplayItem>,
     listState: LazyListState,
-    showCharts: Boolean
+    showCharts: Boolean,
+    showHistory: Boolean = false
 ) {
     LazyRow(state = listState, modifier = Modifier.fillMaxWidth()) {
         itemsIndexed(
@@ -612,17 +615,23 @@ private fun Table(
                 TextItem(
                     text = data?.dataA?.second?.toString() ?: "",
                     color = determineColor(data?.dataA?.second),
-                    isHistory = data?.dataA?.first ?: false
+                    isHistory = if (showHistory) {
+                        data?.dataA?.first ?: false
+                    } else false
                 )
                 TextItem(
                     text = data?.dataB?.second?.toString() ?: "",
                     color = determineColor(data?.dataB?.second),
-                    isHistory = data?.dataB?.first ?: false
+                    isHistory = if (showHistory) {
+                        data?.dataB?.first ?: false
+                    } else false
                 )
                 TextItem(
                     text = data?.dataC?.second?.toString() ?: "",
                     color = determineColor(data?.dataC?.second),
-                    isHistory = data?.dataC?.first ?: false
+                    isHistory = if (showHistory) {
+                        data?.dataC?.first ?: false
+                    } else false
                 )
 
                 if (showCharts) {
@@ -920,7 +929,7 @@ private fun InputButtons(viewModel: InputViewModel, timerStatus: TimerStatus, be
 
         Column(Modifier.weight(1f)) {
             Button(modifier = DefaultButtonModifier(), onClick = { /* TODO: 实现撤销逻辑 */ }) { Text(text = "历史") }
-            Button(modifier = DefaultButtonModifier(), onClick = { /* TODO: 实现撤销逻辑 */ }) { Text(text = "保存") }
+            Button(modifier = DefaultButtonModifier(), onClick = { viewModel.save()}) { Text(text = "保存") }
             Button(modifier = DefaultButtonModifier(), onClick = { viewModel.newGame() }) { Text(text = "新牌") }
         }
     }

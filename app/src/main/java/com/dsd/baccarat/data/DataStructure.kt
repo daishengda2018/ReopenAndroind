@@ -1,5 +1,6 @@
 package com.dsd.baccarat.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.dsd.baccarat.data.InputViewModel.Companion.MIN_TABLE_COLUMN_COUNT
@@ -28,6 +29,7 @@ enum class ColumnType(val value: Int) { A(0), B(1), C(2) }
 @Entity(tableName = "input_data")
 data class InputData(
     @PrimaryKey
+    @ColumnInfo(index = true) // 为curTime添加索引
     val curTime: Long = 0,
     val inputType: InputType,
 ) {
@@ -44,6 +46,7 @@ data class InputData(
 @Entity(tableName = "bet_data")
 data class BetData(
     @PrimaryKey
+    @ColumnInfo(index = true) // 为curTime添加索引
     val curTime: Long = 0,
     val type: BetResultType,
 ) {

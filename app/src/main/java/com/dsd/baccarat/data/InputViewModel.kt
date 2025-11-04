@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -119,11 +120,14 @@ class InputViewModel @Inject constructor(
             _openInputList.addAll(repository.getOpendList())
             resumeOpenedData()
 
-            _betResultList.clear()
-            _betResultList.addAll(repository.getBetList())
-            resumeBetedData()
-
             _wlCounterStateFlow.value = repository.getWinLossCurCount()
+        }
+
+        viewModelScope.launch {
+            val allBets = betDataDao.getTodayAndHistory().first()
+            _betResultList.clear()
+            _betResultList.addAll(allBets)
+            resumeBetedData()
         }
     }
 
@@ -288,12 +292,14 @@ class InputViewModel @Inject constructor(
             return
         }
         if (_openInputList.last().inputType == inputType.inputType) {
-            _betResultList.add(BetData.createW())
-            updateBetList(_betResultList)
+            val element = BetData.createW()
+            _betResultList.add(element)
+            viewModelScope.launch { betDataDao.insert(element) }
 
         } else {
-            _betResultList.add(BetData.createL())
-            updateBetList(_betResultList)
+            val element = BetData.createL()
+            _betResultList.add(element)
+            viewModelScope.launch { betDataDao.insert(element) }
         }
 
         val last3Inputs = _betResultList.takeLast(3)
@@ -313,7 +319,7 @@ class InputViewModel @Inject constructor(
         updateWlCounter(lastResult)
         viewModelScope.launch { repository.updateWlCount(lastResult, OperationType.INCREMENT) }
 
-        updateTableStageFlow(_wlTableStateFlow, result, System.currentTimeMillis())
+        updateTableStageFlow(_wlTableStateFlow, result, lastResult.curTime)
         _curBeltInputStageFlow.update { null }
     }
 
@@ -371,12 +377,6 @@ class InputViewModel @Inject constructor(
         return dateStr1 == dateStr2
     }
 
-
-    fun updateBetList(newList: List<BetData>) {
-        viewModelScope.launch {
-            repository.saveBetList(newList)
-        }
-    }
 
     private fun updateWlCounter(lastResult: BetData) {
         _wlCounterStateFlow.update { currentCounter ->
@@ -629,7 +629,7 @@ class InputViewModel @Inject constructor(
             last ?: return
             viewModelScope.launch {
                 repository.updateWlCount(last, OperationType.DECREMENT)
-                repository.saveBetList(_betResultList)
+                betDataDao.deleteByTime(last.curTime)
             }
         }
 
@@ -646,9 +646,9 @@ class InputViewModel @Inject constructor(
             if (i >= 2) {
                 val last3Inputs = _betResultList.subList(0, i + 1).takeLast(3)
                 updateWlCounter(_betResultList[i])
-                val inputCombination = last3Inputs.joinToString("")
+                val inputCombination = last3Inputs.map { it.type }.joinToString("")
                 wlCombinationToResult[inputCombination]?.let { result ->
-                    updateTableStageFlow(_wlTableStateFlow, result, System.currentTimeMillis())
+                    updateTableStageFlow(_wlTableStateFlow, result, last3Inputs.last().curTime)
                 }
             }
         }
@@ -691,8 +691,13 @@ class InputViewModel @Inject constructor(
         viewModelScope.launch {
             repository.saveNoteText("")
             repository.saveOpendList(_openInputList)
-            repository.saveBetList(_betResultList)
             repository.clearCurWinLossCount()
+        }
+    }
+
+    fun save() {
+        viewModelScope.launch {
+            inputDataDao.insertAll(_openInputList)
         }
     }
 

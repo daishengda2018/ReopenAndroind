@@ -41,14 +41,35 @@ interface BetDataDao {
     suspend fun insertAll(betList: List<BetData>)
 
     // 查询所有数据（按时间戳倒序，最新的在前）
-    @Query("SELECT * FROM bet_data ORDER BY curTime DESC")
+    @Query("SELECT * FROM bet_data ORDER BY curTime ASC")
     fun getAllBets(): Flow<List<BetData>>  // Flow 自动监听数据变化
 
-    // 查询最近 N 条数据
-    @Query("SELECT * FROM bet_data ORDER BY curTime DESC LIMIT :count")
-    suspend fun getLastNBets(count: Int): List<BetData>
 
-    // 清空表
-    @Query("DELETE FROM bet_data")
-    suspend fun clearAll()
+
+    /**
+     * 查询：今天的全部数据 + 历史数据（最多66条）
+     * 结果按时间戳倒序排列（最新的在前面）
+     */
+    @Query("""
+        -- 子查询1：今天的所有数据（无需括号）
+        SELECT * FROM bet_data 
+        WHERE date(curTime / 1000, 'unixepoch', 'localtime') = date('now', 'localtime')
+        
+        UNION ALL
+        
+        -- 子查询2：历史数据（最多66条，先按时间倒序取最近的，再限制数量）
+        SELECT * FROM (
+            SELECT * FROM bet_data 
+            WHERE date(curTime / 1000, 'unixepoch', 'localtime') < date('now', 'localtime')
+            ORDER BY curTime ASC
+            LIMIT 66
+        )
+        
+        -- 整体按时间戳倒序（最新的在前面）
+        ORDER BY curTime ASC
+    """)
+    fun getTodayAndHistory(): Flow<List<BetData>>
+
+    @Query("DELETE FROM bet_data WHERE curTime = :curTime")
+    suspend fun deleteByTime(curTime: Long)
 }
