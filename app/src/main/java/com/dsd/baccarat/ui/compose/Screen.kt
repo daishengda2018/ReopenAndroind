@@ -82,6 +82,7 @@ private val ITEM_SIZE = 22.dp
 private val SPACE_SIZE = 5.dp
 private val TABLE_HEIGHT = ITEM_SIZE * 4
 private val TITLE_WIDTH_SHORT = ITEM_SIZE * 2
+private val TITLE_WIDTH_MIDEM = ITEM_SIZE * 3
 private val TITLE_WIDTH_LONG = ITEM_SIZE * 4
 private val BORDER_SIZE = 0.3.dp
 private const val MAX_VALUE = 8
@@ -130,7 +131,6 @@ fun Screen(viewModel: DefaultViewModel, isHistoryModel: Boolean = false, startTi
 
     mCurDateStr = remember {
         if (mIsHistoryModel) {
-            val data = (bppcTableData.firstOrNull() as? TableDisplayItem.Real)?.data
             dateFormatter.format(startTime)
         } else {
             dateFormatter.format(System.currentTimeMillis())
@@ -531,7 +531,7 @@ private fun CounterDisplay(
     ) {
         TextItem("$value1", color1, isHistory = isHistory, width = TITLE_WIDTH_SHORT)
         TextItem("$value2", color2, isHistory = isHistory, width = TITLE_WIDTH_SHORT)
-        TextItem("Total $total", Color.Black, isHistory = isHistory, width = TITLE_WIDTH_LONG)
+        TextItem("Tol $total", Color.Black, isHistory = isHistory, width = TITLE_WIDTH_MIDEM)
         TextItem("${value1 - value2}", color2, isHistory = isHistory, width = TITLE_WIDTH_SHORT)
 
 
@@ -608,12 +608,12 @@ private fun CurrentTimeDisplay(
 @Composable
 private fun BppcTableTitles() {
     Column(Modifier.width(ITEM_SIZE)) {
-        val mainTitles = remember { listOf("\\", "A", "B", "C") }
-        val subTitles = remember { listOf("A", "B", "C") }
+        val titles = remember { listOf("A", "B", "C") }
 
-        mainTitles.forEach { TextItem(it, TEXT_COLOR_NEUTRAL) }
         Spacer(Modifier.height(SPACE_SIZE))
-        subTitles.forEach {
+        titles.forEach { TextItem(it, TEXT_COLOR_NEUTRAL) }
+        Spacer(Modifier.height(SPACE_SIZE))
+        titles.forEach {
             TextItem(it, TEXT_COLOR_NEUTRAL)
             Spacer(Modifier.height(ITEM_SIZE * 3 + SPACE_SIZE))
         }

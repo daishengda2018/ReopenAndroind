@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.dsd.baccarat.data.room.entity.BetEntity
+import com.dsd.baccarat.data.room.entity.GameSessionEntity
 import com.dsd.baccarat.data.room.entity.NoteEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -41,7 +42,7 @@ interface BetDataDao {
         ORDER BY curTime ASC
     """
     )
-    fun getTodayAndHistory(): Flow<List<BetEntity>>
+    fun getTodayAndHistory(): List<BetEntity>
 
     // 查询指定时间内的所有笔记（按时间倒序排列）
     @Query("SELECT * FROM bet_data WHERE gameId = :gameId ORDER BY curTime ASC")
@@ -49,4 +50,7 @@ interface BetDataDao {
 
     @Query("DELETE FROM bet_data WHERE curTime = :curTime")
     suspend fun deleteByTime(curTime: Long)
+
+    @Query("SELECT * FROM bet_data")
+    fun getAll(): List<BetEntity>
 }

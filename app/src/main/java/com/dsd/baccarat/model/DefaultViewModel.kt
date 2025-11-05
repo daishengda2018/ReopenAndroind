@@ -75,16 +75,16 @@ open class DefaultViewModel @Inject constructor(
     protected val mBppcCounterStateFlow = MutableStateFlow(Counter())
     val bppcCounterStateFlow: StateFlow<Counter> = mBppcCounterStateFlow.asStateFlow()
 
-    protected val _mStrategy3WaysStateFlowList = List(MAX_COLUMN_COUNT) { MutableStateFlow(DEFAULT_STRATEGY_3WAYS) }
-    val strategy3WaysStateFlowList: List<StateFlow<Strategy3WaysData>> = _mStrategy3WaysStateFlowList.map { it.asStateFlow() }
+    protected val mStrategy3WaysStateFlowList = List(MAX_COLUMN_COUNT) { MutableStateFlow(DEFAULT_STRATEGY_3WAYS) }
+    val strategy3WaysStateFlowList: List<StateFlow<Strategy3WaysData>> = mStrategy3WaysStateFlowList.map { it.asStateFlow() }
 
-    protected val _stragetyGridStateFlow: List<MutableStateFlow<StrategyGridInfo>> =
+    protected val mStragetyGridStateFlow: List<MutableStateFlow<StrategyGridInfo>> =
         List(MAX_COLUMN_COUNT) { MutableStateFlow(DEFAULT_STRANTYGE_GRID) }
-    val stragetyGridStateFlow: List<StateFlow<StrategyGridInfo>> = _stragetyGridStateFlow.map { it.asStateFlow() }
+    val stragetyGridStateFlow: List<StateFlow<StrategyGridInfo>> = mStragetyGridStateFlow.map { it.asStateFlow() }
 
     // 每列的动态预告 StateFlow（null 表示未知）
-    protected val _predictionStateFlowList = List(MAX_COLUMN_COUNT) { MutableStateFlow(DEFAULT_PREDICTED_3WAYS) }
-    val predictedStateFlowList: List<StateFlow<PredictedStrategy3WaysValue>> = _predictionStateFlowList.map { it.asStateFlow() }
+    protected val mPredictionStateFlowList = List(MAX_COLUMN_COUNT) { MutableStateFlow(DEFAULT_PREDICTED_3WAYS) }
+    val predictedStateFlowList: List<StateFlow<PredictedStrategy3WaysValue>> = mPredictionStateFlowList.map { it.asStateFlow() }
 
     protected val _curBeltInputStageFlow: MutableStateFlow<InputEntity?> = MutableStateFlow(null)
     val curBeltInputStageFlow = _curBeltInputStageFlow.asStateFlow()
@@ -178,7 +178,7 @@ open class DefaultViewModel @Inject constructor(
 
             mInputTextStateFlow.value = temporaryStorageRepository.getNoteText()
 
-            val allBets = betDataDao.getTodayAndHistory().first()
+            val allBets = betDataDao.getTodayAndHistory()
             mBetResultList.clear()
             mBetResultList.addAll(allBets)
             resumeBetedData()
@@ -353,23 +353,23 @@ open class DefaultViewModel @Inject constructor(
         // 如果没有输入，则不更新预测
         if (mOpenInputList.isEmpty()) return
 
-        _predictionStateFlowList.forEach { it.value = DEFAULT_PREDICTION }
+        mPredictionStateFlowList.forEach { it.value = DEFAULT_PREDICTION }
         val lastIndex = mOpenInputList.lastIndex
 
         when (lastIndex % 3) {
             ColumnType.A.value -> {
-                if (mOpenInputList.size > 3) _predictionStateFlowList[ColumnType.C.value].value = predictNextStrategyValue("3", mOpenInputList)
-                _predictionStateFlowList[ColumnType.A.value].value = predictNextStrategyValue("2", mOpenInputList)
+                if (mOpenInputList.size > 3) mPredictionStateFlowList[ColumnType.C.value].value = predictNextStrategyValue("3", mOpenInputList)
+                mPredictionStateFlowList[ColumnType.A.value].value = predictNextStrategyValue("2", mOpenInputList)
             }
 
             ColumnType.B.value -> {
-                _predictionStateFlowList[ColumnType.A.value].value = predictNextStrategyValue("3", mOpenInputList)
-                _predictionStateFlowList[ColumnType.B.value].value = predictNextStrategyValue("2", mOpenInputList)
+                mPredictionStateFlowList[ColumnType.A.value].value = predictNextStrategyValue("3", mOpenInputList)
+                mPredictionStateFlowList[ColumnType.B.value].value = predictNextStrategyValue("2", mOpenInputList)
             }
 
             ColumnType.C.value -> {
-                _predictionStateFlowList[ColumnType.B.value].value = predictNextStrategyValue("3", mOpenInputList)
-                _predictionStateFlowList[ColumnType.C.value].value = predictNextStrategyValue("2", mOpenInputList)
+                mPredictionStateFlowList[ColumnType.B.value].value = predictNextStrategyValue("3", mOpenInputList)
+                mPredictionStateFlowList[ColumnType.C.value].value = predictNextStrategyValue("2", mOpenInputList)
             }
         }
     }
@@ -498,7 +498,7 @@ open class DefaultViewModel @Inject constructor(
      * 更新 3 种策略
      */
     private fun update3WayStrategy(filledColumn: ColumnType) {
-        _mStrategy3WaysStateFlowList[filledColumn.value].update { currentStrategyData ->
+        mStrategy3WaysStateFlowList[filledColumn.value].update { currentStrategyData ->
             val compareResultList = mCompareResultList.takeLast(2)
             val compareResultPair = Pair(compareResultList[0], compareResultList[1])
             currentStrategyData.copy(
@@ -525,7 +525,7 @@ open class DefaultViewModel @Inject constructor(
             }
         }
 
-        _mStrategy3WaysStateFlowList[columnType.value].update { currentStrategyData ->
+        mStrategy3WaysStateFlowList[columnType.value].update { currentStrategyData ->
             currentStrategyData.copy(
                 strategy12 = updateSingleStrategyListFor3Ways(StrategyType.STRATEGY_12, currentStrategyData.strategy12, compareResultPair),
                 strategy34 = updateSingleStrategyListFor3Ways(StrategyType.STRATEGY_34, currentStrategyData.strategy34, compareResultPair),
@@ -609,7 +609,7 @@ open class DefaultViewModel @Inject constructor(
         val missingWithAntonyms: List<String> = missingKeys.map { key -> antonymBppcCombination[key]!! }
 
         // 当已出现的组合达到阈值时，更新策略网格数据 ： 使用未出现的组合的反形态作为预测策略值
-        _stragetyGridStateFlow[filledColumn.value].update { currentData ->
+        mStragetyGridStateFlow[filledColumn.value].update { currentData ->
             // 将形态转换为字母： “PPB” -> “P", "P", "B"
             val itemList = missingWithAntonyms.map { word ->
                 // 第一个 item 为形态标号
@@ -625,7 +625,7 @@ open class DefaultViewModel @Inject constructor(
     }
 
     private fun updateGridStrategyData(inputData: InputEntity?, filledColumn: ColumnType) {
-        _stragetyGridStateFlow[filledColumn.value].update { currentData ->
+        mStragetyGridStateFlow[filledColumn.value].update { currentData ->
             var result = currentData.copy()
 
             // 1. 更新 actualOpenedList
@@ -778,9 +778,9 @@ open class DefaultViewModel @Inject constructor(
         mBppcTableStateFlow.value = DEFAULT_TABLE_DISPLAY_LIST
         mBppcCounterStateFlow.value = DEFAULT_BPCOUNTER
 
-        _mStrategy3WaysStateFlowList.forEach { it.value = DEFAULT_STRATEGY_3WAY }
-        _stragetyGridStateFlow.forEach { it.value = DEFAULT_STRANTYGE_GRID }
-        _predictionStateFlowList.forEach { it.value = DEFAULT_PREDICTION }
+        mStrategy3WaysStateFlowList.forEach { it.value = DEFAULT_STRATEGY_3WAY }
+        mStragetyGridStateFlow.forEach { it.value = DEFAULT_STRANTYGE_GRID }
+        mPredictionStateFlowList.forEach { it.value = DEFAULT_PREDICTION }
 
         _uniqueBppcConbinationList.forEach { it.clear() }
 
@@ -817,7 +817,6 @@ open class DefaultViewModel @Inject constructor(
     fun save() {
         viewModelScope.launch {
             inputDataDao.insertAll(mOpenInputList)
-            betDataDao.insertAll(mBetResultList)
             noteDataDao.insert(NoteEntity.create(mGameId, mInputTextStateFlow.value))
 
             val session = gameSessionDao.getActiveSession()

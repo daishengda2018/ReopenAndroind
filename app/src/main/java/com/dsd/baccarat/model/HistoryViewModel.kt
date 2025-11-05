@@ -27,20 +27,34 @@ class HistoryViewModel @Inject constructor(
     }
 
     fun loadHistory(gameId: String) {
-        // 只响应一次的 Flow
+        // 每次数据变化都会响应的 Flow
         viewModelScope.launch {
-            mInputTextStateFlow.value = noteDataDao.getNoteByGameId(gameId).joinToString { it.content }
-            val list = inputDataDao.getInputsByGameId(gameId)
-            mOpenInputList.clear()
-            mOpenInputList.addAll(list)
-            resumeOpenedData()
+            // 收集 TemporaryStorageRepository 的冷流（wCountFlow）
+            temporaryStorageRepository.wHistoryCountFlow.collect { newCount ->
+                // 将新值发射到热流（_wCount）
+                _wHistoryCounter.value = newCount
+            }
         }
 
         viewModelScope.launch {
+            temporaryStorageRepository.lHistoryCountFlow.collect { newCount ->
+                _lHistoryCounter.value = newCount
+            }
+        }
+
+        // 只响应一次的 Flow
+        viewModelScope.launch {
+            mInputTextStateFlow.value = noteDataDao.getNoteByGameId(gameId).joinToString { it.content }
+            val allInputs = inputDataDao.getInputsByGameId(gameId)
+            mOpenInputList.clear()
+            mOpenInputList.addAll(allInputs)
+            resumeOpenedData()
+
             val allBets = betDataDao.getBetDataByGameId(gameId)
             mBetResultList.clear()
             mBetResultList.addAll(allBets)
             resumeBetedData()
+
         }
     }
 }
