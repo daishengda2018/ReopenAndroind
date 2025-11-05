@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.dsd.baccarat.data.room.entity.BetEntity
+import com.dsd.baccarat.data.room.entity.NoteEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -16,22 +17,6 @@ interface BetDataDao {
     // 插入多条数据
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(betList: List<BetEntity>)
-
-    /**
-     * 查询指定日期范围内的 BetData
-     */
-    @Query(
-        """
-        SELECT * FROM bet_data 
-        WHERE curTime BETWEEN :startTime AND :endTime 
-        ORDER BY curTime ASC
-    """
-    )
-    suspend fun queryByDateRange(
-        startTime: Long,
-        endTime: Long
-    ): List<BetEntity>
-
     /**
      * 查询：今天的全部数据 + 历史数据（最多66条）
      * 结果按时间戳倒序排列（最新的在前面）
@@ -57,6 +42,10 @@ interface BetDataDao {
     """
     )
     fun getTodayAndHistory(): Flow<List<BetEntity>>
+
+    // 查询指定时间内的所有笔记（按时间倒序排列）
+    @Query("SELECT * FROM bet_data WHERE gameId = :gameId ORDER BY curTime ASC")
+    fun getBetDataByGameId(gameId: String): List<BetEntity>
 
     @Query("DELETE FROM bet_data WHERE curTime = :curTime")
     suspend fun deleteByTime(curTime: Long)

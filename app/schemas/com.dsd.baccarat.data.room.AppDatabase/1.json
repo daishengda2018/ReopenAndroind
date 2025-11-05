@@ -2,15 +2,15 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "2de88e86a37e071e4b924e3a98e1127f",
+    "identityHash": "f492c950a4c0b79cfd298f60674f25e9",
     "entities": [
       {
         "tableName": "input_data",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `gameId` TEXT NOT NULL, `inputType` TEXT NOT NULL, `curTime` INTEGER NOT NULL)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`curTime` INTEGER NOT NULL, `gameId` TEXT NOT NULL, `inputType` TEXT NOT NULL, PRIMARY KEY(`curTime`))",
         "fields": [
           {
-            "fieldPath": "id",
-            "columnName": "id",
+            "fieldPath": "curTime",
+            "columnName": "curTime",
             "affinity": "INTEGER",
             "notNull": true
           },
@@ -25,18 +25,12 @@
             "columnName": "inputType",
             "affinity": "TEXT",
             "notNull": true
-          },
-          {
-            "fieldPath": "curTime",
-            "columnName": "curTime",
-            "affinity": "INTEGER",
-            "notNull": true
           }
         ],
         "primaryKey": {
-          "autoGenerate": true,
+          "autoGenerate": false,
           "columnNames": [
-            "id"
+            "curTime"
           ]
         },
         "indices": [
@@ -48,17 +42,32 @@
             ],
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_input_data_gameId` ON `${TABLE_NAME}` (`gameId`)"
+          },
+          {
+            "name": "index_input_data_inputType",
+            "unique": false,
+            "columnNames": [
+              "inputType"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_input_data_inputType` ON `${TABLE_NAME}` (`inputType`)"
           }
         ]
       },
       {
         "tableName": "bet_data",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`curTime` INTEGER NOT NULL, `type` TEXT NOT NULL, PRIMARY KEY(`curTime`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`curTime` INTEGER NOT NULL, `gameId` TEXT NOT NULL, `type` TEXT NOT NULL, PRIMARY KEY(`curTime`))",
         "fields": [
           {
             "fieldPath": "curTime",
             "columnName": "curTime",
             "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "gameId",
+            "columnName": "gameId",
+            "affinity": "TEXT",
             "notNull": true
           },
           {
@@ -76,24 +85,39 @@
         },
         "indices": [
           {
-            "name": "index_bet_data_curTime",
+            "name": "index_bet_data_gameId",
             "unique": false,
             "columnNames": [
-              "curTime"
+              "gameId"
             ],
             "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_bet_data_curTime` ON `${TABLE_NAME}` (`curTime`)"
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_bet_data_gameId` ON `${TABLE_NAME}` (`gameId`)"
+          },
+          {
+            "name": "index_bet_data_type",
+            "unique": false,
+            "columnNames": [
+              "type"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_bet_data_type` ON `${TABLE_NAME}` (`type`)"
           }
         ]
       },
       {
         "tableName": "note",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`curTime` INTEGER NOT NULL, `content` TEXT NOT NULL, PRIMARY KEY(`curTime`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`curTime` INTEGER NOT NULL, `gameId` TEXT NOT NULL, `content` TEXT NOT NULL, PRIMARY KEY(`curTime`))",
         "fields": [
           {
             "fieldPath": "curTime",
             "columnName": "curTime",
             "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "gameId",
+            "columnName": "gameId",
+            "affinity": "TEXT",
             "notNull": true
           },
           {
@@ -118,6 +142,24 @@
             ],
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_note_curTime` ON `${TABLE_NAME}` (`curTime`)"
+          },
+          {
+            "name": "index_note_gameId",
+            "unique": false,
+            "columnNames": [
+              "gameId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_note_gameId` ON `${TABLE_NAME}` (`gameId`)"
+          },
+          {
+            "name": "index_note_content",
+            "unique": false,
+            "columnNames": [
+              "content"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_note_content` ON `${TABLE_NAME}` (`content`)"
           }
         ]
       },
@@ -188,7 +230,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '2de88e86a37e071e4b924e3a98e1127f')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'f492c950a4c0b79cfd298f60674f25e9')"
     ]
   }
 }

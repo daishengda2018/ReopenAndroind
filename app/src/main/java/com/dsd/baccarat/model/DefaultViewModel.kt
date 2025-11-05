@@ -232,6 +232,8 @@ open class DefaultViewModel @Inject constructor(
 
         val intent = Intent(context, HistoryActivity::class.java)
         intent.putExtra(KEY_GAME_ID, _selectedDate.value!!.gameId)
+        intent.putExtra(KEY_START_TIME, _selectedDate.value!!.startTime)
+        intent.putExtra(KEY_END_TIME, _selectedDate.value!!.endTime)
         // 启动 Activity
         context.startActivity(intent)
     }
@@ -397,12 +399,12 @@ open class DefaultViewModel @Inject constructor(
             return
         }
         if (mOpenInputList.last().inputType == inputType.inputType) {
-            val element = BetEntity.createW()
+            val element = BetEntity.createW(mGameId)
             mBetResultList.add(element)
             viewModelScope.launch { betDataDao.insert(element) }
 
         } else {
-            val element = BetEntity.createL()
+            val element = BetEntity.createL(mGameId)
             mBetResultList.add(element)
             viewModelScope.launch { betDataDao.insert(element) }
         }
@@ -815,7 +817,8 @@ open class DefaultViewModel @Inject constructor(
     fun save() {
         viewModelScope.launch {
             inputDataDao.insertAll(mOpenInputList)
-            noteDataDao.insert(NoteEntity(System.currentTimeMillis(), mInputTextStateFlow.value))
+            betDataDao.insertAll(mBetResultList)
+            noteDataDao.insert(NoteEntity.create(mGameId, mInputTextStateFlow.value))
 
             val session = gameSessionDao.getActiveSession()
             if (session != null && session.gameId == mGameId) {
@@ -887,5 +890,7 @@ open class DefaultViewModel @Inject constructor(
 
         val RELEVANCY_MAP = mapOf(ColumnType.A to ColumnType.B, ColumnType.B to ColumnType.C, ColumnType.C to ColumnType.A)
         const val KEY_GAME_ID = "key_game_id"
+        const val KEY_START_TIME = "key_start_time"
+        const val KEY_END_TIME = "key_end_time"
     }
 }

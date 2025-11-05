@@ -108,7 +108,7 @@ private var mIsHistoryModel = false
  * 应用的主屏幕可组合函数。
  */
 @Composable
-fun Screen(viewModel: DefaultViewModel, isHistoryModel: Boolean = false) {
+fun Screen(viewModel: DefaultViewModel, isHistoryModel: Boolean = false, startTime: Long = 0) {
     mIsHistoryModel = isHistoryModel
 
     val elapsedTime = viewModel.elapsedTime.collectAsStateWithLifecycle().value
@@ -131,7 +131,7 @@ fun Screen(viewModel: DefaultViewModel, isHistoryModel: Boolean = false) {
     mCurDateStr = remember {
         if (mIsHistoryModel) {
             val data = (bppcTableData.firstOrNull() as? TableDisplayItem.Real)?.data
-            dateFormatter.format(data?.dataA?.first ?: System.currentTimeMillis())
+            dateFormatter.format(startTime)
         } else {
             dateFormatter.format(System.currentTimeMillis())
         }

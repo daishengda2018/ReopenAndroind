@@ -8,7 +8,6 @@ import com.dsd.baccarat.data.room.dao.InputDataDao
 import com.dsd.baccarat.data.room.dao.NoteDataDao
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
@@ -30,7 +29,7 @@ class HistoryViewModel @Inject constructor(
     fun loadHistory(gameId: String) {
         // 只响应一次的 Flow
         viewModelScope.launch {
-            mInputTextStateFlow.value = temporaryStorageRepository.getNoteText()
+            mInputTextStateFlow.value = noteDataDao.getNoteByGameId(gameId).joinToString { it.content }
             val list = inputDataDao.getInputsByGameId(gameId)
             mOpenInputList.clear()
             mOpenInputList.addAll(list)
@@ -38,16 +37,10 @@ class HistoryViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            val allBets = betDataDao.getTodayAndHistory().first()
+            val allBets = betDataDao.getBetDataByGameId(gameId)
             mBetResultList.clear()
             mBetResultList.addAll(allBets)
             resumeBetedData()
         }
-
-//        viewModelScope.launch {
-//            val allNotes = noteDataDao.getNotesBy(startTime, endTime).first()
-//            val concatenatedContent = allNotes.joinToString("\n") { it.content }
-//            mInputTextStateFlow.value = concatenatedContent
-//        }
     }
 }

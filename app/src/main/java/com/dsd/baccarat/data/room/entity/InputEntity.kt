@@ -13,12 +13,12 @@ import kotlinx.serialization.Serializable
 @Serializable
 @Entity(tableName = "input_data")
 data class InputEntity(
-    @PrimaryKey(autoGenerate = true)
-    val id: Long = 0,
+    @PrimaryKey()
+    val curTime: Long = System.currentTimeMillis(),
     @ColumnInfo(index = true)
     val gameId: String, // 关联的 gameId
+    @ColumnInfo(index = true)
     val inputType: InputType,
-    val curTime: Long = System.currentTimeMillis(),
 ) {
     companion object {
         fun createP(gameId: String) = InputEntity(gameId = gameId, inputType = InputType.P)

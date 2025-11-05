@@ -12,16 +12,15 @@ import kotlinx.serialization.Serializable
 @Serializable
 @Entity(tableName = "bet_data")
 data class BetEntity(
-    @PrimaryKey
-    @ColumnInfo(index = true) // 为curTime添加索引
+    @PrimaryKey()
     val curTime: Long = 0,
+    @ColumnInfo(index = true)
+    val gameId: String,
+    @ColumnInfo(index = true)
     val type: BetResultType,
 ) {
-    // 次构造函数（不影响序列化，序列化器仅关注主构造函数属性）
-    constructor(type: BetResultType) : this(System.currentTimeMillis(), type)
-
     companion object {
-        fun createW() = BetEntity(BetResultType.W)
-        fun createL() = BetEntity(BetResultType.L)
+        fun createW(gameId: String) = BetEntity(curTime = System.currentTimeMillis(), gameId = gameId, type = BetResultType.W)
+        fun createL(gameId: String) = BetEntity(curTime = System.currentTimeMillis(), gameId = gameId, type = BetResultType.L)
     }
 }

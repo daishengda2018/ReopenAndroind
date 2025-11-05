@@ -14,8 +14,13 @@ data class NoteEntity(
     @PrimaryKey
     @ColumnInfo(index = true) // 为curTime添加索引
     val curTime: Long = 0,
+    @ColumnInfo(index = true)
+    val gameId: String,
+    @ColumnInfo(index = true)
     val content: String,
+
 ) {
-    // 次构造函数（不影响序列化，序列化器仅关注主构造函数属性）
-    constructor(content: String) : this(System.currentTimeMillis(), content)
+    companion object {
+        fun create(gameId: String, content: String) = NoteEntity(curTime = System.currentTimeMillis(), gameId = gameId, content = content)
+    }
 }
