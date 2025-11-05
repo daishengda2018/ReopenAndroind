@@ -89,8 +89,8 @@ open class DefaultViewModel @Inject constructor(
     protected val _curBeltInputStageFlow: MutableStateFlow<InputEntity?> = MutableStateFlow(null)
     val curBeltInputStageFlow = _curBeltInputStageFlow.asStateFlow()
 
-    protected val mOnlyShowNewGameStateFlow: MutableStateFlow<Boolean> = MutableStateFlow(false)
-    val onlyShowNewGameStateFlow: StateFlow<Boolean> = mOnlyShowNewGameStateFlow.asStateFlow()
+    protected val mIsOnlyShowNewGameStateFlow: MutableStateFlow<Boolean> = MutableStateFlow(false)
+    val isOnlyShowNewGameStateFlow: StateFlow<Boolean> = mIsOnlyShowNewGameStateFlow.asStateFlow()
 
     // Timer state moved to ViewModel
     protected val _timerStatus = MutableStateFlow(TimerStatus.Idle)
@@ -168,7 +168,7 @@ open class DefaultViewModel @Inject constructor(
         viewModelScope.launch {
             mGameId = gameSessionDao.getActiveSession()?.gameId ?: ""
 
-            mOnlyShowNewGameStateFlow.value = mGameId.isEmpty()
+            mIsOnlyShowNewGameStateFlow.value = mGameId.isEmpty()
 
             mOpenInputList.clear()
             mOpenInputList.addAll(temporaryStorageRepository.getOpendList())
@@ -204,7 +204,7 @@ open class DefaultViewModel @Inject constructor(
                 _availableDates.value = allHistorySessions
                 // 默认选中最新的日期（如果有）
                 if (allHistorySessions.isNotEmpty()) {
-                    _selectedDate.value = allHistorySessions.last()
+                    _selectedDate.value = allHistorySessions.first()
                 }
                 _isDialogVisible.value = true
             } catch (e: Exception) {
@@ -787,11 +787,7 @@ open class DefaultViewModel @Inject constructor(
     }
 
     fun newGame() {
-        clearAllStateFlow()
-        mInputTextStateFlow.value = ""
-        mOpenInputList.clear()
-        mBetResultList.clear()
-        mCompareResultList.clear()
+        resetData()
         viewModelScope.launch {
             temporaryStorageRepository.saveNoteText("")
             temporaryStorageRepository.saveOpendList(mOpenInputList)
@@ -804,20 +800,31 @@ open class DefaultViewModel @Inject constructor(
             val session = GameSessionEntity.create()
             gameSessionDao.insert(session)
             mGameId = session.gameId
-            mOnlyShowNewGameStateFlow.value = mGameId.isEmpty()
+            mIsOnlyShowNewGameStateFlow.value = mGameId.isEmpty()
         }
+    }
+
+    private fun resetData() {
+        clearAllStateFlow()
+        mInputTextStateFlow.value = ""
+        mOpenInputList.clear()
+        mBetResultList.clear()
+        mCompareResultList.clear()
     }
 
     fun save() {
         viewModelScope.launch {
             inputDataDao.insertAll(mOpenInputList)
             noteDataDao.insert(NoteEntity(System.currentTimeMillis(), mInputTextStateFlow.value))
+
             val session = gameSessionDao.getActiveSession()
             if (session != null && session.gameId == mGameId) {
                 session.endTime = System.currentTimeMillis()
                 session.isActive = false
                 gameSessionDao.update(session)
-                newGame()
+                mGameId = ""
+                mIsOnlyShowNewGameStateFlow.value = true
+                resetData()
             }
         }
     }

@@ -126,7 +126,7 @@ fun Screen(viewModel: DefaultViewModel, isHistoryModel: Boolean = false) {
     val wHistoryCount = viewModel.wHistoryCounter.collectAsStateWithLifecycle().value
     val lHistoryCount = viewModel.lHistoryCounter.collectAsStateWithLifecycle().value
     val inputText = viewModel.inputText.collectAsStateWithLifecycle().value
-    val onlyShowNewGame = viewModel.onlyShowNewGameStateFlow.collectAsStateWithLifecycle().value
+    val onlyShowNewGame = viewModel.isOnlyShowNewGameStateFlow.collectAsStateWithLifecycle().value
 
     mCurDateStr = remember {
         if (mIsHistoryModel) {
