@@ -1,5 +1,7 @@
-package com.dsd.baccarat.data
+package com.dsd.baccarat.data.utils
 
+import com.dsd.baccarat.data.room.entity.GameSessionEntity
+import kotlinx.coroutines.flow.Flow
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -9,8 +11,6 @@ import java.time.ZoneId
 /**
  * Create by Shengda 2025/11/4 19:17
  */
-
-
 object DateUtils {
 
     /**
@@ -22,9 +22,7 @@ object DateUtils {
             .toLocalDate()
     }
 
-    /**
-     * 从时间戳列表中提取去重的 LocalDate 列表（按时间升序排列）
-     */
+
     fun extractUniqueDates(timestamps: List<Long>): List<LocalDate> {
         return timestamps
             .map { timestampToLocalDate(it) } // 转换为 LocalDate
@@ -45,5 +43,16 @@ object DateUtils {
             .toInstant()
             .toEpochMilli()
         return Pair(startTime, endTime)
+    }
+
+    /**
+     * 从时间戳列表中提取去重的 LocalDate 列表（按时间升序排列）
+     */
+    fun extractAndConvertToDatePairs(sessions: List<GameSessionEntity>): List<Pair<LocalDate, LocalDate>> {
+        return sessions.map { session ->
+            val startDate = timestampToLocalDate(session.startTime)
+            val endDate = session.endTime?.let { timestampToLocalDate(it) } ?: startDate // 如果 endTime 为 null，默认使用 startDate
+            Pair(startDate, endDate)
+        }
     }
 }

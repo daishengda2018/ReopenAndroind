@@ -6,8 +6,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import com.dsd.baccarat.data.DefaultViewModel
-import com.dsd.baccarat.ui.page.Screen
+import com.dsd.baccarat.model.DefaultViewModel
+import com.dsd.baccarat.ui.compose.Screen
 import com.dsd.baccarat.ui.theme.ReopenAndroidTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -18,6 +18,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+
         enableEdgeToEdge()
         setContent {
             ReopenAndroidTheme {

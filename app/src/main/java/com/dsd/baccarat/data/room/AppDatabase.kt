@@ -4,11 +4,17 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import com.dsd.baccarat.data.BetData
-import com.dsd.baccarat.data.InputData
+import com.dsd.baccarat.data.room.dao.BetDataDao
+import com.dsd.baccarat.data.room.dao.GameSessionDao
+import com.dsd.baccarat.data.room.dao.InputDataDao
+import com.dsd.baccarat.data.room.dao.NoteDataDao
+import com.dsd.baccarat.data.room.entity.BetEntity
+import com.dsd.baccarat.data.room.entity.GameSessionEntity
+import com.dsd.baccarat.data.room.entity.InputEntity
+import com.dsd.baccarat.data.room.entity.NoteEntity
 
 @Database(
-    entities = [InputData::class, BetData::class],  // 正确：实体类列表
+    entities = [InputEntity::class, BetEntity::class, NoteEntity::class, GameSessionEntity::class],  // 正确：实体类列表
     version = 1,
     exportSchema = true
 )
@@ -17,6 +23,8 @@ abstract class AppDatabase : RoomDatabase() {
     // 提供 DAO 实例（正确：返回 DAO 接口类型）
     abstract fun inputDataDao(): InputDataDao
     abstract fun betDataDao(): BetDataDao
+    abstract fun noteDataDao(): NoteDataDao
+    abstract fun gameSessionDao(): GameSessionDao
 
     // 单例模式实现（正确，线程安全）
     companion object {

@@ -7,6 +7,9 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.dsd.baccarat.data.room.entity.BetEntity
+import com.dsd.baccarat.data.room.entity.InputEntity
+import com.dsd.baccarat.data.utils.SerializationUtils
 import dagger.hilt.android.qualifiers.ApplicationContext
 import jakarta.inject.Inject
 import kotlinx.coroutines.Dispatchers
@@ -16,7 +19,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import java.io.IOException
 
-class Repository @Inject constructor(@ApplicationContext private val context: Context) {
+class TemporaryStorageRepository @Inject constructor(@ApplicationContext private val context: Context) {
 
     // 1. 获取W类型数量的Flow（供UI观察）
     val wHistoryCountFlow: Flow<Int> = context.dataStore.data
@@ -32,7 +35,7 @@ class Repository @Inject constructor(@ApplicationContext private val context: Co
 
     // 3. 更新数量（核心：根据类型和操作，自动累加/累减）
     suspend fun updateWlCount(
-        betData: BetData, // W或L
+        betData: BetEntity, // W或L
         operation: OperationType // 加或减
     ) = withContext(Dispatchers.IO) {
         val historyKey = when (betData.type) {
@@ -97,46 +100,20 @@ class Repository @Inject constructor(@ApplicationContext private val context: Co
     }
 
     // 保存 List<InputType>
-    suspend fun saveOpendList(list: List<InputData>) {
+    suspend fun saveOpendList(list: List<InputEntity>) {
         val json = SerializationUtils.serializeInputTypeList(list)
         context.dataStore.edit { preferences ->
             preferences[INPUT_TYPE_LIST] = json
         }
     }
 
-    suspend fun getOpendList(): List<InputData> {
+    suspend fun getOpendList(): List<InputEntity> {
         try {
             // .data 是 Flow<Preferences>
             // .first() 挂起当前协程，直到获得第一个 Preferences 对象
             val preferences = context.dataStore.data.first()
             val json = preferences[INPUT_TYPE_LIST] ?: return emptyList()
             return SerializationUtils.deserializeInputDataList(json)
-        } catch (e: IOException) {
-            // 处理读取文件时可能发生的 IO 异常
-            e.printStackTrace()
-            return emptyList()
-        }
-    }
-
-    suspend fun saveBetList(list: List<BetData>) {
-        val result = if (list.size > 63) {
-            list.toMutableList().apply { removeFirstOrNull() }
-        } else {
-            list
-        }
-        val json = SerializationUtils.serializeBeltResultTypeList(result)
-        context.dataStore.edit { preferences ->
-            preferences[BET_TYPE_LIST] = json
-        }
-    }
-
-    suspend fun getBetList(): List<BetData> {
-        try {
-            // .data 是 Flow<Preferences>
-            // .first() 挂起当前协程，直到获得第一个 Preferences 对象
-            val preferences = context.dataStore.data.first()
-            val json = preferences[BET_TYPE_LIST] ?: return emptyList()
-            return SerializationUtils.deserializeBeltResultTypeList(json)
         } catch (e: IOException) {
             // 处理读取文件时可能发生的 IO 异常
             e.printStackTrace()

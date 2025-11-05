@@ -1,4 +1,4 @@
-package com.dsd.baccarat.ui.page
+package com.dsd.baccarat.ui.compose
 
 import android.media.AudioManager
 import android.media.ToneGenerator
@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -58,9 +59,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dsd.baccarat.data.ColumnType
 import com.dsd.baccarat.data.Counter
-import com.dsd.baccarat.data.DefaultViewModel
-import com.dsd.baccarat.data.DefaultViewModel.Companion.MAX_COLUMN_COUNT
-import com.dsd.baccarat.data.InputData
 import com.dsd.baccarat.data.InputType
 import com.dsd.baccarat.data.PredictedStrategy3WaysValue
 import com.dsd.baccarat.data.Strategy3WaysData
@@ -68,13 +66,15 @@ import com.dsd.baccarat.data.Strategy3WyasDisplayItem
 import com.dsd.baccarat.data.StrategyGridInfo
 import com.dsd.baccarat.data.TableDisplayItem
 import com.dsd.baccarat.data.TimerStatus
+import com.dsd.baccarat.data.room.entity.GameSessionEntity
+import com.dsd.baccarat.data.room.entity.InputEntity
+import com.dsd.baccarat.model.DefaultViewModel
+import com.dsd.baccarat.model.DefaultViewModel.Companion.MAX_COLUMN_COUNT
 import com.dsd.baccarat.ui.theme.PurpleGrey80
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.collectLatest
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 //  常量在顶部统一组织，清晰明了。
@@ -98,14 +98,19 @@ private val RED_COLOR_VALUES1 = setOf(1, 4, 6, 7)
 private val RED_COLOR_VALUES2 = setOf(1, 2, 5, 6)
 private lateinit var sharedScrollStates: SnapshotStateList<LazyListState>
 
-// 日期显示格式（如：2025-11-05）
 private val dateFormatter = SimpleDateFormat("yyyy-MM-dd EEEE", Locale.CHINESE)
+
+// 日期显示格式（如：2025-11-05）
+private var mCurDateStr = ""
+private var mIsHistoryModel = false
 
 /**
  * 应用的主屏幕可组合函数。
  */
 @Composable
-fun Screen(viewModel: DefaultViewModel) {
+fun Screen(viewModel: DefaultViewModel, isHistoryModel: Boolean = false) {
+    mIsHistoryModel = isHistoryModel
+
     val elapsedTime = viewModel.elapsedTime.collectAsStateWithLifecycle().value
     val timerStatus = viewModel.timerStatus.collectAsStateWithLifecycle().value
     val showReminder = viewModel.showReminder.collectAsStateWithLifecycle().value
@@ -121,6 +126,16 @@ fun Screen(viewModel: DefaultViewModel) {
     val wHistoryCount = viewModel.wHistoryCounter.collectAsStateWithLifecycle().value
     val lHistoryCount = viewModel.lHistoryCounter.collectAsStateWithLifecycle().value
     val inputText = viewModel.inputText.collectAsStateWithLifecycle().value
+    val onlyShowNewGame = viewModel.onlyShowNewGameStateFlow.collectAsStateWithLifecycle().value
+
+    mCurDateStr = remember {
+        if (mIsHistoryModel) {
+            val data = (bppcTableData.firstOrNull() as? TableDisplayItem.Real)?.data
+            dateFormatter.format(data?.dataA?.first ?: System.currentTimeMillis())
+        } else {
+            dateFormatter.format(System.currentTimeMillis())
+        }
+    }
 
     // 使用独立的可组合函数来管理提示音的创建/释放与播放
     NotificationSoundEffect(soundFlow = viewModel.soundEvent)
@@ -174,7 +189,8 @@ fun Screen(viewModel: DefaultViewModel) {
                 viewModel,
                 timerStatus,
                 inputText,
-                beltInputState
+                beltInputState,
+                onlyShowNewGame
             )
         }
     }
@@ -371,18 +387,14 @@ private fun RowScope.RightSide(
     viewModel: DefaultViewModel,
     timerStatus: TimerStatus,
     inputText: String,
-    beltInputState: InputData?
+    beltInputState: InputEntity?,
+    isOnlyShowNewGame: Boolean
 ) {
     Column(
         Modifier
             .weight(1f) // 使用 weight 实现灵活的权重布局
             .padding(horizontal = 5.dp)
     ) {
-
-        val timeString = remember {
-            dateFormatter.format(System.currentTimeMillis())
-        }
-
         Row {
             CounterDisplay(
                 value1 = counter.count1, color1 = TEXT_COLOR_W,
@@ -422,7 +434,7 @@ private fun RowScope.RightSide(
                 .fillMaxWidth()
                 .background(Color.Transparent)
                 .height(TABLE_HEIGHT * 3 + SPACE_SIZE * 3),
-            label = { Text("$timeString") },
+            label = { Text(mCurDateStr) },
         )
 
         // A C
@@ -458,7 +470,13 @@ private fun RowScope.RightSide(
             displayItems2 = strategy3WaysList[idxC].strategy78,
         )
         Spacer(Modifier.height(SPACE_SIZE))
-        InputButtons(viewModel, timerStatus, beltInputState)
+        if (mIsHistoryModel) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                TextItem("当前为历史记录", isShowBorder = false, color = Color.Gray, fontSize = 18.sp, width = TITLE_WIDTH_LONG * 2)
+            }
+        } else {
+            InputButtons(viewModel, timerStatus, beltInputState, isOnlyShowNewGame)
+        }
     }
 }
 
@@ -536,7 +554,6 @@ private fun CurrentTimeDisplay(
     showReminder: Boolean,
     onDismissReminder: () -> Unit
 ) {
-    val timeString = remember { dateFormatter.format(System.currentTimeMillis()) }
     val textStyle = remember {
         TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold)
     }
@@ -546,30 +563,33 @@ private fun CurrentTimeDisplay(
 
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.height(ITEM_SIZE)) {
         Text(
-            text = "$timeString",
+            text = mCurDateStr,
             style = textStyle,
             color = Color.Black
         )
 
         Spacer(Modifier.width(ITEM_SIZE))
-        Text(
-            text = String.format(Locale.getDefault(), "计时: %02d:%02d", minutes, seconds),
-            style = textStyle,
-            color = Color.Black
-        )
 
-        Spacer(Modifier.width(8.dp))
-        // 显示状态
-        Text(
-            text = when (timerStatus) {
-                TimerStatus.Idle -> "未开始"
-                TimerStatus.Running -> "运行中"
-                TimerStatus.Paused -> "已暂停"
-                TimerStatus.Finished -> "已完成"
-            },
-            style = textStyle.copy(fontSize = 12.sp),
-            color = Color.Gray
-        )
+        if (!mIsHistoryModel) {
+            Text(
+                text = String.format(Locale.getDefault(), "计时: %02d:%02d", minutes, seconds),
+                style = textStyle,
+                color = Color.Black
+            )
+
+            Spacer(Modifier.width(8.dp))
+            // 显示状态
+            Text(
+                text = when (timerStatus) {
+                    TimerStatus.Idle -> "未开始"
+                    TimerStatus.Running -> "运行中"
+                    TimerStatus.Paused -> "已暂停"
+                    TimerStatus.Finished -> "已完成"
+                },
+                style = textStyle.copy(fontSize = 12.sp),
+                color = Color.Gray
+            )
+        }
     }
 
     if (showReminder) {
@@ -852,8 +872,9 @@ fun TextItem(
  *  输入按钮现在通过 lambda 表达式接收回调，从而与 ViewModel 解耦，提升了组件的独立性。
  */
 @Composable
-private fun InputButtons(viewModel: DefaultViewModel, timerStatus: TimerStatus, beltInputState: InputData?) {
+private fun InputButtons(viewModel: DefaultViewModel, timerStatus: TimerStatus, beltInputState: InputEntity?, isOnlyShowNewGame: Boolean) {
     val context = LocalContext.current
+    val isDialogVisible by viewModel.isDialogVisible.collectAsState()
 
     @Composable
     fun ColumnScope.DefaultButtonModifier(): Modifier = remember {
@@ -862,8 +883,6 @@ private fun InputButtons(viewModel: DefaultViewModel, timerStatus: TimerStatus, 
             .fillMaxWidth()
             .weight(1f)
     }
-    val selectedDate by viewModel.selectedDate.collectAsState()
-    val isDialogVisible by viewModel.isDialogVisible.collectAsState()
 
     // 显示日期选择 Dialog
     if (isDialogVisible) {
@@ -900,25 +919,25 @@ private fun InputButtons(viewModel: DefaultViewModel, timerStatus: TimerStatus, 
 
             Button(
                 modifier = DefaultButtonModifier(),
-                enabled = isBeltBEnable,
+                enabled = isBeltBEnable && !isOnlyShowNewGame,
                 onClick = { viewModel.betB() }) {
                 Text(text = if (isInputB) "押 B 中" else "押 B")
             }
 
             Button(
                 modifier = DefaultButtonModifier(),
-                enabled = isBeltPEnable,
+                enabled = isBeltPEnable && !isOnlyShowNewGame,
                 onClick = { viewModel.betP() }) {
                 Text(text = if (isInputP) "押 P 中" else "押 P")
             }
 
-            Button(modifier = DefaultButtonModifier(), onClick = { viewModel.removeLastBet() }) { Text(text = "撤销") }
+            Button(modifier = DefaultButtonModifier(), enabled = !isOnlyShowNewGame, onClick = { viewModel.removeLastBet() }) { Text(text = "撤销") }
         }
 
         Column(Modifier.weight(1f)) {
-            Button(modifier = DefaultButtonModifier(), onClick = { viewModel.openB() }) { Text(text = "开 B") }
-            Button(modifier = DefaultButtonModifier(), onClick = { viewModel.openP() }) { Text(text = "开 P") }
-            Button(modifier = DefaultButtonModifier(), onClick = { viewModel.removeLastOpen() }) { Text(text = "撤销") }
+            Button(modifier = DefaultButtonModifier(), enabled = !isOnlyShowNewGame, onClick = { viewModel.openB() }) { Text(text = "开 B") }
+            Button(modifier = DefaultButtonModifier(), enabled = !isOnlyShowNewGame, onClick = { viewModel.openP() }) { Text(text = "开 P") }
+            Button(modifier = DefaultButtonModifier(), enabled = !isOnlyShowNewGame, onClick = { viewModel.removeLastOpen() }) { Text(text = "撤销") }
         }
 
         Spacer(Modifier.weight(0.5f))
@@ -928,7 +947,7 @@ private fun InputButtons(viewModel: DefaultViewModel, timerStatus: TimerStatus, 
             val isRunting = (timerStatus == TimerStatus.Running)
             val isStartedEnable = (timerStatus == TimerStatus.Running || timerStatus == TimerStatus.Paused)
 
-            Button(modifier = DefaultButtonModifier(), enabled = !isRunting, onClick = { viewModel.startTimer() }) {
+            Button(modifier = DefaultButtonModifier(), enabled = !isRunting && !isOnlyShowNewGame, onClick = { viewModel.startTimer() }) {
                 Text(
                     text = when (timerStatus) {
                         TimerStatus.Running -> "正在运行"
@@ -937,7 +956,10 @@ private fun InputButtons(viewModel: DefaultViewModel, timerStatus: TimerStatus, 
                     }
                 )
             }
-            Button(modifier = DefaultButtonModifier(), enabled = isStartedEnable, onClick = { viewModel.pauseOrResumeTimer() }) {
+            Button(
+                modifier = DefaultButtonModifier(),
+                enabled = isStartedEnable && !isOnlyShowNewGame,
+                onClick = { viewModel.pauseOrResumeTimer() }) {
                 Text(
                     text = when (timerStatus) {
                         TimerStatus.Running -> "暂停记时"
@@ -946,12 +968,15 @@ private fun InputButtons(viewModel: DefaultViewModel, timerStatus: TimerStatus, 
                     }
                 )
             }
-            Button(modifier = DefaultButtonModifier(), enabled = isStartedEnable, onClick = { viewModel.stopTimerJob() }) { Text(text = "结束记时") }
+            Button(
+                modifier = DefaultButtonModifier(),
+                enabled = isStartedEnable && !isOnlyShowNewGame,
+                onClick = { viewModel.stopTimerJob() }) { Text(text = "结束记时") }
         }
 
         Column(Modifier.weight(1f)) {
-            Button(modifier = DefaultButtonModifier(), onClick = { viewModel.showDialog() }) { Text(text = "历史") }
-            Button(modifier = DefaultButtonModifier(), onClick = { viewModel.save()}) { Text(text = "保存") }
+            Button(modifier = DefaultButtonModifier(), onClick = { viewModel.showSelectHistoryDialog() }) { Text(text = "历史") }
+            Button(modifier = DefaultButtonModifier(), enabled = !isOnlyShowNewGame, onClick = { viewModel.save() }) { Text(text = "保存") }
             Button(modifier = DefaultButtonModifier(), onClick = { viewModel.newGame() }) { Text(text = "新牌") }
         }
     }
@@ -977,7 +1002,8 @@ private fun DateSelectDialog(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(300.dp) // 固定高度，避免内容过多时拉伸
+                    .height(300.dp), // 固定高度，避免内容过多时拉伸
+                contentAlignment = Alignment.Center
             ) {
                 if (isLoading) {
                     // 加载中显示进度条
@@ -992,13 +1018,13 @@ private fun DateSelectDialog(
                     )
                 } else {
                     // 显示可选日期列表
-                    LazyRow(
+                    LazyColumn(
                         modifier = Modifier.fillMaxSize()
                     ) {
                         items(availableDates) { date ->
                             val isSelected = (date == selectedDate)
-                            DateItem(
-                                date = date,
+                            GameSessionItem(
+                                gameSession = date,
                                 isSelected = isSelected,
                                 onClick = { viewModel.selectDate(date) }
                             )
@@ -1021,17 +1047,17 @@ private fun DateSelectDialog(
 }
 
 /**
- * 单个日期项（可点击选择）
+ * 单个 GameSession 项（可点击选择）
  */
 @Composable
-private fun DateItem(
-    date: LocalDate,
+private fun GameSessionItem(
+    gameSession: GameSessionEntity,
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
-    val format = remember { DateTimeFormatter.ofPattern("yyyy-MM-dd") }
+    val format = remember { SimpleDateFormat("yyyy-MM-dd hh:mm", Locale.CHINESE) }
     Text(
-        text = date.format(format),
+        text = "${format.format(gameSession.startTime)} ~ ${format.format(gameSession.endTime)}",
         fontSize = 16.sp,
         color = if (isSelected) {
             Color.Blue // 选中状态高亮

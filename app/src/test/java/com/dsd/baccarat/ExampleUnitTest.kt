@@ -1,6 +1,6 @@
 package com.dsd.baccarat
 
-import com.dsd.baccarat.data.DefaultViewModel.Companion.MAX_COLUMN_COUNT
+import com.dsd.baccarat.model.DefaultViewModel.Companion.MAX_COLUMN_COUNT
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

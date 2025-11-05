@@ -1,10 +1,12 @@
 package com.dsd.baccarat
 
 import android.content.Context
-import com.dsd.baccarat.data.Repository
+import com.dsd.baccarat.data.TemporaryStorageRepository
 import com.dsd.baccarat.data.room.AppDatabase
-import com.dsd.baccarat.data.room.BetDataDao
-import com.dsd.baccarat.data.room.InputDataDao
+import com.dsd.baccarat.data.room.dao.BetDataDao
+import com.dsd.baccarat.data.room.dao.GameSessionDao
+import com.dsd.baccarat.data.room.dao.InputDataDao
+import com.dsd.baccarat.data.room.dao.NoteDataDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -16,8 +18,8 @@ import jakarta.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object AppModule {
     @Provides
-    fun provideCountRepository(@ApplicationContext context: Context): Repository {
-        return Repository(context)
+    fun provideCountRepository(@ApplicationContext context: Context): TemporaryStorageRepository {
+        return TemporaryStorageRepository(context)
     }
 
     // 关键：通过现有单例的 getInstance 方法提供 AppDatabase 实例
@@ -39,5 +41,15 @@ object AppModule {
     @Provides
     fun provideBetDataDao(database: AppDatabase): BetDataDao {
         return database.betDataDao()
+    }
+
+    @Provides
+    fun provideNoteDataDao(database: AppDatabase): NoteDataDao {
+        return database.noteDataDao()
+    }
+
+    @Provides
+    fun provideGameSessionDataDao(database: AppDatabase): GameSessionDao {
+        return database.gameSessionDao()
     }
 }

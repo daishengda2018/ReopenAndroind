@@ -1,6 +1,7 @@
-package com.dsd.baccarat.data
+package com.dsd.baccarat.data.utils
 
-import kotlinx.serialization.encodeToString
+import com.dsd.baccarat.data.room.entity.BetEntity
+import com.dsd.baccarat.data.room.entity.InputEntity
 import kotlinx.serialization.json.Json
 
 object SerializationUtils {
@@ -11,19 +12,19 @@ object SerializationUtils {
         encodeDefaults = true // 序列化时包含默认值（如 curTime = 0 会被序列化）
     }
 
-    fun serializeInputTypeList(list: List<InputData>): String {
+    fun serializeInputTypeList(list: List<InputEntity>): String {
         return json.encodeToString(list)
     }
 
-    fun deserializeInputDataList(jsonString: String): List<InputData> {
+    fun deserializeInputDataList(jsonString: String): List<InputEntity> {
         return json.decodeFromString(jsonString)
     }
 
-    fun serializeBeltResultTypeList(list: List<BetData>): String {
+    fun serializeBeltResultTypeList(list: List<BetEntity>): String {
         return json.encodeToString(list)
     }
 
-    fun deserializeBeltResultTypeList(jsonString: String): List<BetData> {
+    fun deserializeBeltResultTypeList(jsonString: String): List<BetEntity> {
         return json.decodeFromString(jsonString)
     }
 }

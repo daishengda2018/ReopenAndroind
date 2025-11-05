@@ -1,9 +1,6 @@
 package com.dsd.baccarat.data
 
-import androidx.room.ColumnInfo
-import androidx.room.Entity
-import androidx.room.PrimaryKey
-import com.dsd.baccarat.data.DefaultViewModel.Companion.MIN_TABLE_COLUMN_COUNT
+import com.dsd.baccarat.model.DefaultViewModel.Companion.MIN_TABLE_COLUMN_COUNT
 import kotlinx.serialization.Serializable
 
 // 输入类型
@@ -23,41 +20,6 @@ enum class OperationType {
 
 // 列类型
 enum class ColumnType(val value: Int) { A(0), B(1), C(2) }
-
-// 表名默认是类名，可通过 tableName
-@Serializable
-@Entity(tableName = "input_data")
-data class InputData(
-    @PrimaryKey
-    @ColumnInfo(index = true) // 为curTime添加索引
-    val curTime: Long = 0,
-    val inputType: InputType,
-) {
-    // 次构造函数（不影响序列化，序列化器仅关注主构造函数属性）
-    constructor(inputType: InputType) : this(System.currentTimeMillis(), inputType)
-
-    companion object {
-        fun createP() = InputData(InputType.P)
-        fun createB() = InputData(InputType.B)
-    }
-}
-
-@Serializable
-@Entity(tableName = "bet_data")
-data class BetData(
-    @PrimaryKey
-    @ColumnInfo(index = true) // 为curTime添加索引
-    val curTime: Long = 0,
-    val type: BetResultType,
-) {
-    // 次构造函数（不影响序列化，序列化器仅关注主构造函数属性）
-    constructor(type: BetResultType) : this(System.currentTimeMillis(), type)
-
-    companion object {
-        fun createW() = BetData(BetResultType.W)
-        fun createL() = BetData(BetResultType.L)
-    }
-}
 
 
 // 策略类型

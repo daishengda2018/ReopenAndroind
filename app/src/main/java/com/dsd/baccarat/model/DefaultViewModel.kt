@@ -1,5 +1,5 @@
 // kotlin
-package com.dsd.baccarat.data
+package com.dsd.baccarat.model
 
 import android.content.Context
 import android.content.Intent
@@ -7,8 +7,30 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dsd.baccarat.HistoryActivity
-import com.dsd.baccarat.data.room.BetDataDao
-import com.dsd.baccarat.data.room.InputDataDao
+import com.dsd.baccarat.data.BetResultType
+import com.dsd.baccarat.data.ColumnType
+import com.dsd.baccarat.data.Counter
+import com.dsd.baccarat.data.InputType
+import com.dsd.baccarat.data.OperationType
+import com.dsd.baccarat.data.PredictedStrategy3WaysValue
+import com.dsd.baccarat.data.Strategy3WaysData
+import com.dsd.baccarat.data.Strategy3WyasDisplayItem
+import com.dsd.baccarat.data.Strategy3WyasItem
+import com.dsd.baccarat.data.StrategyGridInfo
+import com.dsd.baccarat.data.StrategyGridItem
+import com.dsd.baccarat.data.StrategyType
+import com.dsd.baccarat.data.TableDisplayItem
+import com.dsd.baccarat.data.TableItem
+import com.dsd.baccarat.data.TemporaryStorageRepository
+import com.dsd.baccarat.data.TimerStatus
+import com.dsd.baccarat.data.room.dao.BetDataDao
+import com.dsd.baccarat.data.room.dao.GameSessionDao
+import com.dsd.baccarat.data.room.dao.InputDataDao
+import com.dsd.baccarat.data.room.dao.NoteDataDao
+import com.dsd.baccarat.data.room.entity.BetEntity
+import com.dsd.baccarat.data.room.entity.GameSessionEntity
+import com.dsd.baccarat.data.room.entity.InputEntity
+import com.dsd.baccarat.data.room.entity.NoteEntity
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
 import kotlinx.coroutines.Job
@@ -22,7 +44,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
-import java.time.LocalDate
 import java.util.Locale
 
 /**
@@ -30,13 +51,16 @@ import java.util.Locale
  */
 @HiltViewModel
 open class DefaultViewModel @Inject constructor(
-    open val repository: Repository,
+    open val temporaryStorageRepository: TemporaryStorageRepository,
     open val betDataDao: BetDataDao,
-    open val inputDataDao: InputDataDao
+    open val inputDataDao: InputDataDao,
+    open val noteDataDao: NoteDataDao,
+
+    open val gameSessionDao: GameSessionDao,
 ) : ViewModel() {
 
-    protected var mOpenInputList: MutableList<InputData> = mutableListOf()
-    protected var mBetResultList: MutableList<BetData> = mutableListOf()
+    protected var mOpenInputList: MutableList<InputEntity> = mutableListOf()
+    protected var mBetResultList: MutableList<BetEntity> = mutableListOf()
     protected var mCompareResultList: MutableList<Boolean> = mutableListOf()
 
     protected val mWlTableStateFlow = MutableStateFlow<List<TableDisplayItem>>(DEFAULT_TABLE_DISPLAY_LIST)
@@ -45,14 +69,14 @@ open class DefaultViewModel @Inject constructor(
     protected val mWlCounterStateFlow = MutableStateFlow(Counter())
     val wlCounterStateFlow: StateFlow<Counter> = mWlCounterStateFlow.asStateFlow()
 
-    protected val _bppcTableStateFlow = MutableStateFlow<List<TableDisplayItem>>(DEFAULT_TABLE_DISPLAY_LIST)
-    val bppcTableStateFlow: StateFlow<List<TableDisplayItem>> = _bppcTableStateFlow.asStateFlow()
+    protected val mBppcTableStateFlow = MutableStateFlow<List<TableDisplayItem>>(DEFAULT_TABLE_DISPLAY_LIST)
+    val bppcTableStateFlow: StateFlow<List<TableDisplayItem>> = mBppcTableStateFlow.asStateFlow()
 
-    protected val _bppcCounterStateFlow = MutableStateFlow(Counter())
-    val bppcCounterStateFlow: StateFlow<Counter> = _bppcCounterStateFlow.asStateFlow()
+    protected val mBppcCounterStateFlow = MutableStateFlow(Counter())
+    val bppcCounterStateFlow: StateFlow<Counter> = mBppcCounterStateFlow.asStateFlow()
 
-    protected val _strategy3WaysStateFlowList = List(MAX_COLUMN_COUNT) { MutableStateFlow(DEFAULT_STRATEGY_3WAYS) }
-    val strategy3WaysStateFlowList: List<StateFlow<Strategy3WaysData>> = _strategy3WaysStateFlowList.map { it.asStateFlow() }
+    protected val _mStrategy3WaysStateFlowList = List(MAX_COLUMN_COUNT) { MutableStateFlow(DEFAULT_STRATEGY_3WAYS) }
+    val strategy3WaysStateFlowList: List<StateFlow<Strategy3WaysData>> = _mStrategy3WaysStateFlowList.map { it.asStateFlow() }
 
     protected val _stragetyGridStateFlow: List<MutableStateFlow<StrategyGridInfo>> =
         List(MAX_COLUMN_COUNT) { MutableStateFlow(DEFAULT_STRANTYGE_GRID) }
@@ -62,8 +86,11 @@ open class DefaultViewModel @Inject constructor(
     protected val _predictionStateFlowList = List(MAX_COLUMN_COUNT) { MutableStateFlow(DEFAULT_PREDICTED_3WAYS) }
     val predictedStateFlowList: List<StateFlow<PredictedStrategy3WaysValue>> = _predictionStateFlowList.map { it.asStateFlow() }
 
-    protected val _curBeltInputStageFlow: MutableStateFlow<InputData?> = MutableStateFlow(null)
+    protected val _curBeltInputStageFlow: MutableStateFlow<InputEntity?> = MutableStateFlow(null)
     val curBeltInputStageFlow = _curBeltInputStageFlow.asStateFlow()
+
+    protected val mOnlyShowNewGameStateFlow: MutableStateFlow<Boolean> = MutableStateFlow(false)
+    val onlyShowNewGameStateFlow: StateFlow<Boolean> = mOnlyShowNewGameStateFlow.asStateFlow()
 
     // Timer state moved to ViewModel
     protected val _timerStatus = MutableStateFlow(TimerStatus.Idle)
@@ -101,12 +128,12 @@ open class DefaultViewModel @Inject constructor(
     protected var mIsFirstBFor3Ways = true
 
     // 所有存在数据的日期（去重后）
-    private val _availableDates = MutableStateFlow<List<LocalDate>>(emptyList())
-    val availableDates: StateFlow<List<LocalDate>> = _availableDates
+    private val _availableDates = MutableStateFlow<List<GameSessionEntity>>(emptyList())
+    val availableDates: StateFlow<List<GameSessionEntity>> = _availableDates
 
     // 当前选中的日期
-    private val _selectedDate = MutableStateFlow<LocalDate?>(null)
-    val selectedDate: StateFlow<LocalDate?> = _selectedDate
+    private val _selectedDate = MutableStateFlow<GameSessionEntity?>(null)
+    val selectedDate: StateFlow<GameSessionEntity?> = _selectedDate
 
     // 日期选择 Dialog 是否显示
     private val _isDialogVisible = MutableStateFlow(false)
@@ -115,59 +142,71 @@ open class DefaultViewModel @Inject constructor(
     // 加载状态
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
+    private var mGameId = ""
 
     init {
+        setup()
+    }
+
+    protected open fun setup() {
         // 每次数据变化都会响应的 Flow
         viewModelScope.launch {
-            // 收集 Repository 的冷流（wCountFlow）
-            repository.wHistoryCountFlow.collect { newCount ->
+            // 收集 TemporaryStorageRepository 的冷流（wCountFlow）
+            temporaryStorageRepository.wHistoryCountFlow.collect { newCount ->
                 // 将新值发射到热流（_wCount）
                 _wHistoryCounter.value = newCount
             }
         }
 
         viewModelScope.launch {
-            repository.lHistoryCountFlow.collect { newCount ->
+            temporaryStorageRepository.lHistoryCountFlow.collect { newCount ->
                 _lHistoryCounter.value = newCount
             }
         }
 
         // 只响应一次的 Flow
         viewModelScope.launch {
-            mInputTextStateFlow.value = repository.getNoteText()
+            mGameId = gameSessionDao.getActiveSession()?.gameId ?: ""
+
+            mOnlyShowNewGameStateFlow.value = mGameId.isEmpty()
 
             mOpenInputList.clear()
-            mOpenInputList.addAll(repository.getOpendList())
+            mOpenInputList.addAll(temporaryStorageRepository.getOpendList())
             resumeOpenedData()
 
-            mWlCounterStateFlow.value = repository.getWinLossCurCount()
-        }
+            mWlCounterStateFlow.value = temporaryStorageRepository.getWinLossCurCount()
 
-        viewModelScope.launch {
+            mInputTextStateFlow.value = temporaryStorageRepository.getNoteText()
+
             val allBets = betDataDao.getTodayAndHistory().first()
             mBetResultList.clear()
             mBetResultList.addAll(allBets)
             resumeBetedData()
         }
-
-        // 初始化时加载所有存在的日期
-        loadAvailableDates()
     }
 
     /**
-     * 从 InputDao 加载所有存在数据的日期
+     * 更新选中的日期
      */
-    fun loadAvailableDates() {
+    fun selectDate(date: GameSessionEntity) {
+        _selectedDate.value = date
+    }
+
+    /**
+     * 显示日期选择 Dialog
+     */
+    fun showSelectHistoryDialog() {
+        // 从 InputDao 加载所有存在数据的日期
         _isLoading.value = true
         viewModelScope.launch {
             try {
-                val timestamps = inputDataDao.getAllCurTimes()
-                val dates = DateUtils.extractUniqueDates(timestamps)
-                _availableDates.value = dates
+                val allHistorySessions = gameSessionDao.getAllHistorySessions().first()
+                _availableDates.value = allHistorySessions
                 // 默认选中最新的日期（如果有）
-                if (dates.isNotEmpty()) {
-                    _selectedDate.value = dates.last()
+                if (allHistorySessions.isNotEmpty()) {
+                    _selectedDate.value = allHistorySessions.last()
                 }
+                _isDialogVisible.value = true
             } catch (e: Exception) {
                 e.printStackTrace()
                 _availableDates.value = emptyList()
@@ -175,20 +214,6 @@ open class DefaultViewModel @Inject constructor(
                 _isLoading.value = false
             }
         }
-    }
-
-    /**
-     * 更新选中的日期
-     */
-    fun selectDate(date: LocalDate) {
-        _selectedDate.value = date
-    }
-
-    /**
-     * 显示日期选择 Dialog
-     */
-    fun showDialog() {
-        _isDialogVisible.value = true
     }
 
     /**
@@ -205,12 +230,8 @@ open class DefaultViewModel @Inject constructor(
         dismissDialog()
         _selectedDate.value ?: return
 
-        // 此处可添加选择后的逻辑（如查询该日期的数据）
-        val dayStartAndEnd = DateUtils.getDayStartAndEnd(_selectedDate.value!!)
         val intent = Intent(context, HistoryActivity::class.java)
-        // 将 LocalDate 转为 ISO 字符串并传递
-        intent.putExtra(KEY_SELECTED_START_TIME, dayStartAndEnd.first)
-        intent.putExtra(KEY_SELECTED_END_TIME, dayStartAndEnd.second)
+        intent.putExtra(KEY_GAME_ID, _selectedDate.value!!.gameId)
         // 启动 Activity
         context.startActivity(intent)
     }
@@ -261,13 +282,13 @@ open class DefaultViewModel @Inject constructor(
     }
 
     fun openB() {
-        mOpenInputList.add(InputData.createB())
+        mOpenInputList.add(InputEntity.createB(mGameId))
         updateOpendList(mOpenInputList)
         updateOpenData()
     }
 
     fun openP() {
-        mOpenInputList.add(InputData.createP())
+        mOpenInputList.add(InputEntity.createP(mGameId))
         updateOpendList(mOpenInputList)
         updateOpenData()
     }
@@ -290,7 +311,7 @@ open class DefaultViewModel @Inject constructor(
         mCompareResultList.add(last2Inputs[0].inputType == last2Inputs[1].inputType)
     }
 
-    private fun updateBppcAndStrantegy(lastInput: InputData, last3Inputs: List<InputData>) {
+    private fun updateBppcAndStrantegy(lastInput: InputEntity, last3Inputs: List<InputEntity>) {
         if (mOpenInputList.isNotEmpty()) {
             updateBppcCounter(lastInput)
         }
@@ -307,8 +328,8 @@ open class DefaultViewModel @Inject constructor(
     /**
      * 更新 BPPC 计数器
      */
-    private fun updateBppcCounter(lastInput: InputData) {
-        _bppcCounterStateFlow.update { currentCounter ->
+    private fun updateBppcCounter(lastInput: InputEntity) {
+        mBppcCounterStateFlow.update { currentCounter ->
             when (lastInput.inputType) {
                 InputType.B -> currentCounter.copy(count1 = currentCounter.count1 + 1)
                 InputType.P -> currentCounter.copy(count2 = currentCounter.count2 + 1)
@@ -319,10 +340,10 @@ open class DefaultViewModel @Inject constructor(
     /**
      * 更新 BPPC 表格
      */
-    private fun updateBppcTable(last3Inputs: List<InputData>): ColumnType? {
+    private fun updateBppcTable(last3Inputs: List<InputEntity>): ColumnType? {
         val inputCombination = last3Inputs.map { it.inputType }.joinToString("")
         val result = bppcCombinationToResult[inputCombination] ?: return null
-        val columnType = updateTableStageFlow(_bppcTableStateFlow, result, last3Inputs.last().curTime)
+        val columnType = updateTableStageFlow(mBppcTableStateFlow, result, last3Inputs.last().curTime)
         return columnType
     }
 
@@ -354,7 +375,7 @@ open class DefaultViewModel @Inject constructor(
     /**
      * 将预测逻辑做少量简化，便于阅读
      */
-    private fun predictNextStrategyValue(title: String, inputHistory: MutableList<InputData>): PredictedStrategy3WaysValue {
+    private fun predictNextStrategyValue(title: String, inputHistory: MutableList<InputEntity>): PredictedStrategy3WaysValue {
         val lastInput = inputHistory.last().inputType
         val isLastIndexEven = inputHistory.lastIndex % 2 == 0
         fun flip(input: InputType) = if (input == InputType.B) InputType.P else InputType.B
@@ -376,12 +397,12 @@ open class DefaultViewModel @Inject constructor(
             return
         }
         if (mOpenInputList.last().inputType == inputType.inputType) {
-            val element = BetData.createW()
+            val element = BetEntity.createW()
             mBetResultList.add(element)
             viewModelScope.launch { betDataDao.insert(element) }
 
         } else {
-            val element = BetData.createL()
+            val element = BetEntity.createL()
             mBetResultList.add(element)
             viewModelScope.launch { betDataDao.insert(element) }
         }
@@ -401,7 +422,7 @@ open class DefaultViewModel @Inject constructor(
         Log.d("InputViewModel", "Current Inputs: $last3Inputs")
         val lastResult = mBetResultList.last()
         updateWlCounter(lastResult)
-        viewModelScope.launch { repository.updateWlCount(lastResult, OperationType.INCREMENT) }
+        viewModelScope.launch { temporaryStorageRepository.updateWlCount(lastResult, OperationType.INCREMENT) }
 
         updateTableStageFlow(mWlTableStateFlow, result, lastResult.curTime)
         _curBeltInputStageFlow.update { null }
@@ -462,7 +483,7 @@ open class DefaultViewModel @Inject constructor(
     }
 
 
-    private fun updateWlCounter(lastResult: BetData) {
+    private fun updateWlCounter(lastResult: BetEntity) {
         mWlCounterStateFlow.update { currentCounter ->
             when (lastResult.type) {
                 BetResultType.W -> currentCounter.copy(count1 = currentCounter.count1 + 1)
@@ -475,7 +496,7 @@ open class DefaultViewModel @Inject constructor(
      * 更新 3 种策略
      */
     private fun update3WayStrategy(filledColumn: ColumnType) {
-        _strategy3WaysStateFlowList[filledColumn.value].update { currentStrategyData ->
+        _mStrategy3WaysStateFlowList[filledColumn.value].update { currentStrategyData ->
             val compareResultList = mCompareResultList.takeLast(2)
             val compareResultPair = Pair(compareResultList[0], compareResultList[1])
             currentStrategyData.copy(
@@ -502,7 +523,7 @@ open class DefaultViewModel @Inject constructor(
             }
         }
 
-        _strategy3WaysStateFlowList[columnType.value].update { currentStrategyData ->
+        _mStrategy3WaysStateFlowList[columnType.value].update { currentStrategyData ->
             currentStrategyData.copy(
                 strategy12 = updateSingleStrategyListFor3Ways(StrategyType.STRATEGY_12, currentStrategyData.strategy12, compareResultPair),
                 strategy34 = updateSingleStrategyListFor3Ways(StrategyType.STRATEGY_34, currentStrategyData.strategy34, compareResultPair),
@@ -560,7 +581,7 @@ open class DefaultViewModel @Inject constructor(
     /**
      * 更新 BPPC 表格和策略
      */
-    private fun updateGridStrategy(last3Inputs: List<InputData>, filledColumn: ColumnType) {
+    private fun updateGridStrategy(last3Inputs: List<InputEntity>, filledColumn: ColumnType) {
         // 收集已经出现的且不重复的组合
         val currentConbinations = _uniqueBppcConbinationList[filledColumn.value]
         val inputCombination = last3Inputs.map { it.inputType }.joinToString("")
@@ -601,7 +622,7 @@ open class DefaultViewModel @Inject constructor(
         }
     }
 
-    private fun updateGridStrategyData(inputData: InputData?, filledColumn: ColumnType) {
+    private fun updateGridStrategyData(inputData: InputEntity?, filledColumn: ColumnType) {
         _stragetyGridStateFlow[filledColumn.value].update { currentData ->
             var result = currentData.copy()
 
@@ -698,11 +719,11 @@ open class DefaultViewModel @Inject constructor(
     }
 
     fun betB() {
-        _curBeltInputStageFlow.update { InputData.createB() }
+        _curBeltInputStageFlow.update { InputEntity.createB(mGameId) }
     }
 
     fun betP() {
-        _curBeltInputStageFlow.update { InputData.createP() }
+        _curBeltInputStageFlow.update { InputEntity.createP(mGameId) }
     }
 
     fun removeLastBet() {
@@ -712,7 +733,7 @@ open class DefaultViewModel @Inject constructor(
             val last = mBetResultList.removeLastOrNull()
             last ?: return
             viewModelScope.launch {
-                repository.updateWlCount(last, OperationType.DECREMENT)
+                temporaryStorageRepository.updateWlCount(last, OperationType.DECREMENT)
                 betDataDao.deleteByTime(last.curTime)
             }
         }
@@ -739,23 +760,23 @@ open class DefaultViewModel @Inject constructor(
     }
 
     // 更新并保存数据
-    fun updateOpendList(newList: List<InputData>) {
+    fun updateOpendList(newList: List<InputEntity>) {
         viewModelScope.launch {
-            repository.saveOpendList(newList)
+            temporaryStorageRepository.saveOpendList(newList)
         }
     }
 
     fun updateInputText(text: String) {
         // 存储在用户点击 新牌、保持之前输入的内容
-        viewModelScope.launch { repository.saveNoteText(text) }
+        viewModelScope.launch { temporaryStorageRepository.saveNoteText(text) }
         mInputTextStateFlow.value = text
     }
 
     fun clearAllStateFlow() {
-        _bppcTableStateFlow.value = DEFAULT_TABLE_DISPLAY_LIST
-        _bppcCounterStateFlow.value = DEFAULT_BPCOUNTER
+        mBppcTableStateFlow.value = DEFAULT_TABLE_DISPLAY_LIST
+        mBppcCounterStateFlow.value = DEFAULT_BPCOUNTER
 
-        _strategy3WaysStateFlowList.forEach { it.value = DEFAULT_STRATEGY_3WAY }
+        _mStrategy3WaysStateFlowList.forEach { it.value = DEFAULT_STRATEGY_3WAY }
         _stragetyGridStateFlow.forEach { it.value = DEFAULT_STRANTYGE_GRID }
         _predictionStateFlowList.forEach { it.value = DEFAULT_PREDICTION }
 
@@ -763,25 +784,41 @@ open class DefaultViewModel @Inject constructor(
 
         mWlCounterStateFlow.value = DEFAULT_BPCOUNTER
         mWlTableStateFlow.value = DEFAULT_TABLE_DISPLAY_LIST
-
-        mInputTextStateFlow.value = ""
     }
 
     fun newGame() {
         clearAllStateFlow()
+        mInputTextStateFlow.value = ""
         mOpenInputList.clear()
         mBetResultList.clear()
         mCompareResultList.clear()
         viewModelScope.launch {
-            repository.saveNoteText("")
-            repository.saveOpendList(mOpenInputList)
-            repository.clearCurWinLossCount()
+            temporaryStorageRepository.saveNoteText("")
+            temporaryStorageRepository.saveOpendList(mOpenInputList)
+            temporaryStorageRepository.clearCurWinLossCount()
+
+            if (mGameId.isNotEmpty()) {
+                gameSessionDao.deleteByGameId(mGameId)
+            }
+            // 自动生成 gameId 和 startTime
+            val session = GameSessionEntity.create()
+            gameSessionDao.insert(session)
+            mGameId = session.gameId
+            mOnlyShowNewGameStateFlow.value = mGameId.isEmpty()
         }
     }
 
     fun save() {
         viewModelScope.launch {
             inputDataDao.insertAll(mOpenInputList)
+            noteDataDao.insert(NoteEntity(System.currentTimeMillis(), mInputTextStateFlow.value))
+            val session = gameSessionDao.getActiveSession()
+            if (session != null && session.gameId == mGameId) {
+                session.endTime = System.currentTimeMillis()
+                session.isActive = false
+                gameSessionDao.update(session)
+                newGame()
+            }
         }
     }
 
@@ -842,7 +879,6 @@ open class DefaultViewModel @Inject constructor(
         )
 
         val RELEVANCY_MAP = mapOf(ColumnType.A to ColumnType.B, ColumnType.B to ColumnType.C, ColumnType.C to ColumnType.A)
-        const val KEY_SELECTED_START_TIME = "key_selected_start_time"
-        const val KEY_SELECTED_END_TIME = "key_selected_END_time"
+        const val KEY_GAME_ID = "key_game_id"
     }
 }
