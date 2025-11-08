@@ -41,6 +41,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
@@ -258,9 +259,10 @@ private fun RowScope.LeftSide(
     Column(
         Modifier
             .weight(1f) // 使用 weight 实现灵活的权重布局
-            .padding(horizontal = 5.dp)
+            .padding(horizontal = SPACE_SIZE)
     ) {
         Row {
+            Spacer(Modifier.width(ITEM_SIZE + SPACE_SIZE))
             CounterDisplay(
                 value1 = bppcCounter.count1, color1 = TEXT_COLOR_B,
                 value2 = bppcCounter.count2, color2 = TEXT_COLOR_P
@@ -405,7 +407,7 @@ private fun RowScope.RightSide(
     Column(
         Modifier
             .weight(1f) // 使用 weight 实现灵活的权重布局
-            .padding(horizontal = 5.dp)
+            .padding(horizontal = SPACE_SIZE)
     ) {
         Row {
             CounterDisplay(
@@ -415,7 +417,7 @@ private fun RowScope.RightSide(
                 isShowWsr = true,
                 isHistory = false
             )
-
+            Spacer(Modifier.width(ITEM_SIZE))
             CounterDisplay(
                 value1 = wHistoryCount, color1 = TEXT_COLOR_W,
                 value2 = lHistoryCount, color2 = TEXT_COLOR_L,
@@ -516,7 +518,7 @@ private fun NotificationSoundEffect(soundFlow: SharedFlow<Unit>) {
 private fun CounterDisplay(
     value1: Int, color1: Color,
     value2: Int, color2: Color,
-    padding: Dp = 5.dp,
+    padding: Dp = SPACE_SIZE,
     isShowWsr: Boolean = false,
     isHistory: Boolean = false,
 ) {
@@ -534,7 +536,6 @@ private fun CounterDisplay(
     Row(
         Modifier
             .wrapContentWidth()
-            .padding(start = (ITEM_SIZE + padding))
             .height(ITEM_SIZE)
             .alpha(if (isHistory) 0.7f else 1f)
             .background(backgroundColor),

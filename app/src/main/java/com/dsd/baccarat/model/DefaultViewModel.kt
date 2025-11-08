@@ -816,12 +816,17 @@ open class DefaultViewModel @Inject constructor(
         clearAllStateFlow()
         mInputTextStateFlow.value = ""
         mOpenInputList.clear()
-        mBetResultList.clear()
         mCompareResultList.clear()
         viewModelScope.launch {
             repository.saveNoteText("")
             repository.saveOpendList(mOpenInputList)
             repository.clearCurWinLossCount()
+
+            val allBets = betDataDao.getTodayAndHistory()
+            mBetResultList.clear()
+            mBetResultList.addAll(allBets)
+            resumeBetedData()
+
         }
     }
 
