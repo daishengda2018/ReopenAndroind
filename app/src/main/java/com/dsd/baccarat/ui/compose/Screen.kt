@@ -752,11 +752,11 @@ private fun Strategy3WyasTable(
             Column(Modifier.width(ITEM_SIZE)) {
                 TextItem(
                     text = if (item?.first == -1) "/" else item?.first?.toString() ?: "",
-                    color = determineColorFor3Ways(item?.first)
+                    color = determineColor(item?.first)
                 )
                 TextItem(
                     text = if (item?.second == -1) "/" else item?.second?.toString() ?: "",
-                    color = determineColorFor3Ways(item?.second)
+                    color = determineColor(item?.second)
                 )
             }
         }
@@ -768,7 +768,7 @@ private fun Strategy3WyasTable(
  */
 @Composable
 fun VerticalBarChart(value: Pair<Boolean, Int?>?) {
-    val color = determineColor(value?.second)
+    val color = determineColorBarChart(value?.second)
 
     Box(
         Modifier
@@ -1091,7 +1091,7 @@ private fun determineColor(value: String?): Color {
     return if (value == "B") TEXT_COLOR_B else TEXT_COLOR_P
 }
 
-private fun determineColorFor3Ways(value: Int?): Color {
+private fun determineColorBarChart(value: Int?): Color {
     if (value == null) return TEXT_COLOR_NEUTRAL
     return if (value in RED_COLOR_VALUES2) Color.Red else Color.Blue
 }

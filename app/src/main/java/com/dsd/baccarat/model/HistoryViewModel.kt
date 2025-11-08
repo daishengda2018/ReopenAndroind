@@ -15,12 +15,12 @@ import kotlinx.coroutines.launch
  */
 @HiltViewModel
 class HistoryViewModel @Inject constructor(
-    override val temporaryStorageRepository: TemporaryStorageRepository,
+    override val repository: TemporaryStorageRepository,
     override val betDataDao: BetDataDao,
     override val inputDataDao: InputDataDao,
     override val noteDataDao: NoteDataDao,
     override val gameSessionDao: GameSessionDao
-) : DefaultViewModel(temporaryStorageRepository, betDataDao, inputDataDao, noteDataDao, gameSessionDao) {
+) : DefaultViewModel(repository, betDataDao, inputDataDao, noteDataDao, gameSessionDao) {
 
     override fun setup() {
         // 什么也不执行
@@ -30,14 +30,14 @@ class HistoryViewModel @Inject constructor(
         // 每次数据变化都会响应的 Flow
         viewModelScope.launch {
             // 收集 TemporaryStorageRepository 的冷流（wCountFlow）
-            temporaryStorageRepository.wHistoryCountFlow.collect { newCount ->
+            repository.wHistoryCountFlow.collect { newCount ->
                 // 将新值发射到热流（_wCount）
                 _wHistoryCounter.value = newCount
             }
         }
 
         viewModelScope.launch {
-            temporaryStorageRepository.lHistoryCountFlow.collect { newCount ->
+            repository.lHistoryCountFlow.collect { newCount ->
                 _lHistoryCounter.value = newCount
             }
         }

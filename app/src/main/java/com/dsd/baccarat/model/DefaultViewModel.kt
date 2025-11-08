@@ -51,7 +51,7 @@ import java.util.Locale
  */
 @HiltViewModel
 open class DefaultViewModel @Inject constructor(
-    open val temporaryStorageRepository: TemporaryStorageRepository,
+    open val repository: TemporaryStorageRepository,
     open val betDataDao: BetDataDao,
     open val inputDataDao: InputDataDao,
     open val noteDataDao: NoteDataDao,
@@ -152,14 +152,14 @@ open class DefaultViewModel @Inject constructor(
         // 每次数据变化都会响应的 Flow
         viewModelScope.launch {
             // 收集 TemporaryStorageRepository 的冷流（wCountFlow）
-            temporaryStorageRepository.wHistoryCountFlow.collect { newCount ->
+            repository.wHistoryCountFlow.collect { newCount ->
                 // 将新值发射到热流（_wCount）
                 _wHistoryCounter.value = newCount
             }
         }
 
         viewModelScope.launch {
-            temporaryStorageRepository.lHistoryCountFlow.collect { newCount ->
+            repository.lHistoryCountFlow.collect { newCount ->
                 _lHistoryCounter.value = newCount
             }
         }
@@ -171,12 +171,12 @@ open class DefaultViewModel @Inject constructor(
             mIsOnlyShowNewGameStateFlow.value = mGameId.isEmpty()
 
             mOpenInputList.clear()
-            mOpenInputList.addAll(temporaryStorageRepository.getOpendList())
+            mOpenInputList.addAll(repository.getOpendList())
             resumeOpenedData()
 
-            mWlCounterStateFlow.value = temporaryStorageRepository.getWinLossCurCount()
+            mWlCounterStateFlow.value = repository.getWinLossCurCount()
 
-            mInputTextStateFlow.value = temporaryStorageRepository.getNoteText()
+            mInputTextStateFlow.value = repository.getNoteText()
 
             val allBets = betDataDao.getTodayAndHistory()
             mBetResultList.clear()
@@ -424,7 +424,7 @@ open class DefaultViewModel @Inject constructor(
         Log.d("InputViewModel", "Current Inputs: $last3Inputs")
         val lastResult = mBetResultList.last()
         updateWlCounter(lastResult)
-        viewModelScope.launch { temporaryStorageRepository.updateWlCount(lastResult, OperationType.INCREMENT) }
+        viewModelScope.launch { repository.updateWlCount(lastResult, OperationType.INCREMENT) }
 
         updateTableStageFlow(mWlTableStateFlow, result, lastResult.curTime)
         _curBeltInputStageFlow.update { null }
@@ -735,7 +735,7 @@ open class DefaultViewModel @Inject constructor(
             val last = mBetResultList.removeLastOrNull()
             last ?: return
             viewModelScope.launch {
-                temporaryStorageRepository.updateWlCount(last, OperationType.DECREMENT)
+                repository.updateWlCount(last, OperationType.DECREMENT)
                 betDataDao.deleteByTime(last.curTime)
             }
         }
@@ -764,13 +764,13 @@ open class DefaultViewModel @Inject constructor(
     // 更新并保存数据
     fun updateOpendList(newList: List<InputEntity>) {
         viewModelScope.launch {
-            temporaryStorageRepository.saveOpendList(newList)
+            repository.saveOpendList(newList)
         }
     }
 
     fun updateInputText(text: String) {
         // 存储在用户点击 新牌、保持之前输入的内容
-        viewModelScope.launch { temporaryStorageRepository.saveNoteText(text) }
+        viewModelScope.launch { repository.saveNoteText(text) }
         mInputTextStateFlow.value = text
     }
 
@@ -789,29 +789,32 @@ open class DefaultViewModel @Inject constructor(
     }
 
     fun newGame() {
-        resetData()
         viewModelScope.launch {
-            temporaryStorageRepository.saveNoteText("")
-            temporaryStorageRepository.saveOpendList(mOpenInputList)
-            temporaryStorageRepository.clearCurWinLossCount()
-
             if (mGameId.isNotEmpty()) {
                 gameSessionDao.deleteByGameId(mGameId)
             }
+
             // 自动生成 gameId 和 startTime
             val session = GameSessionEntity.create()
             gameSessionDao.insert(session)
             mGameId = session.gameId
             mIsOnlyShowNewGameStateFlow.value = mGameId.isEmpty()
+
+            clearData()
         }
     }
 
-    private fun resetData() {
+    private fun clearData() {
         clearAllStateFlow()
         mInputTextStateFlow.value = ""
         mOpenInputList.clear()
         mBetResultList.clear()
         mCompareResultList.clear()
+        viewModelScope.launch {
+            repository.saveNoteText("")
+            repository.saveOpendList(mOpenInputList)
+            repository.clearCurWinLossCount()
+        }
     }
 
     fun save() {
@@ -826,8 +829,9 @@ open class DefaultViewModel @Inject constructor(
                 gameSessionDao.update(session)
                 mGameId = ""
                 mIsOnlyShowNewGameStateFlow.value = true
-                resetData()
             }
+
+            clearData()
         }
     }
 
