@@ -414,7 +414,6 @@ private fun RowScope.RightSide(
             CounterDisplay(
                 value1 = counter.count1, color1 = TEXT_COLOR_W,
                 value2 = counter.count2, color2 = TEXT_COLOR_L,
-                padding = 0.dp,
                 isShowWsr = true,
                 isHistory = false
             )
@@ -422,7 +421,6 @@ private fun RowScope.RightSide(
             CounterDisplay(
                 value1 = wHistoryCount, color1 = TEXT_COLOR_W,
                 value2 = lHistoryCount, color2 = TEXT_COLOR_L,
-                padding = 0.dp,
                 isShowWsr = true,
                 isHistory = true
             )
@@ -450,6 +448,7 @@ private fun RowScope.RightSide(
                 .background(Color.Transparent)
                 .height(TABLE_HEIGHT * 3 + SPACE_SIZE * 3),
             label = { Text(mCurDateStr) },
+            textStyle = TextStyle(fontSize = 17.sp)
         )
 
         // A C
@@ -519,7 +518,6 @@ private fun NotificationSoundEffect(soundFlow: SharedFlow<Unit>) {
 private fun CounterDisplay(
     value1: Int, color1: Color,
     value2: Int, color2: Color,
-    padding: Dp = SPACE_SIZE,
     isShowWsr: Boolean = false,
     isHistory: Boolean = false,
 ) {
@@ -545,14 +543,14 @@ private fun CounterDisplay(
     ) {
         TextItem("$value1", color1, isHistory = isHistory, width = TITLE_WIDTH_SHORT)
         TextItem("$value2", color2, isHistory = isHistory, width = TITLE_WIDTH_SHORT)
-        TextItem("Tol $total", Color.Black, isHistory = isHistory, width = TITLE_WIDTH_MIDEM)
+        TextItem("T$total", Color.Black, isHistory = isHistory, width = TITLE_WIDTH_MIDEM)
         TextItem("${value1 - value2}", color2, isHistory = isHistory, width = TITLE_WIDTH_SHORT)
 
 
         if (isShowWsr) {
             val wsr = if (total != 0) value1 / total.toFloat() else 0
             TextItem(
-                "WSR ${if (wsr == 1f) "100%" else df.format(wsr)}",
+                "WSR${if (wsr == 1f) "100%" else df.format(wsr)}",
                 Color.Magenta,
                 isHistory = isHistory,
                 width = TITLE_WIDTH_LONG
@@ -835,7 +833,7 @@ fun VerticalBarChart(value: Pair<Boolean, Int?>?) {
                 drawRect(
                     color = color,
                     topLeft = Offset(size.width / 2 - 1.dp.toPx(), size.height - barHeight),
-                    size = Size(2.dp.toPx(), barHeight)
+                    size = Size(3.dp.toPx(), barHeight)
                 )
             }
         }
@@ -850,7 +848,7 @@ fun TextItem(
     text: String,
     color: Color = Color.Black,
     width: Dp = ITEM_SIZE,
-    fontSize: TextUnit = 15.sp,
+    fontSize: TextUnit = 17.sp,
     fontWeight: FontWeight = FontWeight.Bold,
     isSelected: Boolean = false,
     isObslate: Boolean = false,

@@ -719,7 +719,7 @@ open class DefaultViewModel @Inject constructor(
     }
 
     protected fun resumeOpenedData() {
-        clearAllStateFlow()
+        clearBppcStateFlow()
         // 从头重建（仅在 i >= 2 时触发表格/策略更新）
         for (i in mOpenInputList.indices) {
             if (i >= 1) {
@@ -805,7 +805,7 @@ open class DefaultViewModel @Inject constructor(
         mInputTextStateFlow.value = text
     }
 
-    fun clearAllStateFlow() {
+    private fun clearBppcStateFlow() {
         mBppcTableStateFlow.value = DEFAULT_TABLE_DISPLAY_LIST
         mBppcCounterStateFlow.value = DEFAULT_BPCOUNTER
 
@@ -814,9 +814,6 @@ open class DefaultViewModel @Inject constructor(
         mPredictionStateFlowList.forEach { it.value = DEFAULT_PREDICTION }
 
         mUniqueBppcConbinationList.forEach { it.clear() }
-
-        mWlCounterStateFlow.value = DEFAULT_BPCOUNTER
-        mWlTableStateFlow.value = DEFAULT_TABLE_DISPLAY_LIST
     }
 
     fun newGame() {
@@ -831,25 +828,7 @@ open class DefaultViewModel @Inject constructor(
             mGameId = session.gameId
             mIsOnlyShowNewGameStateFlow.value = mGameId.isEmpty()
 
-            clearData()
-        }
-    }
-
-    private fun clearData() {
-        clearAllStateFlow()
-        mInputTextStateFlow.value = ""
-        mOpenInputList.clear()
-        mCompareResultList.clear()
-        viewModelScope.launch {
-            repository.saveNoteText("")
-            repository.saveOpendList(mOpenInputList)
-            repository.clearCurWinLossCount()
-
-            // 恢复最近的 65 手 WL 记录
-            val allBets = betDataDao.loadHistory().map { it.copy().apply { isHistory = true } }
-            mBetResultList.clear()
-            mBetResultList.addAll(allBets)
-            resumeBetedData(false)
+            onSaveOrNewGame()
         }
     }
 
@@ -866,8 +845,28 @@ open class DefaultViewModel @Inject constructor(
                 mGameId = ""
                 mIsOnlyShowNewGameStateFlow.value = true
             }
+            onSaveOrNewGame()
+        }
+    }
 
-            clearData()
+    fun onSaveOrNewGame() {
+        clearBppcStateFlow()
+        mWlCounterStateFlow.value = DEFAULT_BPCOUNTER
+        mWlTableStateFlow.value = DEFAULT_TABLE_DISPLAY_LIST
+
+        mInputTextStateFlow.value = ""
+        mOpenInputList.clear()
+        mCompareResultList.clear()
+        viewModelScope.launch {
+            repository.saveNoteText("")
+            repository.saveOpendList(mOpenInputList)
+            repository.clearCurWinLossCount()
+
+            // 恢复最近的 65 手 WL 记录
+            val allBets = betDataDao.loadHistory().map { it.copy().apply { isHistory = true } }
+            mBetResultList.clear()
+            mBetResultList.addAll(allBets)
+            resumeBetedData(false)
         }
     }
 
