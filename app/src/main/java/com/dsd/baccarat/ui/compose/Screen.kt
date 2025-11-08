@@ -52,6 +52,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -363,14 +364,16 @@ private fun StrategyGridDisplay(title: String, strategyItem: StrategyGridInfo) {
         Column {
             Spacer(Modifier.height(ITEM_SIZE))
             for (i in 0 until MAX_COLUMN_COUNT) {
-                TextItem(strategyItem.predictedList.getOrNull(i) ?: "")
+                val text = strategyItem.predictedList.getOrNull(i) ?: ""
+                TextItem(text, determineColor(text))
             }
         }
 
         Column {
             Spacer(Modifier.height(ITEM_SIZE))
             for (i in 0 until MAX_COLUMN_COUNT) {
-                TextItem(strategyItem.actualOpenedList.getOrNull(i) ?: "")
+                val text = strategyItem.actualOpenedList.getOrNull(i) ?: ""
+                TextItem(text, determineColor(text))
             }
         }
     }
@@ -565,7 +568,7 @@ private fun CurrentTimeDisplay(
         Text(
             text = mCurDateStr,
             style = textStyle,
-            color = Color.Black
+            color = Color.Black,
         )
 
         Spacer(Modifier.width(ITEM_SIZE))
@@ -574,7 +577,7 @@ private fun CurrentTimeDisplay(
             Text(
                 text = String.format(Locale.getDefault(), "计时: %02d:%02d", minutes, seconds),
                 style = textStyle,
-                color = Color.Black
+                color = Color.Black,
             )
 
             Spacer(Modifier.width(8.dp))
@@ -587,7 +590,7 @@ private fun CurrentTimeDisplay(
                     TimerStatus.Finished -> "已完成"
                 },
                 style = textStyle.copy(fontSize = 12.sp),
-                color = Color.Gray
+                color = Color.Gray,
             )
         }
     }
@@ -687,7 +690,7 @@ private fun Strategy3WaysDisplay(
     predictedValue2: String?,
     displayItems1: List<Strategy3WyasDisplayItem>,
     displayItems2: List<Strategy3WyasDisplayItem>,
-    ) {
+) {
     val selectedOption = remember { mutableIntStateOf(1) }
 
     Spacer(Modifier.height(SPACE_SIZE))
@@ -703,27 +706,31 @@ private fun Strategy3WaysDisplay(
 
         Column {
             Row {
-                TextItem(titles[2], width = TITLE_WIDTH_SHORT, isSelected = (selectedOption.intValue == 1))
+                TextItem(titles[2], width = TITLE_WIDTH_MIDEM, isSelected = (selectedOption.intValue == 1))
                 {
                     selectedOption.intValue = 1
                 }
                 Spacer(Modifier.width(ITEM_SIZE)) // 与标题行对齐
-                TextItem(titles[3], width = TITLE_WIDTH_SHORT, isSelected = (selectedOption.intValue == 2))
+                TextItem(titles[3], width = TITLE_WIDTH_MIDEM, isSelected = (selectedOption.intValue == 2))
                 {
                     selectedOption.intValue = 2
                 }
-                when (selectedOption.intValue) {
-                    1 -> TextItem(
-                        "预测第 ${predictedIndex ?: "-"} 位为 ${predictedValue1 ?: "-"}",
-                        color = if (predictedValue1.isNullOrEmpty()) Color.Gray else Color.Magenta,
-                        width = (TITLE_WIDTH_LONG * 2)
-                    )
+                if (!mIsHistoryModel) {
+                    when (selectedOption.intValue) {
+                        1 -> TextItem(
+                            "预测 ${predictedIndex ?: "-"} 为 ${predictedValue1 ?: "-"}",
+                            color = if (predictedValue1.isNullOrEmpty()) Color.Gray else determineColor(predictedValue1),
+                            width = (TITLE_WIDTH_MIDEM * 2),
+                            isShowBorder = false
+                        )
 
-                    2 -> TextItem(
-                        "预测第 ${predictedIndex ?: "-"} 位为 ${predictedValue2 ?: "-"}",
-                        color = if (predictedValue2.isNullOrEmpty()) Color.Gray else Color.Magenta,
-                        width = (TITLE_WIDTH_LONG * 2)
-                    )
+                        2 -> TextItem(
+                            "预测 ${predictedIndex ?: "-"} 为 ${predictedValue2 ?: "-"}",
+                            color = if (predictedValue2.isNullOrEmpty()) Color.Gray else determineColor(predictedValue2),
+                            width = (TITLE_WIDTH_MIDEM * 2),
+                            isShowBorder = false
+                        )
+                    }
                 }
             }
             // 步骤 2: 根据当前选中的状态，决定要显示哪个数据列表。
@@ -1071,6 +1078,7 @@ private fun GameSessionItem(
             .padding(vertical = 12.dp, horizontal = 16.dp)
     )
 }
+
 @Composable
 fun rememberSyncedLazyListState(): LazyListState {
     val state = rememberLazyListState()

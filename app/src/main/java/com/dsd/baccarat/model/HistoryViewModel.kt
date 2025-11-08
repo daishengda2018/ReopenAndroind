@@ -32,13 +32,13 @@ class HistoryViewModel @Inject constructor(
             // 收集 TemporaryStorageRepository 的冷流（wCountFlow）
             repository.wHistoryCountFlow.collect { newCount ->
                 // 将新值发射到热流（_wCount）
-                _wHistoryCounter.value = newCount
+                mWHistoryCounter.value = newCount
             }
         }
 
         viewModelScope.launch {
             repository.lHistoryCountFlow.collect { newCount ->
-                _lHistoryCounter.value = newCount
+                mLHistoryCounter.value = newCount
             }
         }
 

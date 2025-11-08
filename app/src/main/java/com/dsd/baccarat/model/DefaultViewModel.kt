@@ -86,39 +86,39 @@ open class DefaultViewModel @Inject constructor(
     protected val mPredictionStateFlowList = List(MAX_COLUMN_COUNT) { MutableStateFlow(DEFAULT_PREDICTED_3WAYS) }
     val predictedStateFlowList: List<StateFlow<PredictedStrategy3WaysValue>> = mPredictionStateFlowList.map { it.asStateFlow() }
 
-    protected val _curBeltInputStageFlow: MutableStateFlow<InputEntity?> = MutableStateFlow(null)
-    val curBeltInputStageFlow = _curBeltInputStageFlow.asStateFlow()
+    protected val mCurBeltInputStageFlow: MutableStateFlow<InputEntity?> = MutableStateFlow(null)
+    val curBeltInputStageFlow = mCurBeltInputStageFlow.asStateFlow()
 
     protected val mIsOnlyShowNewGameStateFlow: MutableStateFlow<Boolean> = MutableStateFlow(false)
     val isOnlyShowNewGameStateFlow: StateFlow<Boolean> = mIsOnlyShowNewGameStateFlow.asStateFlow()
 
     // Timer state moved to ViewModel
-    protected val _timerStatus = MutableStateFlow(TimerStatus.Idle)
-    val timerStatus: StateFlow<TimerStatus> = _timerStatus.asStateFlow()
+    protected val mTimerStatus = MutableStateFlow(TimerStatus.Idle)
+    val timerStatus: StateFlow<TimerStatus> = mTimerStatus.asStateFlow()
 
-    protected val _elapsedTime = MutableStateFlow(0) // 秒
-    val elapsedTime: StateFlow<Int> = _elapsedTime.asStateFlow()
+    protected val mElapsedTime = MutableStateFlow(0) // 秒
+    val elapsedTime: StateFlow<Int> = mElapsedTime.asStateFlow()
 
-    protected val _showReminder = MutableStateFlow(false)
-    val showReminder: StateFlow<Boolean> = _showReminder.asStateFlow()
+    protected val mShowReminder = MutableStateFlow(false)
+    val showReminder: StateFlow<Boolean> = mShowReminder.asStateFlow()
 
     // 用于通知 UI 播放提示音（UI 层收集并调用 Android API）
-    protected val _soundEvent = MutableSharedFlow<Unit>()
-    val soundEvent = _soundEvent.asSharedFlow()
+    protected val mSoundEvent = MutableSharedFlow<Unit>()
+    val soundEvent = mSoundEvent.asSharedFlow()
 
-    protected var _timerJob: Job? = null
+    protected var mTimerJob: Job? = null
 
     // 用于存储去重后的key（自动去重）
-    protected val _uniqueBppcConbinationList = MutableList<MutableSet<String>>(MAX_COLUMN_COUNT, { mutableSetOf() })
-    protected val _strategyGridStateMap: MutableMap<ColumnType, Boolean?> = HashMap(MAX_COLUMN_COUNT)
+    protected val mUniqueBppcConbinationList = MutableList<MutableSet<String>>(MAX_COLUMN_COUNT, { mutableSetOf() })
+    protected val mStrategyGridStateMap: MutableMap<ColumnType, Boolean?> = HashMap(MAX_COLUMN_COUNT)
 
     // 1. 定义 W 类型的热流（MutableStateFlow 作为容器，初始值 0）
-    protected val _wHistoryCounter = MutableStateFlow(0)
-    val wHistoryCounter: StateFlow<Int> = _wHistoryCounter.asStateFlow() // 暴露不可变的 StateFlow
+    protected val mWHistoryCounter = MutableStateFlow(0)
+    val wHistoryCounter: StateFlow<Int> = mWHistoryCounter.asStateFlow() // 暴露不可变的 StateFlow
 
     // 2. 定义 L 类型的热流
-    protected val _lHistoryCounter = MutableStateFlow(0)
-    val lHistoryCounter: StateFlow<Int> = _lHistoryCounter.asStateFlow()
+    protected val mLHistoryCounter = MutableStateFlow(0)
+    val lHistoryCounter: StateFlow<Int> = mLHistoryCounter.asStateFlow()
 
     // 输入文字的 StateFlow
     protected val mInputTextStateFlow = MutableStateFlow("")
@@ -154,13 +154,13 @@ open class DefaultViewModel @Inject constructor(
             // 收集 TemporaryStorageRepository 的冷流（wCountFlow）
             repository.wHistoryCountFlow.collect { newCount ->
                 // 将新值发射到热流（_wCount）
-                _wHistoryCounter.value = newCount
+                mWHistoryCounter.value = newCount
             }
         }
 
         viewModelScope.launch {
             repository.lHistoryCountFlow.collect { newCount ->
-                _lHistoryCounter.value = newCount
+                mLHistoryCounter.value = newCount
             }
         }
 
@@ -239,48 +239,48 @@ open class DefaultViewModel @Inject constructor(
     }
 
     fun pauseOrResumeTimer() {
-        if (_timerStatus.value == TimerStatus.Running) {
-            _timerStatus.value = TimerStatus.Paused
-            _timerJob?.cancel()
-            _timerJob = null
-        } else if (_timerStatus.value == TimerStatus.Paused) {
-            _timerStatus.value = TimerStatus.Running
+        if (mTimerStatus.value == TimerStatus.Running) {
+            mTimerStatus.value = TimerStatus.Paused
+            mTimerJob?.cancel()
+            mTimerJob = null
+        } else if (mTimerStatus.value == TimerStatus.Paused) {
+            mTimerStatus.value = TimerStatus.Running
             createAndStartNewTimerJob()
         }
     }
 
     fun dismissReminder() {
-        _showReminder.value = false
+        mShowReminder.value = false
     }
 
     fun startTimer() {
-        _elapsedTime.value = 0
-        _showReminder.value = false
-        _timerStatus.value = TimerStatus.Running
+        mElapsedTime.value = 0
+        mShowReminder.value = false
+        mTimerStatus.value = TimerStatus.Running
         createAndStartNewTimerJob()
     }
 
     private fun createAndStartNewTimerJob() {
-        _timerJob = viewModelScope.launch {
-            while (_timerStatus.value == TimerStatus.Running && _elapsedTime.value < MAX_SECONDS) {
+        mTimerJob = viewModelScope.launch {
+            while (mTimerStatus.value == TimerStatus.Running && mElapsedTime.value < MAX_SECONDS) {
                 delay(1000)
                 // 使用原子 update，避免竞态
-                _elapsedTime.update { it + 1 }
+                mElapsedTime.update { it + 1 }
             }
-            if (_elapsedTime.value >= MAX_SECONDS) {
-                _timerStatus.value = TimerStatus.Finished
-                _showReminder.value = true
-                _soundEvent.emit(Unit)
+            if (mElapsedTime.value >= MAX_SECONDS) {
+                mTimerStatus.value = TimerStatus.Finished
+                mShowReminder.value = true
+                mSoundEvent.emit(Unit)
             }
         }
     }
 
     fun stopTimerJob() {
-        _elapsedTime.value = 0
-        _showReminder.value = false
-        _timerStatus.value = TimerStatus.Idle
-        _timerJob?.cancel()
-        _timerJob = null
+        mElapsedTime.value = 0
+        mShowReminder.value = false
+        mTimerStatus.value = TimerStatus.Idle
+        mTimerJob?.cancel()
+        mTimerJob = null
     }
 
     fun openB() {
@@ -358,18 +358,22 @@ open class DefaultViewModel @Inject constructor(
 
         when (lastIndex % 3) {
             ColumnType.A.value -> {
-                if (mOpenInputList.size > 3) mPredictionStateFlowList[ColumnType.C.value].value = predictNextStrategyValue("3", mOpenInputList)
-                mPredictionStateFlowList[ColumnType.A.value].value = predictNextStrategyValue("2", mOpenInputList)
+                if (mOpenInputList.size > 3) {
+                    mPredictionStateFlowList[ColumnType.C.value].value = predictNextStrategyValue("C", mOpenInputList)
+                    mPredictionStateFlowList[ColumnType.A.value].value = predictNextStrategyValue("C", mOpenInputList)
+                } else {
+                    mPredictionStateFlowList[ColumnType.A.value].value = predictNextStrategyValue("A", mOpenInputList)
+                }
             }
 
             ColumnType.B.value -> {
-                mPredictionStateFlowList[ColumnType.A.value].value = predictNextStrategyValue("3", mOpenInputList)
-                mPredictionStateFlowList[ColumnType.B.value].value = predictNextStrategyValue("2", mOpenInputList)
+                mPredictionStateFlowList[ColumnType.A.value].value = predictNextStrategyValue("A", mOpenInputList)
+                mPredictionStateFlowList[ColumnType.B.value].value = predictNextStrategyValue("A", mOpenInputList)
             }
 
             ColumnType.C.value -> {
-                mPredictionStateFlowList[ColumnType.B.value].value = predictNextStrategyValue("3", mOpenInputList)
-                mPredictionStateFlowList[ColumnType.C.value].value = predictNextStrategyValue("2", mOpenInputList)
+                mPredictionStateFlowList[ColumnType.B.value].value = predictNextStrategyValue("B", mOpenInputList)
+                mPredictionStateFlowList[ColumnType.C.value].value = predictNextStrategyValue("B", mOpenInputList)
             }
         }
     }
@@ -394,7 +398,7 @@ open class DefaultViewModel @Inject constructor(
      * 更新 WL 表格
      */
     private fun updateWlTable() {
-        val inputType = _curBeltInputStageFlow.value
+        val inputType = mCurBeltInputStageFlow.value
         if (inputType == null) {
             return
         }
@@ -411,13 +415,13 @@ open class DefaultViewModel @Inject constructor(
 
         val last3Inputs = mBetResultList.takeLast(3)
         if (last3Inputs.size < 3) {
-            _curBeltInputStageFlow.update { null }
+            mCurBeltInputStageFlow.update { null }
             return
         }
 
         val inputCombination = last3Inputs.map { it.type }.joinToString("")
         val result = wlCombinationToResult[inputCombination] ?: run {
-            _curBeltInputStageFlow.update { null }
+            mCurBeltInputStageFlow.update { null }
             return
         }
 
@@ -427,7 +431,7 @@ open class DefaultViewModel @Inject constructor(
         viewModelScope.launch { repository.updateWlCount(lastResult, OperationType.INCREMENT) }
 
         updateTableStageFlow(mWlTableStateFlow, result, lastResult.curTime)
-        _curBeltInputStageFlow.update { null }
+        mCurBeltInputStageFlow.update { null }
     }
 
     private fun updateTableStageFlow(tableStateFlow: MutableStateFlow<List<TableDisplayItem>>, result: Int, curTime: Long): ColumnType? {
@@ -585,11 +589,11 @@ open class DefaultViewModel @Inject constructor(
      */
     private fun updateGridStrategy(last3Inputs: List<InputEntity>, filledColumn: ColumnType) {
         // 收集已经出现的且不重复的组合
-        val currentConbinations = _uniqueBppcConbinationList[filledColumn.value]
+        val currentConbinations = mUniqueBppcConbinationList[filledColumn.value]
         val inputCombination = last3Inputs.map { it.inputType }.joinToString("")
         currentConbinations.add(inputCombination)
 
-        _strategyGridStateMap.forEach { it ->
+        mStrategyGridStateMap.forEach { it ->
             if (it.value == true) {
                 updateGridStrategyData(mOpenInputList.last(), it.key)
             }
@@ -619,7 +623,7 @@ open class DefaultViewModel @Inject constructor(
                 StrategyGridItem(false, title, wordList)
             }
 
-            _strategyGridStateMap[filledColumn] = true
+            mStrategyGridStateMap[filledColumn] = true
             currentData.copy(itemList = itemList)
         }
     }
@@ -712,6 +716,8 @@ open class DefaultViewModel @Inject constructor(
                 val last3Inputs = mOpenInputList.subList(0, i + 1).takeLast(3)
                 val lastInput = mOpenInputList[i]
                 updateBppcAndStrantegy(lastInput, last3Inputs)
+            } else {
+                updateBppcCounter(mOpenInputList[i])
             }
         }
 
@@ -721,16 +727,16 @@ open class DefaultViewModel @Inject constructor(
     }
 
     fun betB() {
-        _curBeltInputStageFlow.update { InputEntity.createB(mGameId) }
+        mCurBeltInputStageFlow.update { InputEntity.createB(mGameId) }
     }
 
     fun betP() {
-        _curBeltInputStageFlow.update { InputEntity.createP(mGameId) }
+        mCurBeltInputStageFlow.update { InputEntity.createP(mGameId) }
     }
 
     fun removeLastBet() {
-        if (_curBeltInputStageFlow.value != null) {
-            _curBeltInputStageFlow.update { null }
+        if (mCurBeltInputStageFlow.value != null) {
+            mCurBeltInputStageFlow.update { null }
         } else {
             val last = mBetResultList.removeLastOrNull()
             last ?: return
@@ -757,6 +763,8 @@ open class DefaultViewModel @Inject constructor(
                 wlCombinationToResult[inputCombination]?.let { result ->
                     updateTableStageFlow(mWlTableStateFlow, result, last3Inputs.last().curTime)
                 }
+            } else {
+                updateWlCounter(mBetResultList[i])
             }
         }
     }
@@ -782,7 +790,7 @@ open class DefaultViewModel @Inject constructor(
         mStragetyGridStateFlow.forEach { it.value = DEFAULT_STRANTYGE_GRID }
         mPredictionStateFlowList.forEach { it.value = DEFAULT_PREDICTION }
 
-        _uniqueBppcConbinationList.forEach { it.clear() }
+        mUniqueBppcConbinationList.forEach { it.clear() }
 
         mWlCounterStateFlow.value = DEFAULT_BPCOUNTER
         mWlTableStateFlow.value = DEFAULT_TABLE_DISPLAY_LIST
