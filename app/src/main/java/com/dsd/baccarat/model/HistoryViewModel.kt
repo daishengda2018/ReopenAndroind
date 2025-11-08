@@ -6,6 +6,7 @@ import com.dsd.baccarat.data.room.dao.BetDataDao
 import com.dsd.baccarat.data.room.dao.GameSessionDao
 import com.dsd.baccarat.data.room.dao.InputDataDao
 import com.dsd.baccarat.data.room.dao.NoteDataDao
+import com.dsd.baccarat.data.room.entity.BetEntity
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
 import kotlinx.coroutines.launch
@@ -26,7 +27,7 @@ class HistoryViewModel @Inject constructor(
         // 什么也不执行
     }
 
-    fun loadHistory(gameId: String) {
+    fun loadHistory(gameId: String, startTime: Long) {
         // 每次数据变化都会响应的 Flow
         viewModelScope.launch {
             // 收集 TemporaryStorageRepository 的冷流（wCountFlow）
@@ -50,11 +51,15 @@ class HistoryViewModel @Inject constructor(
             mOpenInputList.addAll(allInputs)
             resumeOpenedData()
 
-            val allBets = betDataDao.getBetDataByGameId(gameId)
-            mBetResultList.clear()
-            mBetResultList.addAll(allBets)
-            resumeBetedData()
-
+            val historyList = betDataDao.queryHistoryBefore(startTime)
+                .map { it.copy().apply { this.isHistory = true } }
+            val curbetList = betDataDao.loadDataWithGameId(gameId)
+            recordBetDataOnStartup(historyList, curbetList)
         }
     }
+
+    override fun isBetHistory(last3Inputs: List<BetEntity>): Boolean {
+        return last3Inputs.last().isHistory
+    }
+
 }

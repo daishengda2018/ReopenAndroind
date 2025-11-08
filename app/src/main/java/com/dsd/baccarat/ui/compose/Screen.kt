@@ -204,7 +204,8 @@ fun Screen(viewModel: DefaultViewModel, isHistoryModel: Boolean = false, startTi
 
 @Composable
 private fun HandleLayRowScroll(tableData: List<TableDisplayItem>, mainState: LazyListState?) {
-    mainState ?: return
+    // 历史数据不自动滑到尾部
+    if ( mainState == null) return
 
     LaunchedEffect(tableData) {
         // 找到最后一个 Real 项的索引

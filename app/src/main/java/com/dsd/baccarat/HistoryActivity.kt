@@ -27,7 +27,7 @@ class HistoryActivity : ComponentActivity() {
         val gameID = intent.getStringExtra(KEY_GAME_ID) ?: ""
         val startTime = intent.getLongExtra(KEY_START_TIME, 0)
         val endTime = intent.getLongExtra(KEY_END_TIME, 0)
-        viewModel.loadHistory(gameID)
+        viewModel.loadHistory(gameID, startTime)
 
         enableEdgeToEdge()
         setContent {

@@ -179,24 +179,28 @@ open class DefaultViewModel @Inject constructor(
             mGameId = gameSessionDao.getActiveSession()?.gameId ?: ""
             mIsOnlyShowNewGameStateFlow.value = mGameId.isEmpty()
 
-            // 恢复最近的 65 手记录
             val historyList = betDataDao.loadHistory().map { it.copy().apply { isHistory = true } }
-
-            mBetResultList.clear()
-            mBetResultList.addAll(historyList)
-            // 寻找上一局还没有结束的游戏数据
-            val betListOfLastGame = if (mGameId.isNotEmpty()) {
+            val curBetList = if (mGameId.isNotEmpty()) {
                 betDataDao.loadDataWithGameId(mGameId)
             } else {
-                emptyList<BetEntity>()
+                emptyList()
             }
-            mBetResultList.addAll(betListOfLastGame)
-
-            // 恢复押注数据
-            resumeBetedData(false)
-            // 恢复上一次游戏的 Counter
-            betListOfLastGame.forEach { updateWlCounter(it) }
+            recordBetDataOnStartup(historyList, curBetList)
         }
+    }
+
+    protected fun recordBetDataOnStartup(historyList: List<BetEntity>, curBetList: List<BetEntity>) {
+        // 恢复最近的 65 手记录
+        mBetResultList.clear()
+        mBetResultList.addAll(historyList)
+        // 寻找上一局还没有结束的游戏数据
+
+        mBetResultList.addAll(curBetList)
+
+        // 恢复押注数据
+        resumeBetedData(false)
+        // 恢复上一次游戏的 Counter
+        curBetList.forEach { updateWlCounter(it) }
     }
 
     /**
@@ -491,7 +495,7 @@ open class DefaultViewModel @Inject constructor(
         return filledColumn
     }
 
-    private fun isHistory(time: Long): Boolean {
+    protected fun isHistory(time: Long): Boolean {
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) // 每次创建新实例（避免线程安全问题）
         val dateStr1 = sdf.format(System.currentTimeMillis())
         val dateStr2 = sdf.format(time)
@@ -776,8 +780,7 @@ open class DefaultViewModel @Inject constructor(
                 }
                 val inputCombination = last3Inputs.map { it.type }.joinToString("")
                 wlCombinationToResult[inputCombination]?.let { result ->
-                    val isHistory = (last3Inputs.last().isHistory || isHistory(last3Inputs.last().curTime))
-                    updateTableStageFlow(mWlTableStateFlow, result, isHistory)
+                    updateTableStageFlow(mWlTableStateFlow, result, isBetHistory(last3Inputs))
                 }
             } else {
                 if (shouldCalculateCounter) {
@@ -786,6 +789,8 @@ open class DefaultViewModel @Inject constructor(
             }
         }
     }
+
+    protected open fun isBetHistory(last3Inputs: List<BetEntity>): Boolean = (last3Inputs.last().isHistory || isHistory(last3Inputs.last().curTime))
 
     // 更新并保存数据
     fun updateOpendList(newList: List<InputEntity>) {
