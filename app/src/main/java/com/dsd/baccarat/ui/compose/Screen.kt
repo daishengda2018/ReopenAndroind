@@ -610,7 +610,7 @@ private fun BppcTableTitles() {
     Column(Modifier.width(ITEM_SIZE)) {
         val titles = remember { listOf("A", "B", "C") }
 
-        Spacer(Modifier.height(SPACE_SIZE))
+        Spacer(Modifier.height(ITEM_SIZE))
         titles.forEach { TextItem(it, TEXT_COLOR_NEUTRAL) }
         Spacer(Modifier.height(SPACE_SIZE))
         titles.forEach {
@@ -639,6 +639,7 @@ private fun Table(
             Column(Modifier.width(ITEM_SIZE)) {
                 // 索引行
                 TextItem("${idx + 1}", TEXT_COLOR_NEUTRAL, fontSize = 10.sp)
+
                 // 数据行 (A, B, C)
                 TextItem(
                     text = data?.dataA?.second?.toString() ?: "",
