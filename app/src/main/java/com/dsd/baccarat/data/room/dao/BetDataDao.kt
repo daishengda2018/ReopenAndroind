@@ -5,9 +5,6 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.dsd.baccarat.data.room.entity.BetEntity
-import com.dsd.baccarat.data.room.entity.GameSessionEntity
-import com.dsd.baccarat.data.room.entity.NoteEntity
-import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface BetDataDao {
@@ -18,31 +15,25 @@ interface BetDataDao {
     // 插入多条数据
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(betList: List<BetEntity>)
+
+
+
+    @Query("SELECT * FROM bet_data WHERE gameId = :gameId ORDER BY curTime ASC")
+    fun loadDataWithGameId(gameId: String) : List<BetEntity>
+
     /**
-     * 查询：今天的全部数据 + 历史数据（最多66条）
-     * 结果按时间戳倒序排列（最新的在前面）
+     * 查询最新的 66 条记录
      */
-    @Query(
-        """
-        -- 子查询1：今天的所有数据（无需括号）
-        SELECT * FROM bet_data 
-        WHERE date(curTime / 1000, 'unixepoch', 'localtime') = date('now', 'localtime')
-        
-        UNION ALL
-        
-        -- 子查询2：历史数据（最多66条，先按时间倒序取最近的，再限制数量）
-        SELECT * FROM (
-            SELECT * FROM bet_data 
-            WHERE date(curTime / 1000, 'unixepoch', 'localtime') < date('now', 'localtime')
-            ORDER BY curTime ASC
-            LIMIT 66
-        )
-        
-        -- 整体按时间戳倒序（最新的在前面）
-        ORDER BY curTime ASC
-    """
-    )
-    fun getTodayAndHistory(): List<BetEntity>
+    @Query("""
+            -- 先取最新的 66 条（按时间降序），再按时间升序排列（从老到新）
+           SELECT * FROM (
+               SELECT * FROM bet_data 
+               ORDER BY curTime DESC  -- 最新的在前面
+               LIMIT 65              -- 取最近的 65 条
+           ) AS recent_data 
+           ORDER BY curTime ASC      -- 最终按从老到新排列
+    """)
+    fun loadHistory(): List<BetEntity>
 
     // 查询指定时间内的所有笔记（按时间倒序排列）
     @Query("SELECT * FROM bet_data WHERE gameId = :gameId ORDER BY curTime ASC")

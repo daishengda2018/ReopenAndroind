@@ -2,6 +2,7 @@ package com.dsd.baccarat.data.room.entity
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
+import androidx.room.Ignore
 import androidx.room.PrimaryKey
 import com.dsd.baccarat.data.BetResultType
 import kotlinx.serialization.Serializable
@@ -17,8 +18,11 @@ data class BetEntity(
     @ColumnInfo(index = true)
     val gameId: String,
     @ColumnInfo(index = true)
-    val type: BetResultType,
-) {
+    val type: BetResultType
+    ) {
+    @Ignore
+    var isHistory: Boolean = false
+
     companion object {
         fun createW(gameId: String) = BetEntity(curTime = System.currentTimeMillis(), gameId = gameId, type = BetResultType.W)
         fun createL(gameId: String) = BetEntity(curTime = System.currentTimeMillis(), gameId = gameId, type = BetResultType.L)

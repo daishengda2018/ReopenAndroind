@@ -166,11 +166,9 @@ open class DefaultViewModel @Inject constructor(
 
         // 只响应一次的 Flow
         viewModelScope.launch {
-            mGameId = gameSessionDao.getActiveSession()?.gameId ?: ""
-
-            mIsOnlyShowNewGameStateFlow.value = mGameId.isEmpty()
-
+            // 恢复未经处理的 Input 数据
             mOpenInputList.clear()
+            inputDataDao.getInputsByGameId(mGameId)
             mOpenInputList.addAll(repository.getOpendList())
             resumeOpenedData()
 
@@ -178,10 +176,26 @@ open class DefaultViewModel @Inject constructor(
 
             mInputTextStateFlow.value = repository.getNoteText()
 
-            val allBets = betDataDao.getTodayAndHistory()
+            mGameId = gameSessionDao.getActiveSession()?.gameId ?: ""
+            mIsOnlyShowNewGameStateFlow.value = mGameId.isEmpty()
+
+            // 恢复最近的 65 手记录
+            val historyList = betDataDao.loadHistory().map { it.copy().apply { isHistory = true } }
+
             mBetResultList.clear()
-            mBetResultList.addAll(allBets)
-            resumeBetedData()
+            mBetResultList.addAll(historyList)
+            // 寻找上一局还没有结束的游戏数据
+            val betListOfLastGame = if (mGameId.isNotEmpty()) {
+                betDataDao.loadDataWithGameId(mGameId)
+            } else {
+                emptyList<BetEntity>()
+            }
+            mBetResultList.addAll(betListOfLastGame)
+
+            // 恢复押注数据
+            resumeBetedData(false)
+            // 恢复上一次游戏的 Counter
+            betListOfLastGame.forEach { updateWlCounter(it) }
         }
     }
 
@@ -345,7 +359,7 @@ open class DefaultViewModel @Inject constructor(
     private fun updateBppcTable(last3Inputs: List<InputEntity>): ColumnType? {
         val inputCombination = last3Inputs.map { it.inputType }.joinToString("")
         val result = bppcCombinationToResult[inputCombination] ?: return null
-        val columnType = updateTableStageFlow(mBppcTableStateFlow, result, last3Inputs.last().curTime)
+        val columnType = updateTableStageFlow(mBppcTableStateFlow, result, isHistory(last3Inputs.last().curTime))
         return columnType
     }
 
@@ -398,10 +412,7 @@ open class DefaultViewModel @Inject constructor(
      * 更新 WL 表格
      */
     private fun updateWlTable() {
-        val inputType = mCurBeltInputStageFlow.value
-        if (inputType == null) {
-            return
-        }
+        val inputType = mCurBeltInputStageFlow.value ?: return
         if (mOpenInputList.last().inputType == inputType.inputType) {
             val element = BetEntity.createW(mGameId)
             mBetResultList.add(element)
@@ -430,14 +441,13 @@ open class DefaultViewModel @Inject constructor(
         updateWlCounter(lastResult)
         viewModelScope.launch { repository.updateWlCount(lastResult, OperationType.INCREMENT) }
 
-        updateTableStageFlow(mWlTableStateFlow, result, lastResult.curTime)
+        updateTableStageFlow(mWlTableStateFlow, result, isHistory(lastResult.curTime))
         mCurBeltInputStageFlow.update { null }
     }
 
-    private fun updateTableStageFlow(tableStateFlow: MutableStateFlow<List<TableDisplayItem>>, result: Int, curTime: Long): ColumnType? {
+    private fun updateTableStageFlow(tableStateFlow: MutableStateFlow<List<TableDisplayItem>>, result: Int, isHistory: Boolean): ColumnType? {
         var filledColumn: ColumnType? = null
-        val isSameDayLegacy = isSameDayLegacy(System.currentTimeMillis(), curTime)
-        val data = Pair(!isSameDayLegacy, result)
+        val data = Pair(isHistory, result)
 
         tableStateFlow.update { currentList ->
             val updatedList = currentList.toMutableList()
@@ -481,13 +491,12 @@ open class DefaultViewModel @Inject constructor(
         return filledColumn
     }
 
-    private fun isSameDayLegacy(time1: Long, time2: Long): Boolean {
+    private fun isHistory(time: Long): Boolean {
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) // 每次创建新实例（避免线程安全问题）
-        val dateStr1 = sdf.format(time1)
-        val dateStr2 = sdf.format(time2)
-        return dateStr1 == dateStr2
+        val dateStr1 = sdf.format(System.currentTimeMillis())
+        val dateStr2 = sdf.format(time)
+        return dateStr1 != dateStr2
     }
-
 
     private fun updateWlCounter(lastResult: BetEntity) {
         mWlCounterStateFlow.update { currentCounter ->
@@ -738,6 +747,10 @@ open class DefaultViewModel @Inject constructor(
         if (mCurBeltInputStageFlow.value != null) {
             mCurBeltInputStageFlow.update { null }
         } else {
+            // 历史数据不能撤销
+            if (mBetResultList.lastOrNull()?.isHistory == true) return
+
+            // 尝试删除本次游戏的数据
             val last = mBetResultList.removeLastOrNull()
             last ?: return
             viewModelScope.launch {
@@ -750,7 +763,7 @@ open class DefaultViewModel @Inject constructor(
         resumeBetedData()
     }
 
-    protected fun resumeBetedData() {
+    protected fun resumeBetedData(shouldCalculateCounter: Boolean = true) {
         // 重置展示相关状态
         mWlTableStateFlow.value = DEFAULT_TABLE_DISPLAY_LIST
         mWlCounterStateFlow.value = DEFAULT_BPCOUNTER
@@ -758,13 +771,18 @@ open class DefaultViewModel @Inject constructor(
         for (i in mBetResultList.indices) {
             if (i >= 2) {
                 val last3Inputs = mBetResultList.subList(0, i + 1).takeLast(3)
-                updateWlCounter(mBetResultList[i])
+                if (shouldCalculateCounter) {
+                    updateWlCounter(mBetResultList[i])
+                }
                 val inputCombination = last3Inputs.map { it.type }.joinToString("")
                 wlCombinationToResult[inputCombination]?.let { result ->
-                    updateTableStageFlow(mWlTableStateFlow, result, last3Inputs.last().curTime)
+                    val isHistory = (last3Inputs.last().isHistory || isHistory(last3Inputs.last().curTime))
+                    updateTableStageFlow(mWlTableStateFlow, result, isHistory)
                 }
             } else {
-                updateWlCounter(mBetResultList[i])
+                if (shouldCalculateCounter) {
+                    updateWlCounter(mBetResultList[i])
+                }
             }
         }
     }
@@ -822,11 +840,11 @@ open class DefaultViewModel @Inject constructor(
             repository.saveOpendList(mOpenInputList)
             repository.clearCurWinLossCount()
 
-            val allBets = betDataDao.getTodayAndHistory()
+            // 恢复最近的 65 手 WL 记录
+            val allBets = betDataDao.loadHistory().map { it.copy().apply { isHistory = true } }
             mBetResultList.clear()
             mBetResultList.addAll(allBets)
-            resumeBetedData()
-
+            resumeBetedData(false)
         }
     }
 
