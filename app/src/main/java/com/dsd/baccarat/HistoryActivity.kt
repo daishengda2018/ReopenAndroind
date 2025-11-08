@@ -32,7 +32,7 @@ class HistoryActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             ReopenAndroidTheme {
-                Screen(viewModel, true, startTime)
+                Screen(viewModel, true, startTime, endTime)
             }
         }
     }

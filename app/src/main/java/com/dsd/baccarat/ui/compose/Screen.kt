@@ -52,7 +52,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -101,17 +100,22 @@ private val RED_COLOR_VALUES2 = setOf(1, 2, 5, 6)
 private lateinit var sharedScrollStates: SnapshotStateList<LazyListState>
 
 private val dateFormatter = SimpleDateFormat("yyyy-MM-dd EEEE", Locale.CHINESE)
+private val detailDateFormatter = SimpleDateFormat("yyyy-MM-dd hh:mm", Locale.CHINESE)
 
 // 日期显示格式（如：2025-11-05）
 private var mCurDateStr = ""
 private var mIsHistoryModel = false
+private var mStartTime: Long = 0
+private var mEnd: Long = 0
 
 /**
  * 应用的主屏幕可组合函数。
  */
 @Composable
-fun Screen(viewModel: DefaultViewModel, isHistoryModel: Boolean = false, startTime: Long = 0) {
+fun Screen(viewModel: DefaultViewModel, isHistoryModel: Boolean = false, startTime: Long = 0, endTime: Long = 0) {
     mIsHistoryModel = isHistoryModel
+    mStartTime = startTime
+    mEnd = endTime
 
     val elapsedTime = viewModel.elapsedTime.collectAsStateWithLifecycle().value
     val timerStatus = viewModel.timerStatus.collectAsStateWithLifecycle().value
@@ -262,12 +266,17 @@ private fun RowScope.LeftSide(
                 value2 = bppcCounter.count2, color2 = TEXT_COLOR_P
             )
             Spacer(Modifier.width(ITEM_SIZE))
-            // 显示当前时间，需要动态更新
-            CurrentTimeDisplay(
-                elapsedTime = elapsedTime,
-                timerStatus = timerStatus,
-                showReminder = showReminder,
-                onDismissReminder = { viewModel.dismissReminder() })
+            if (mIsHistoryModel) {
+                val text = "${detailDateFormatter.format(mStartTime)} ~ ${detailDateFormatter.format(mEnd)}"
+                TextItem("游戏时间: $text", isShowBorder = false, color = Color.Black, fontSize = 15.sp, width = TITLE_WIDTH_LONG * 4)
+            } else {
+                // 显示当前时间，需要动态更新
+                CurrentTimeDisplay(
+                    elapsedTime = elapsedTime,
+                    timerStatus = timerStatus,
+                    showReminder = showReminder,
+                    onDismissReminder = { viewModel.dismissReminder() })
+            }
         }
 
         Row(Modifier.fillMaxWidth()) {
@@ -573,26 +582,25 @@ private fun CurrentTimeDisplay(
 
         Spacer(Modifier.width(ITEM_SIZE))
 
-        if (!mIsHistoryModel) {
-            Text(
-                text = String.format(Locale.getDefault(), "计时: %02d:%02d", minutes, seconds),
-                style = textStyle,
-                color = Color.Black,
-            )
+        Text(
+            text = String.format(Locale.getDefault(), "计时: %02d:%02d", minutes, seconds),
+            style = textStyle,
+            color = Color.Black,
+        )
 
-            Spacer(Modifier.width(8.dp))
-            // 显示状态
-            Text(
-                text = when (timerStatus) {
-                    TimerStatus.Idle -> "未开始"
-                    TimerStatus.Running -> "运行中"
-                    TimerStatus.Paused -> "已暂停"
-                    TimerStatus.Finished -> "已完成"
-                },
-                style = textStyle.copy(fontSize = 12.sp),
-                color = Color.Gray,
-            )
-        }
+        Spacer(Modifier.width(8.dp))
+
+        // 显示状态
+        Text(
+            text = when (timerStatus) {
+                TimerStatus.Idle -> "未开始"
+                TimerStatus.Running -> "运行中"
+                TimerStatus.Paused -> "已暂停"
+                TimerStatus.Finished -> "已完成"
+            },
+            style = textStyle.copy(fontSize = 12.sp),
+            color = Color.Gray,
+        )
     }
 
     if (showReminder) {
@@ -1063,9 +1071,8 @@ private fun GameSessionItem(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
-    val format = remember { SimpleDateFormat("yyyy-MM-dd hh:mm", Locale.CHINESE) }
     Text(
-        text = "${format.format(gameSession.startTime)} ~ ${format.format(gameSession.endTime)}",
+        text = "${detailDateFormatter.format(gameSession.startTime)} ~ ${detailDateFormatter.format(gameSession.endTime)}",
         fontSize = 16.sp,
         color = if (isSelected) {
             Color.Blue // 选中状态高亮
