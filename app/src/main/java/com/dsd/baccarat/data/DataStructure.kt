@@ -42,7 +42,7 @@ data class StrategyGridInfo(
 )
 
 data class StrategyGridItem(
-    val status: Boolean = false,
+    val isObslate: Boolean = false,
     val title: String? = null,
     val items: List<String?> = emptyList()
 )

@@ -598,7 +598,7 @@ open class DefaultViewModel @Inject constructor(
     }
 
     /**
-     * 更新 BPPC 表格和策略
+     * 更新九宫格策略
      */
     private fun updateGridStrategy(last3Inputs: List<InputEntity>, filledColumn: ColumnType) {
         // 收集已经出现的且不重复的组合
@@ -606,13 +606,14 @@ open class DefaultViewModel @Inject constructor(
         val inputCombination = last3Inputs.map { it.inputType }.joinToString("")
         currentConbinations.add(inputCombination)
 
-        mStrategyGridStateMap.forEach { it ->
+        mStrategyGridStateMap.forEach {
+            // true 表示已存在三个未曾出现的组合，开始更新
             if (it.value == true) {
-                updateGridStrategyData(mOpenInputList.last(), it.key)
+                updateGridStrategyData(last3Inputs.last(), it.key)
             }
         }
 
-        // 判断是否正好存在三未曾出现的组合
+        // 判断是否正好存在三未曾出现的组合：创建 & 更新
         if (currentConbinations.size == THRESHOLD_HAS_SHOWED_CONBINATION) {
             createGridStrategyData(currentConbinations, filledColumn)
             updateGridStrategyData(null, filledColumn)
@@ -648,7 +649,9 @@ open class DefaultViewModel @Inject constructor(
             // 1. 更新 actualOpenedList
             val actualOpenedList = result.actualOpenedList.toMutableList().apply {
                 if (size >= MAX_COLUMN_COUNT) clear()
-                inputData?.let { add(it.inputType.toString()) }
+                if (inputData != null) {
+                    this.add(inputData.inputType.toString())
+                }
             }
             // 2. 准备数据
             val predictedList = result.predictedList.toMutableList().apply {
@@ -659,13 +662,17 @@ open class DefaultViewModel @Inject constructor(
                 // 删除需要排除的形态
                 val openedSize = actualOpenedList.size
                 val itemList = result.itemList.toMutableList().map { item ->
-                    if (item.items.withIndex().none { (index, value) ->
-                            index < openedSize && value == actualOpenedList[index]
-                        }) {
-                        // 完全不匹配时标记为 true
-                        item.copy(status = true)
+                    // 检查 item.items 中是否「没有任何元素」满足匹配条件
+                    val isAllItemsMismatch = item.items.withIndex().none { (index, value) ->
+                        // 匹配条件：索引在有效范围内，且值相等
+                        index < openedSize && value == actualOpenedList[index]
+                    }
+
+                    if (isAllItemsMismatch) {
+                        // 所有 item 都不匹配时，标记 isObslate = true
+                        item.copy(isObslate = true)
                     } else {
-                        item // 有匹配时保持不变
+                        item
                     }
                 }
                 actualOpenedList.clear()
@@ -674,19 +681,19 @@ open class DefaultViewModel @Inject constructor(
             }
 
             // 如果所有形态都被删除了，不再预测
-            if (result.itemList.none { !it.status }) {
+            if (result.itemList.none { !it.isObslate }) {
                 return@update result
             }
 
             val currentIndex = actualOpenedList.size
             val aRowItemList = if (actualOpenedList.isEmpty()) {
                 // 情况1: actualOpenedList 为空，直接提取当前索引的值
-                result.itemList.filterNot { it.status }.map { it.items[currentIndex] }
+                result.itemList.filterNot { it.isObslate }.map { it.items[currentIndex] }
             } else {
                 // 情况2: 过滤掉与 actualOpenedList 完全匹配的项，提取当前索引的值
                 result.itemList
                     // 过滤掉已经排除的形态
-                    .filterNot { it.status }
+                    .filterNot { it.isObslate }
                     .filterNot { item ->
                         item.items.withIndex().any { (index, value) ->
                             index < actualOpenedList.size && value == actualOpenedList[index]

@@ -41,7 +41,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
@@ -348,7 +347,7 @@ private fun StrategyGridDisplay(title: String, strategyItem: StrategyGridInfo) {
         Spacer(Modifier.width(SPACE_SIZE))
         for (i in 0 until MAX_COLUMN_COUNT) {
             val gridItem = strategyItem.itemList.getOrNull(i)
-            val isObslate = gridItem?.status ?: false
+            val isObslate = gridItem?.isObslate ?: false
             val dataList = gridItem?.items
             val conbinationTitle = gridItem?.title
             Column(Modifier.width(ITEM_SIZE)) {
