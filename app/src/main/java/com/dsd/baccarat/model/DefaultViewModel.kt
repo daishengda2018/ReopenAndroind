@@ -607,13 +607,13 @@ open class DefaultViewModel @Inject constructor(
         currentConbinations.add(inputCombination)
 
         mStrategyGridStateMap.forEach {
-            // true 表示已存在三个未曾出现的组合，开始更新
+            // true 表示已存在三个未曾出现的组合, 直接更新
             if (it.value == true) {
                 updateGridStrategyData(last3Inputs.last(), it.key)
             }
         }
 
-        // 判断是否正好存在三未曾出现的组合：创建 & 更新
+        // 判断是否正好存在三个未曾出现的组合：创建 + 更新
         if (currentConbinations.size == THRESHOLD_HAS_SHOWED_CONBINATION) {
             createGridStrategyData(currentConbinations, filledColumn)
             updateGridStrategyData(null, filledColumn)
