@@ -20,8 +20,10 @@ data class InputEntity(
     @ColumnInfo(index = true)
     val inputType: InputType,
 ) {
+
     companion object {
         fun createP(gameId: String) = InputEntity(gameId = gameId, inputType = InputType.P)
         fun createB(gameId: String) = InputEntity(gameId = gameId, inputType = InputType.B)
+
     }
 }

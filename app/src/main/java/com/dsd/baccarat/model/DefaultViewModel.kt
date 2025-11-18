@@ -415,46 +415,49 @@ open class DefaultViewModel @Inject constructor(
         // 如果没有输入，则不更新预测
         if (mOpenInputList.isEmpty()) return
 
-        mPredictionStateFlowList.forEach { it.value = DEFAULT_PREDICTION }
-        val lastIndex = mOpenInputList.lastIndex
+        val size = mOpenInputList.size
+        val last = mOpenInputList.last().inputType
 
-        when (lastIndex % 3) {
-            ColumnType.A.value -> {
-                if (mOpenInputList.size > 3) {
-                    mPredictionStateFlowList[ColumnType.C.value].value = predictNextStrategyValue("C", mOpenInputList)
-                    mPredictionStateFlowList[ColumnType.A.value].value = predictNextStrategyValue("C", mOpenInputList)
-                } else {
-                    mPredictionStateFlowList[ColumnType.A.value].value = predictNextStrategyValue("A", mOpenInputList)
-                }
-            }
+        if (size == 1) {
+            // size=1 特殊逻辑
+            val strategy12 = last
+            val strategy34 = last.inverted()
+            mPredictionStateFlowList[ColumnType.A.value].value = PredictedStrategy3WaysValue(
+                "",
+                strategy12.value,
+                strategy34.value,
+                strategy12.inverted().value,
+                strategy34.inverted().value
+            )
 
-            ColumnType.B.value -> {
-                mPredictionStateFlowList[ColumnType.A.value].value = predictNextStrategyValue("A", mOpenInputList)
-                mPredictionStateFlowList[ColumnType.B.value].value = predictNextStrategyValue("A", mOpenInputList)
-            }
-
-            ColumnType.C.value -> {
-                mPredictionStateFlowList[ColumnType.B.value].value = predictNextStrategyValue("B", mOpenInputList)
-                mPredictionStateFlowList[ColumnType.C.value].value = predictNextStrategyValue("B", mOpenInputList)
-            }
+            return
         }
-    }
 
-    /**
-     * 将预测逻辑做少量简化，便于阅读
-     */
-    private fun predictNextStrategyValue(title: String, inputHistory: MutableList<InputEntity>): PredictedStrategy3WaysValue {
-        val lastInput = inputHistory.last().inputType
-        val isOddNumber = (inputHistory.lastIndex % 2 != 0)
-        fun flip(input: InputType) = if (input == InputType.B) InputType.P else InputType.B
+        // size >= 2，周期规律
+        val pattern = listOf(
+            listOf(ColumnType.A to true, ColumnType.B to false), // pattern0: [A,B] → [last, last.inverted]
+            listOf(ColumnType.B to true, ColumnType.C to false), // pattern1: [B,C] → [last, last.inverted]
+            listOf(ColumnType.A to false, ColumnType.C to true)  // pattern2: [A,C] → [last.inverted, last]
+        )
 
-        val strategy12 = lastInput.value
-        val strategy56 = flip(lastInput).value
+        val indexInPattern = (size - 2) % 3 // 从 size=2 开始循环
 
-        val strategy34 = (if (isOddNumber) lastInput else flip(lastInput)).value
-        val strategy78 = (if (isOddNumber) flip(lastInput) else lastInput).value
+        val columnsToUpdate = pattern[indexInPattern].map { (col, isFirstLast) ->
+            val strategy34 = if (isFirstLast) last else last.inverted()
+            col to strategy34
+        }
 
-        return PredictedStrategy3WaysValue(title, strategy12, strategy34, strategy56, strategy78)
+        mPredictionStateFlowList.forEach { it.value = DEFAULT_PREDICTION }
+        columnsToUpdate.forEach { (col, strategy34) ->
+            mPredictionStateFlowList[col.value].value = PredictedStrategy3WaysValue(
+                "",
+                last.value,
+                strategy34.value,
+                last.inverted().value,
+                strategy34.inverted().value
+            )
+        }
+
     }
 
     /**

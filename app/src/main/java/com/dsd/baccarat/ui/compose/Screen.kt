@@ -295,7 +295,7 @@ private fun RowScope.LeftSide(
         val idxA = ColumnType.A.value
         Strategy3WaysDisplay(
             titles = listOf(ColumnType.A.name, ColumnType.C.name, "12", "56"),
-            predictedIndex = predicted3WaysList[idxA].predictionIndex,
+            titleStr = predicted3WaysList[idxA].titleStr,
             predictedValue1 = predicted3WaysList[idxA].strategy12,
             predictedValue2 = predicted3WaysList[idxA].strategy56,
             displayItems1 = strategy3WaysList[idxA].strategy12,
@@ -306,7 +306,7 @@ private fun RowScope.LeftSide(
         val idxB = ColumnType.B.value
         Strategy3WaysDisplay(
             titles = listOf(ColumnType.A.name, ColumnType.B.name, "12", "56"),
-            predictedIndex = predicted3WaysList[idxB].predictionIndex,
+            titleStr = predicted3WaysList[idxB].titleStr,
             predictedValue1 = predicted3WaysList[idxB].strategy12,
             predictedValue2 = predicted3WaysList[idxB].strategy56,
             displayItems1 = strategy3WaysList[idxB].strategy12,
@@ -317,7 +317,7 @@ private fun RowScope.LeftSide(
         val idxC = ColumnType.C.value
         Strategy3WaysDisplay(
             titles = listOf(ColumnType.B.name, ColumnType.C.name, "12", "56"),
-            predictedIndex = predicted3WaysList[idxC].predictionIndex,
+            titleStr = predicted3WaysList[idxC].titleStr,
             predictedValue1 = predicted3WaysList[idxC].strategy12,
             predictedValue2 = predicted3WaysList[idxC].strategy56,
             displayItems1 = strategy3WaysList[idxC].strategy12,
@@ -454,7 +454,7 @@ private fun RowScope.RightSide(
         val idxA = ColumnType.A.value
         Strategy3WaysDisplay(
             titles = listOf(ColumnType.A.name, ColumnType.C.name, "34", "78"),
-            predictedIndex = predicted3WaysList[idxA].predictionIndex,
+            titleStr = predicted3WaysList[idxA].titleStr,
             predictedValue1 = predicted3WaysList[idxA].strategy34,
             predictedValue2 = predicted3WaysList[idxA].strategy78,
             displayItems1 = strategy3WaysList[idxA].strategy34,
@@ -465,7 +465,7 @@ private fun RowScope.RightSide(
         val idxB = ColumnType.B.value
         Strategy3WaysDisplay(
             titles = listOf(ColumnType.A.name, ColumnType.B.name, "34", "78"),
-            predictedIndex = predicted3WaysList[idxB].predictionIndex,
+            titleStr = predicted3WaysList[idxB].titleStr,
             predictedValue1 = predicted3WaysList[idxB].strategy34,
             predictedValue2 = predicted3WaysList[idxB].strategy78,
             displayItems1 = strategy3WaysList[idxB].strategy34,
@@ -476,7 +476,7 @@ private fun RowScope.RightSide(
         val idxC = ColumnType.C.value
         Strategy3WaysDisplay(
             titles = listOf(ColumnType.B.name, ColumnType.C.name, "34", "78"),
-            predictedIndex = predicted3WaysList[idxC].predictionIndex,
+            titleStr = predicted3WaysList[idxC].titleStr,
             predictedValue1 = predicted3WaysList[idxC].strategy34,
             predictedValue2 = predicted3WaysList[idxC].strategy78,
             displayItems1 = strategy3WaysList[idxC].strategy34,
@@ -692,7 +692,7 @@ private fun Table(
 @Composable
 private fun Strategy3WaysDisplay(
     titles: List<String>,
-    predictedIndex: String?,
+    titleStr: String?,
     predictedValue1: String?,
     predictedValue2: String?,
     displayItems1: List<Strategy3WyasDisplayItem>,
@@ -725,14 +725,14 @@ private fun Strategy3WaysDisplay(
                 if (!mIsHistoryModel) {
                     when (selectedOption.intValue) {
                         1 -> TextItem(
-                            "预测 ${predictedIndex ?: "-"} 为 ${predictedValue1 ?: "-"}",
+                            "${titleStr ?: "-"} : ${predictedValue1 ?: "-"}",
                             color = if (predictedValue1.isNullOrEmpty()) Color.Gray else determineColor(predictedValue1),
                             width = (TITLE_WIDTH_MIDEM * 2),
                             isShowBorder = false
                         )
 
                         2 -> TextItem(
-                            "预测 ${predictedIndex ?: "-"} 为 ${predictedValue2 ?: "-"}",
+                            "${titleStr ?: "-"} : ${predictedValue2 ?: "-"}",
                             color = if (predictedValue2.isNullOrEmpty()) Color.Gray else determineColor(predictedValue2),
                             width = (TITLE_WIDTH_MIDEM * 2),
                             isShowBorder = false
@@ -750,7 +750,7 @@ private fun Strategy3WaysDisplay(
 }
 
 /**
- *这是 StrategyMap 完全重写和修复后的版本。
+ * 这是 StrategyMap 完全重写和修复后的版本。
  * 它现在能够正确地显示每个数据列对应的两行策略数据。
  */
 @Composable

@@ -5,7 +5,12 @@ import kotlinx.serialization.Serializable
 
 // 输入类型
 @Serializable
-enum class InputType(val value: String) { B("B"), P("P") }
+enum class InputType(val value: String) {
+    B("B"), P("P");
+
+    fun inverted(): InputType = if (this == B) InputType.P else InputType.B
+}
+
 
 @Serializable
 enum class BetResultType(val value: String) { W("W"), L("L") }
@@ -21,9 +26,6 @@ enum class OperationType {
 // 列类型
 enum class ColumnType(val value: Int) { A(0), B(1), C(2) }
 
-
-// 策略类型
-enum class StrategyType { STRATEGY_12, STRATEGY_34, STRATEGY_56, STRATEGY_78 }
 
 // BP 计数器
 data class Counter(val count1: Int = 0, val count2: Int = 0)
@@ -79,7 +81,7 @@ data class Strategy3WaysData(
 )
 
 data class PredictedStrategy3WaysValue(
-    val predictionIndex: String? = null,
+    val titleStr: String? = null,
     val strategy12: String? = null,
     val strategy34: String? = null,
     val strategy56: String? = null,
