@@ -204,7 +204,7 @@ fun Screen(viewModel: DefaultViewModel, isHistoryModel: Boolean = false, startTi
 @Composable
 private fun HandleLayRowScroll(tableData: List<TableDisplayItem>, mainState: LazyListState?) {
     // 历史数据不自动滑到尾部
-    if ( mainState == null) return
+    if (mainState == null) return
 
     LaunchedEffect(tableData) {
         // 找到最后一个 Real 项的索引
@@ -295,6 +295,7 @@ private fun RowScope.LeftSide(
         val idxA = ColumnType.A.value
         Strategy3WaysDisplay(
             titles = listOf(ColumnType.A.name, ColumnType.C.name, "12", "56"),
+            mainTitleIndex = 0,
             titleStr = predicted3WaysList[idxA].titleStr,
             predictedValue1 = predicted3WaysList[idxA].strategy12,
             predictedValue2 = predicted3WaysList[idxA].strategy56,
@@ -306,6 +307,7 @@ private fun RowScope.LeftSide(
         val idxB = ColumnType.B.value
         Strategy3WaysDisplay(
             titles = listOf(ColumnType.A.name, ColumnType.B.name, "12", "56"),
+            mainTitleIndex = 1,
             titleStr = predicted3WaysList[idxB].titleStr,
             predictedValue1 = predicted3WaysList[idxB].strategy12,
             predictedValue2 = predicted3WaysList[idxB].strategy56,
@@ -317,6 +319,7 @@ private fun RowScope.LeftSide(
         val idxC = ColumnType.C.value
         Strategy3WaysDisplay(
             titles = listOf(ColumnType.B.name, ColumnType.C.name, "12", "56"),
+            mainTitleIndex = 1,
             titleStr = predicted3WaysList[idxC].titleStr,
             predictedValue1 = predicted3WaysList[idxC].strategy12,
             predictedValue2 = predicted3WaysList[idxC].strategy56,
@@ -454,6 +457,7 @@ private fun RowScope.RightSide(
         val idxA = ColumnType.A.value
         Strategy3WaysDisplay(
             titles = listOf(ColumnType.A.name, ColumnType.C.name, "34", "78"),
+            mainTitleIndex = 0,
             titleStr = predicted3WaysList[idxA].titleStr,
             predictedValue1 = predicted3WaysList[idxA].strategy34,
             predictedValue2 = predicted3WaysList[idxA].strategy78,
@@ -465,6 +469,7 @@ private fun RowScope.RightSide(
         val idxB = ColumnType.B.value
         Strategy3WaysDisplay(
             titles = listOf(ColumnType.A.name, ColumnType.B.name, "34", "78"),
+            mainTitleIndex = 1,
             titleStr = predicted3WaysList[idxB].titleStr,
             predictedValue1 = predicted3WaysList[idxB].strategy34,
             predictedValue2 = predicted3WaysList[idxB].strategy78,
@@ -476,6 +481,7 @@ private fun RowScope.RightSide(
         val idxC = ColumnType.C.value
         Strategy3WaysDisplay(
             titles = listOf(ColumnType.B.name, ColumnType.C.name, "34", "78"),
+            mainTitleIndex = 1,
             titleStr = predicted3WaysList[idxC].titleStr,
             predictedValue1 = predicted3WaysList[idxC].strategy34,
             predictedValue2 = predicted3WaysList[idxC].strategy78,
@@ -692,6 +698,7 @@ private fun Table(
 @Composable
 private fun Strategy3WaysDisplay(
     titles: List<String>,
+    mainTitleIndex: Int = 0,
     titleStr: String?,
     predictedValue1: String?,
     predictedValue2: String?,
@@ -705,8 +712,8 @@ private fun Strategy3WaysDisplay(
     Row(Modifier.fillMaxWidth()) {
         Column(Modifier.width(ITEM_SIZE)) {
             Spacer(Modifier.height(ITEM_SIZE)) // 与标题行对齐
-            TextItem(titles[0], TEXT_COLOR_NEUTRAL)
-            TextItem(titles[1], TEXT_COLOR_NEUTRAL)
+            TextItem(titles[0], TEXT_COLOR_NEUTRAL, isHighLight = (mainTitleIndex == 0))
+            TextItem(titles[1], TEXT_COLOR_NEUTRAL, isHighLight = (mainTitleIndex == 1))
         }
 
         Spacer(Modifier.width(SPACE_SIZE))
@@ -853,14 +860,15 @@ fun TextItem(
     isObslate: Boolean = false,
     isShowBorder: Boolean = true,
     isHistory: Boolean = false,
+    isHighLight: Boolean = false,
     onClick: (() -> Unit)? = null
 ) {
     // 步骤 1: 根据 isSelected 状态决定背景色和文字颜色
-    val backgroundColor = remember(isSelected, isObslate)
+    val backgroundColor = remember(isHighLight, isSelected, isObslate)
     {
         if (isSelected) {
             PurpleGrey80 // 选中时，使用主题色的淡色作为背景
-        } else if (isObslate || isHistory) {
+        } else if (isObslate || isHistory || isHighLight) {
             Color.LightGray
         } else {
             Color.Transparent // 未选中时，背景透明
