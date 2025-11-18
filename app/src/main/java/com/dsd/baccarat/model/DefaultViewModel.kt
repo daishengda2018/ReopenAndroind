@@ -60,7 +60,7 @@ open class DefaultViewModel @Inject constructor(
 
     protected var mOpenInputList: MutableList<InputEntity> = mutableListOf()
     protected var mBetResultList: MutableList<BetEntity> = mutableListOf()
-    protected var m12CompareResultList: MutableList<Boolean> = mutableListOf()
+    protected var m12CompareResultList: MutableMap<ColumnType, MutableList<Boolean>> = mutableMapOf()
     protected var m34CompareResultList: MutableMap<ColumnType, MutableList<Boolean>> = mutableMapOf()
 
     protected val mWlTableStateFlow = MutableStateFlow<List<TableDisplayItem>>(DEFAULT_TABLE_DISPLAY_LIST)
@@ -335,9 +335,6 @@ open class DefaultViewModel @Inject constructor(
         secondInputType: InputType,
         inputListSize: Int
     ) {
-        // m12 Compare
-        m12CompareResultList.add(firstInputType == secondInputType)
-
         if (inputListSize < 2) return
 
         val eq = (firstInputType == secondInputType)
@@ -345,34 +342,33 @@ open class DefaultViewModel @Inject constructor(
 
         // inputListSize == 2 单独处理
         if (inputListSize == 2) {
+            m12CompareResultList.getOrPut(ColumnType.A) { mutableListOf() }.add(eq)
             m34CompareResultList.getOrPut(ColumnType.A) { mutableListOf() }.add(neq)
             return
         }
 
         // inputListSize >= 3 后三类按 n%3 走
         when (inputListSize % 3) {
-
-            // ==========================
-            // n % 3 == 0  → (A,B) = (==, !=)
-            // ==========================
             0 -> {
+                m12CompareResultList.getOrPut(ColumnType.A) { mutableListOf() }.add(eq)
+                m12CompareResultList.getOrPut(ColumnType.B) { mutableListOf() }.add(eq)
+                // n % 3 == 0  → (A,B) = (==, !=)
                 m34CompareResultList.getOrPut(ColumnType.A) { mutableListOf() }.add(eq)
                 m34CompareResultList.getOrPut(ColumnType.B) { mutableListOf() }.add(neq)
             }
 
-            // ==========================
-            // n % 3 == 1  → (B,C) = (==, !=)
-            // n % 3 == 1  → (B,C) = (==, !=)
-            // ==========================
             1 -> {
+                m12CompareResultList.getOrPut(ColumnType.B) { mutableListOf() }.add(eq)
+                m12CompareResultList.getOrPut(ColumnType.C) { mutableListOf() }.add(eq)
+                // n % 3 == 1  → (B,C) = (==, !=)
                 m34CompareResultList.getOrPut(ColumnType.B) { mutableListOf() }.add(eq)
                 m34CompareResultList.getOrPut(ColumnType.C) { mutableListOf() }.add(neq)
             }
 
-            // ==========================
-            // n % 3 == 2  → (A,C) = (!=, ==)
-            // ==========================
             2 -> {
+                m12CompareResultList.getOrPut(ColumnType.A) { mutableListOf() }.add(eq)
+                m12CompareResultList.getOrPut(ColumnType.C) { mutableListOf() }.add(eq)
+                // n % 3 == 2  → (A,C) = (!=, ==)
                 m34CompareResultList.getOrPut(ColumnType.A) { mutableListOf() }.add(neq)
                 m34CompareResultList.getOrPut(ColumnType.C) { mutableListOf() }.add(eq)
             }
@@ -564,44 +560,25 @@ open class DefaultViewModel @Inject constructor(
      * 更新 3 路策略 根据是否需要 getCompareResultPair 取 2 或 3 条历史
      */
     private fun update3WayStrategy(filledColumn: ColumnType) {
-        // 1) 更新 filledColumn —— 原实现对 filledColumn 用的是直接最近 2 条（看你原逻辑）
-        updateColumnStrategy(
-            column = filledColumn,
-            // 取 compare12：第一次与第二次 update 都使用同一来源，但长度需求不同
-            rawCompare12 = m12CompareResultList.takeLast(2),
-            rawCompare34 = m34CompareResultList[filledColumn]?.takeLast(2) ?: emptyList(),
-            is2ndRow = false
-        )
+        // 1) 更新 filledColumn
+        updateColumnStrategy(column = filledColumn)
 
-        // 2) 更新关联列 —— 原实现第二次 update 用的是可能需要 "第1/第3" 的逻辑（需要最近 3 条）
+        // 2) 更新关联列
         val relatedColumn = RELEVANCY_MAP[filledColumn] ?: return
-        // 对 compare12: 如果 getCompareResultPair 需要第1与第3，则给它最近三条
-        updateColumnStrategy(
-            column = relatedColumn,
-            rawCompare12 = m12CompareResultList.takeLast(3),    // 如果需要 pair(0,2),
-            rawCompare34 = m34CompareResultList[relatedColumn]?.takeLast(2) ?: emptyList(),
-            is2ndRow = true
-        )
+        updateColumnStrategy(column = relatedColumn)
     }
 
-    private fun updateColumnStrategy(
-        column: ColumnType,
-        rawCompare12: List<Boolean>,
-        rawCompare34: List<Boolean>,
-        is2ndRow: Boolean
-    ) {
-        mStrategy3WaysStateFlowList[column.value].update { current ->
-            val p12 = if (is2ndRow) rawCompare12.pairFirstThirdOrNull() else rawCompare12.pairFirstTwoOrNull()
-            val p34 = rawCompare34.pairFirstTwoOrNull()
-            if (column == ColumnType.A) {
-                mTestIndex += 1
-                if (is2ndRow) {
-                    Log.d("### 34", "2nd num$mTestIndex $p34 ")
-                } else {
-                    Log.d("### 34", "1st num$mTestIndex $p34 ")
-                }
-            }
+    private fun updateColumnStrategy(column: ColumnType) {
+        val rawCompare12 = m12CompareResultList[column]?.takeLast(2) ?: emptyList()
+        val rawCompare34 = m34CompareResultList[column]?.takeLast(2) ?: emptyList()
+        val p12 = rawCompare12.pairFirstTwoOrNull()
+        val p34 = rawCompare34.pairFirstTwoOrNull()
+        if (column == ColumnType.A) {
+            mTestIndex += 1
+            Log.d("### 34", "num$mTestIndex $p34 ")
+        }
 
+        mStrategy3WaysStateFlowList[column.value].update { current ->
             current.copy(
                 strategy12 = updateSingleStrategyListFor3Ways(current.strategy12, p12),
                 strategy34 = updateSingleStrategyListFor3Ways(current.strategy34, p34),
@@ -614,11 +591,6 @@ open class DefaultViewModel @Inject constructor(
     // 辅助：当 list 大小足够时返回 Pair(0,1) 或 Pair(0,2)（由需要决定）
     private fun List<Boolean>.pairFirstTwoOrNull(): Pair<Boolean, Boolean>? {
         return if (size >= 2) Pair(this[0], this[1]) else null
-    }
-
-    // 取 first(older) 和 third(older) —— 这里按原逻辑 getCompareResultPair 需要 (0,2)
-    private fun List<Boolean>.pairFirstThirdOrNull(): Pair<Boolean, Boolean>? {
-        return if (size >= 3) Pair(this[0], this[2]) else null
     }
 
     private fun Pair<Boolean, Boolean>?.inverted(): Pair<Boolean, Boolean>? {
