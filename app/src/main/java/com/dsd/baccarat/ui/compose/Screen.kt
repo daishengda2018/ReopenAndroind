@@ -732,14 +732,14 @@ private fun Strategy3WaysDisplay(
                 if (!mIsHistoryModel) {
                     when (selectedOption.intValue) {
                         1 -> TextItem(
-                            "${titleStr ?: "-"} : ${predictedValue1 ?: "-"}",
+                            predictedValue1 ?: "-",
                             color = if (predictedValue1.isNullOrEmpty()) Color.Gray else determineColor(predictedValue1),
                             width = (TITLE_WIDTH_MIDEM * 2),
                             isShowBorder = false
                         )
 
                         2 -> TextItem(
-                            "${titleStr ?: "-"} : ${predictedValue2 ?: "-"}",
+                            predictedValue2 ?: "-",
                             color = if (predictedValue2.isNullOrEmpty()) Color.Gray else determineColor(predictedValue2),
                             width = (TITLE_WIDTH_MIDEM * 2),
                             isShowBorder = false
@@ -866,9 +866,9 @@ fun TextItem(
     // 步骤 1: 根据 isSelected 状态决定背景色和文字颜色
     val backgroundColor = remember(isHighLight, isSelected, isObslate)
     {
-        if (isSelected) {
+        if (isSelected || isHighLight) {
             PurpleGrey80 // 选中时，使用主题色的淡色作为背景
-        } else if (isObslate || isHistory || isHighLight) {
+        } else if (isObslate || isHistory) {
             Color.LightGray
         } else {
             Color.Transparent // 未选中时，背景透明
