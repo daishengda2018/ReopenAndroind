@@ -18,7 +18,6 @@ import com.dsd.baccarat.data.Strategy3WyasDisplayItem
 import com.dsd.baccarat.data.Strategy3WyasItem
 import com.dsd.baccarat.data.StrategyGridInfo
 import com.dsd.baccarat.data.StrategyGridItem
-import com.dsd.baccarat.data.StrategyType
 import com.dsd.baccarat.data.TableDisplayItem
 import com.dsd.baccarat.data.TableItem
 import com.dsd.baccarat.data.TemporaryStorageRepository
@@ -61,7 +60,8 @@ open class DefaultViewModel @Inject constructor(
 
     protected var mOpenInputList: MutableList<InputEntity> = mutableListOf()
     protected var mBetResultList: MutableList<BetEntity> = mutableListOf()
-    protected var mCompareResultList: MutableList<Boolean> = mutableListOf()
+    protected var m12CompareResultList: MutableList<Boolean> = mutableListOf()
+    protected var m34CompareResultList: MutableMap<ColumnType, MutableList<Boolean>> = mutableMapOf()
 
     protected val mWlTableStateFlow = MutableStateFlow<List<TableDisplayItem>>(DEFAULT_TABLE_DISPLAY_LIST)
     val wlTableStateFlow: StateFlow<List<TableDisplayItem>> = mWlTableStateFlow.asStateFlow()
@@ -124,9 +124,6 @@ open class DefaultViewModel @Inject constructor(
     protected val mInputTextStateFlow = MutableStateFlow("")
     val inputText: StateFlow<String> = mInputTextStateFlow.asStateFlow()
 
-    protected var mIsFirstAFor3Ways = true
-    protected var mIsFirstBFor3Ways = true
-
     // 所有存在数据的日期（去重后）
     private val _availableDates = MutableStateFlow<List<GameSessionEntity>>(emptyList())
     val availableDates: StateFlow<List<GameSessionEntity>> = _availableDates
@@ -143,6 +140,8 @@ open class DefaultViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
     private var mGameId = ""
+
+    var mTestIndex = 0
 
     init {
         setup()
@@ -316,7 +315,13 @@ open class DefaultViewModel @Inject constructor(
     private fun updateOpenData() {
         // 所有预测，
         updateAllPredictions()
-        updateCompareResultList()
+        if (mOpenInputList.size >= 2) {
+            val last2Inputs = mOpenInputList.takeLast(2)
+            val firstInputType = last2Inputs[0].inputType
+            val secondInputType = last2Inputs[1].inputType
+            updateCompareResultList(firstInputType, secondInputType, mOpenInputList.size)
+        }
+
         // BPPC 表格和策略
         val lastInput = mOpenInputList.last()
         val last3Inputs = mOpenInputList.takeLast(MIX_CONBINATION_ITEM_COUNT)
@@ -325,10 +330,53 @@ open class DefaultViewModel @Inject constructor(
         updateWlTable()
     }
 
-    private fun updateCompareResultList() {
-        if (mOpenInputList.size < 2) return
-        val last2Inputs = mOpenInputList.takeLast(2)
-        mCompareResultList.add(last2Inputs[0].inputType == last2Inputs[1].inputType)
+    private fun updateCompareResultList(
+        firstInputType: InputType,
+        secondInputType: InputType,
+        inputListSize: Int
+    ) {
+        // m12 Compare
+        m12CompareResultList.add(firstInputType == secondInputType)
+
+        if (inputListSize < 2) return
+
+        val eq = (firstInputType == secondInputType)
+        val neq = !eq
+
+        // inputListSize == 2 单独处理
+        if (inputListSize == 2) {
+            m34CompareResultList.getOrPut(ColumnType.A) { mutableListOf() }.add(neq)
+            return
+        }
+
+        // inputListSize >= 3 后三类按 n%3 走
+        when (inputListSize % 3) {
+
+            // ==========================
+            // n % 3 == 0  → (A,B) = (==, !=)
+            // ==========================
+            0 -> {
+                m34CompareResultList.getOrPut(ColumnType.A) { mutableListOf() }.add(eq)
+                m34CompareResultList.getOrPut(ColumnType.B) { mutableListOf() }.add(neq)
+            }
+
+            // ==========================
+            // n % 3 == 1  → (B,C) = (==, !=)
+            // n % 3 == 1  → (B,C) = (==, !=)
+            // ==========================
+            1 -> {
+                m34CompareResultList.getOrPut(ColumnType.B) { mutableListOf() }.add(eq)
+                m34CompareResultList.getOrPut(ColumnType.C) { mutableListOf() }.add(neq)
+            }
+
+            // ==========================
+            // n % 3 == 2  → (A,C) = (!=, ==)
+            // ==========================
+            2 -> {
+                m34CompareResultList.getOrPut(ColumnType.A) { mutableListOf() }.add(neq)
+                m34CompareResultList.getOrPut(ColumnType.C) { mutableListOf() }.add(eq)
+            }
+        }
     }
 
     private fun updateBppcAndStrantegy(lastInput: InputEntity, last3Inputs: List<InputEntity>) {
@@ -401,13 +449,14 @@ open class DefaultViewModel @Inject constructor(
      */
     private fun predictNextStrategyValue(title: String, inputHistory: MutableList<InputEntity>): PredictedStrategy3WaysValue {
         val lastInput = inputHistory.last().inputType
-        val isLastIndexEven = inputHistory.lastIndex % 2 == 0
+        val isOddNumber = (inputHistory.lastIndex % 2 != 0)
         fun flip(input: InputType) = if (input == InputType.B) InputType.P else InputType.B
 
         val strategy12 = lastInput.value
         val strategy56 = flip(lastInput).value
-        val strategy34 = (if (isLastIndexEven) lastInput else flip(lastInput)).value
-        val strategy78 = (if (isLastIndexEven) flip(lastInput) else lastInput).value
+
+        val strategy34 = (if (isOddNumber) lastInput else flip(lastInput)).value
+        val strategy78 = (if (isOddNumber) flip(lastInput) else lastInput).value
 
         return PredictedStrategy3WaysValue(title, strategy12, strategy34, strategy56, strategy78)
     }
@@ -512,52 +561,75 @@ open class DefaultViewModel @Inject constructor(
     }
 
     /**
-     * 更新 3 种策略
+     * 更新 3 路策略 根据是否需要 getCompareResultPair 取 2 或 3 条历史
      */
     private fun update3WayStrategy(filledColumn: ColumnType) {
-        mStrategy3WaysStateFlowList[filledColumn.value].update { currentStrategyData ->
-            val compareResultList = mCompareResultList.takeLast(2)
-            val compareResultPair = Pair(compareResultList[0], compareResultList[1])
-            currentStrategyData.copy(
-                strategy12 = updateSingleStrategyListFor3Ways(StrategyType.STRATEGY_12, currentStrategyData.strategy12, compareResultPair),
-                strategy34 = updateSingleStrategyListFor3Ways(StrategyType.STRATEGY_34, currentStrategyData.strategy34, compareResultPair),
-                strategy56 = updateSingleStrategyListFor3Ways(StrategyType.STRATEGY_56, currentStrategyData.strategy56, compareResultPair),
-                strategy78 = updateSingleStrategyListFor3Ways(StrategyType.STRATEGY_78, currentStrategyData.strategy78, compareResultPair)
-            )
-        }
+        // 1) 更新 filledColumn —— 原实现对 filledColumn 用的是直接最近 2 条（看你原逻辑）
+        updateColumnStrategy(
+            column = filledColumn,
+            // 取 compare12：第一次与第二次 update 都使用同一来源，但长度需求不同
+            rawCompare12 = m12CompareResultList.takeLast(2),
+            rawCompare34 = m34CompareResultList[filledColumn]?.takeLast(2) ?: emptyList(),
+            is2ndRow = false
+        )
 
-        val columnType = RELEVANCY_MAP[filledColumn] ?: return
-        val compareResultList = mCompareResultList.takeLast(3)
-        val compareResultPair = if (filledColumn == ColumnType.A && mIsFirstAFor3Ways) {
-            mIsFirstAFor3Ways = false
-            null
-        } else if (filledColumn == ColumnType.B && mIsFirstBFor3Ways) {
-            mIsFirstBFor3Ways = false
-            null
-        } else {
-            if (compareResultList.size >= 3) {
-                Pair(compareResultList[0], compareResultList[2])
-            } else {
-                null
+        // 2) 更新关联列 —— 原实现第二次 update 用的是可能需要 "第1/第3" 的逻辑（需要最近 3 条）
+        val relatedColumn = RELEVANCY_MAP[filledColumn] ?: return
+        // 对 compare12: 如果 getCompareResultPair 需要第1与第3，则给它最近三条
+        updateColumnStrategy(
+            column = relatedColumn,
+            rawCompare12 = m12CompareResultList.takeLast(3),    // 如果需要 pair(0,2),
+            rawCompare34 = m34CompareResultList[relatedColumn]?.takeLast(2) ?: emptyList(),
+            is2ndRow = true
+        )
+    }
+
+    private fun updateColumnStrategy(
+        column: ColumnType,
+        rawCompare12: List<Boolean>,
+        rawCompare34: List<Boolean>,
+        is2ndRow: Boolean
+    ) {
+        mStrategy3WaysStateFlowList[column.value].update { current ->
+            val p12 = if (is2ndRow) rawCompare12.pairFirstThirdOrNull() else rawCompare12.pairFirstTwoOrNull()
+            val p34 = rawCompare34.pairFirstTwoOrNull()
+            if (column == ColumnType.A) {
+                mTestIndex += 1
+                if (is2ndRow) {
+                    Log.d("### 34", "2nd num$mTestIndex $p34 ")
+                } else {
+                    Log.d("### 34", "1st num$mTestIndex $p34 ")
+                }
             }
-        }
 
-        mStrategy3WaysStateFlowList[columnType.value].update { currentStrategyData ->
-            currentStrategyData.copy(
-                strategy12 = updateSingleStrategyListFor3Ways(StrategyType.STRATEGY_12, currentStrategyData.strategy12, compareResultPair),
-                strategy34 = updateSingleStrategyListFor3Ways(StrategyType.STRATEGY_34, currentStrategyData.strategy34, compareResultPair),
-                strategy56 = updateSingleStrategyListFor3Ways(StrategyType.STRATEGY_56, currentStrategyData.strategy56, compareResultPair),
-                strategy78 = updateSingleStrategyListFor3Ways(StrategyType.STRATEGY_78, currentStrategyData.strategy78, compareResultPair),
+            current.copy(
+                strategy12 = updateSingleStrategyListFor3Ways(current.strategy12, p12),
+                strategy34 = updateSingleStrategyListFor3Ways(current.strategy34, p34),
+                strategy56 = updateSingleStrategyListFor3Ways(current.strategy56, p12.inverted()),
+                strategy78 = updateSingleStrategyListFor3Ways(current.strategy78, p34.inverted()),
             )
         }
     }
 
+    // 辅助：当 list 大小足够时返回 Pair(0,1) 或 Pair(0,2)（由需要决定）
+    private fun List<Boolean>.pairFirstTwoOrNull(): Pair<Boolean, Boolean>? {
+        return if (size >= 2) Pair(this[0], this[1]) else null
+    }
+
+    // 取 first(older) 和 third(older) —— 这里按原逻辑 getCompareResultPair 需要 (0,2)
+    private fun List<Boolean>.pairFirstThirdOrNull(): Pair<Boolean, Boolean>? {
+        return if (size >= 3) Pair(this[0], this[2]) else null
+    }
+
+    private fun Pair<Boolean, Boolean>?.inverted(): Pair<Boolean, Boolean>? {
+        return this?.let { Pair(!it.first, !it.second) }
+    }
+
     private fun updateSingleStrategyListFor3Ways(
-        strategyType: StrategyType,
         currentList: List<Strategy3WyasDisplayItem>,
         compareResultPair: Pair<Boolean, Boolean>?
     ): List<Strategy3WyasDisplayItem> {
-        val newValue = if (compareResultPair == null) -1 else computeStrategyValue(strategyType, compareResultPair)
+        val newValue = if (compareResultPair == null) -1 else strategyMap[compareResultPair]
         val updatedList = currentList.toMutableList()
         val lastRealIndex = updatedList.indexOfLast { it is Strategy3WyasDisplayItem.Real }
 
@@ -586,15 +658,6 @@ open class DefaultViewModel @Inject constructor(
             }
         }
         return updatedList
-    }
-
-    private fun computeStrategyValue(type: StrategyType, compareResultPair: Pair<Boolean, Boolean>): Int {
-        return when (type) {
-            StrategyType.STRATEGY_12 -> strategy12Map[compareResultPair] ?: 4
-            StrategyType.STRATEGY_34 -> strategy34Map[compareResultPair] ?: 4
-            StrategyType.STRATEGY_56 -> strategy56Map[compareResultPair] ?: 4
-            StrategyType.STRATEGY_78 -> strategy78Map[compareResultPair] ?: 4
-        }
     }
 
     /**
@@ -727,10 +790,11 @@ open class DefaultViewModel @Inject constructor(
 
     protected fun resumeOpenedData() {
         clearBppcStateFlow()
+        Log.d("###", "resumeOpenedData ${mOpenInputList.map { it.inputType }}")
         // 从头重建（仅在 i >= 2 时触发表格/策略更新）
         for (i in mOpenInputList.indices) {
             if (i >= 1) {
-                mCompareResultList.add(mOpenInputList[i - 1].inputType == mOpenInputList[i].inputType)
+                updateCompareResultList(mOpenInputList[i - 1].inputType, mOpenInputList[i].inputType, i + 1)
             }
             if (i >= 2) {
                 val last3Inputs = mOpenInputList.subList(0, i + 1).takeLast(3)
@@ -863,7 +927,8 @@ open class DefaultViewModel @Inject constructor(
 
         mInputTextStateFlow.value = ""
         mOpenInputList.clear()
-        mCompareResultList.clear()
+        m12CompareResultList.clear()
+        m34CompareResultList.clear()
         viewModelScope.launch {
             repository.saveNoteText("")
             repository.saveOpendList(mOpenInputList)
@@ -881,6 +946,7 @@ open class DefaultViewModel @Inject constructor(
         super.onCleared()
         stopTimerJob()
     }
+
 
     companion object {
         private const val THRESHOLD_HAS_SHOWED_CONBINATION = 5
@@ -920,17 +986,11 @@ open class DefaultViewModel @Inject constructor(
             "LWL" to 5, "WLW" to 6, "LLW" to 7, "WWL" to 8
         )
 
-        private val strategy12Map = mapOf(
-            Pair(true, true) to 1, Pair(false, false) to 2, Pair(true, false) to 3
-        )
-        private val strategy34Map = mapOf(
-            Pair(false, true) to 1, Pair(true, true) to 2, Pair(false, false) to 3
-        )
-        private val strategy56Map = mapOf(
-            Pair(false, false) to 1, Pair(true, true) to 2, Pair(false, true) to 3
-        )
-        private val strategy78Map = mapOf(
-            Pair(true, false) to 1, Pair(false, true) to 2, Pair(true, true) to 3
+        private val strategyMap = mapOf(
+            Pair(true, true) to 1,
+            Pair(false, false) to 2,
+            Pair(true, false) to 3,
+            Pair(false, true) to 4
         )
 
         val RELEVANCY_MAP = mapOf(ColumnType.A to ColumnType.B, ColumnType.B to ColumnType.C, ColumnType.C to ColumnType.A)
