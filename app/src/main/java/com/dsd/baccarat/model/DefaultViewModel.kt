@@ -707,8 +707,8 @@ open class DefaultViewModel @Inject constructor(
                     }
 
                     if (isAllItemsMismatch) {
-                        // 所有 item 都不匹配时，标记 isObslate = true
-                        item.copy(isObslate = true)
+                        // 所有 item 都不匹配时，标记 isObsolete = true
+                        item.copy(isObsolete = true)
                     } else {
                         item
                     }
@@ -719,19 +719,19 @@ open class DefaultViewModel @Inject constructor(
             }
 
             // 如果所有形态都被删除了，不再预测
-            if (result.itemList.none { !it.isObslate }) {
+            if (result.itemList.none { !it.isObsolete }) {
                 return@update result
             }
 
             val currentIndex = actualOpenedList.size
             val aRowItemList = if (actualOpenedList.isEmpty()) {
                 // 情况1: actualOpenedList 为空，直接提取当前索引的值
-                result.itemList.filterNot { it.isObslate }.map { it.items[currentIndex] }
+                result.itemList.filterNot { it.isObsolete }.map { it.items[currentIndex] }
             } else {
                 // 情况2: 过滤掉与 actualOpenedList 完全匹配的项，提取当前索引的值
                 result.itemList
                     // 过滤掉已经排除的形态
-                    .filterNot { it.isObslate }
+                    .filterNot { it.isObsolete }
                     .filterNot { item ->
                         item.items.withIndex().any { (index, value) ->
                             index < actualOpenedList.size && value == actualOpenedList[index]

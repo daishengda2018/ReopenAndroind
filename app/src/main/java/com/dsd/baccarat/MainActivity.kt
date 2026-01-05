@@ -1,29 +1,26 @@
 package com.dsd.baccarat
 
-import android.content.pm.ActivityInfo
-import android.os.Bundle
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import com.dsd.baccarat.model.DefaultViewModel
-import com.dsd.baccarat.ui.compose.Screen
-import com.dsd.baccarat.ui.theme.ReopenAndroidTheme
+import androidx.compose.runtime.Composable
+import com.dsd.baccarat.ui.game.GameScreen
+import com.dsd.baccarat.viewmodel.GameViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
+/**
+ * 主 Activity - 游戏主界面
+ *
+ * 使用新的 UDF (Unidirectional Data Flow) 架构
+ */
 @AndroidEntryPoint
-class MainActivity : ComponentActivity() {
-    private val viewModel: DefaultViewModel by viewModels()
+class MainActivity : BaseActivity() {
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+    // 使用新的 UDF 架构的 ViewModel
+    private val viewModel: GameViewModel by viewModels()
 
-        enableEdgeToEdge()
-        setContent {
-            ReopenAndroidTheme {
-                Screen(viewModel)
-            }
-        }
+
+    @Composable
+    override fun Content() {
+        // 使用新的 GameScreen（UDF 架构）
+        GameScreen(viewModel = viewModel)
     }
 }

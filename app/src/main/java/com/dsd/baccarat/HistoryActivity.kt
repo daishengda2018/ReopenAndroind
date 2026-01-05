@@ -1,39 +1,38 @@
 package com.dsd.baccarat
 
-import android.content.pm.ActivityInfo
-import android.os.Bundle
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import com.dsd.baccarat.model.DefaultViewModel.Companion.KEY_END_TIME
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import com.dsd.baccarat.model.DefaultViewModel.Companion.KEY_GAME_ID
 import com.dsd.baccarat.model.DefaultViewModel.Companion.KEY_START_TIME
-import com.dsd.baccarat.model.HistoryViewModel
-import com.dsd.baccarat.ui.compose.Screen
-import com.dsd.baccarat.ui.theme.ReopenAndroidTheme
+import com.dsd.baccarat.ui.game.GameScreen
+import com.dsd.baccarat.ui.game.state.GameUiEvent
+import com.dsd.baccarat.viewmodel.GameViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
 /**
+ * 历史记录 Activity
+ *
+ * 使用统一的 GameViewModel 和 GameScreen 架构
  * Create by Shengda 2025/11/4 20:05
  */
 @AndroidEntryPoint
-class HistoryActivity : ComponentActivity() {
-    private val viewModel: HistoryViewModel by viewModels()
+class HistoryActivity : BaseActivity() {
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-        val gameID = intent.getStringExtra(KEY_GAME_ID) ?: ""
-        val startTime = intent.getLongExtra(KEY_START_TIME, 0)
-        val endTime = intent.getLongExtra(KEY_END_TIME, 0)
-        viewModel.loadHistory(gameID, startTime)
+    private val viewModel: GameViewModel by viewModels()
 
-        enableEdgeToEdge()
-        setContent {
-            ReopenAndroidTheme {
-                Screen(viewModel, true, startTime, endTime)
-            }
+    @Composable
+    override fun Content() {
+        // 从 Intent 中获取参数
+        val gameID = intent?.getStringExtra(KEY_GAME_ID) ?: ""
+        val startTime = intent?.getLongExtra(KEY_START_TIME, 0) ?: 0
+
+        // 只在首次加载时触发历史数据加载
+        LaunchedEffect(Unit) {
+            viewModel.onEvent(GameUiEvent.LoadHistory(gameId = gameID, startTime = startTime))
         }
+
+        // 使用统一的 GameScreen
+        GameScreen(viewModel = viewModel)
     }
 }

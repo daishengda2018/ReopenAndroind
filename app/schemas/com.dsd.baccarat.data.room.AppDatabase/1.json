@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "f492c950a4c0b79cfd298f60674f25e9",
+    "identityHash": "8a768b278c97f4ac77e7dfb59b68b650",
     "entities": [
       {
         "tableName": "input_data",
@@ -165,7 +165,7 @@
       },
       {
         "tableName": "game_sessions",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`gameId` TEXT NOT NULL, `startTime` INTEGER NOT NULL, `endTime` INTEGER, `isActive` INTEGER NOT NULL, PRIMARY KEY(`gameId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`gameId` TEXT NOT NULL, `startTime` INTEGER NOT NULL, `endTime` INTEGER NOT NULL, `isActive` INTEGER NOT NULL, PRIMARY KEY(`gameId`))",
         "fields": [
           {
             "fieldPath": "gameId",
@@ -182,7 +182,8 @@
           {
             "fieldPath": "endTime",
             "columnName": "endTime",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true
           },
           {
             "fieldPath": "isActive",
@@ -230,7 +231,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'f492c950a4c0b79cfd298f60674f25e9')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '8a768b278c97f4ac77e7dfb59b68b650')"
     ]
   }
 }
