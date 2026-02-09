@@ -1,0 +1,113 @@
+---
+id: reopen-android-udf-architecture
+trigger: "when adding new UI features or modifying ViewModels"
+confidence: 0.95
+domain: architecture
+source: local-repo-analysis
+---
+
+# Follow Unidirectional Data Flow (UDF) Architecture
+
+## Action
+All new UI features MUST follow Google's UDF architecture pattern. Do not use the legacy MVVM pattern found in `model/DefaultViewModel.kt`.
+
+## Implementation Pattern
+
+**1. Define State in UiState:**
+```kotlin
+// Add to ui/game/state/GameUiState.kt
+data class GameUiState(
+    val newField: String = "",
+    val newItemList: List<Item> = emptyList()
+)
+```
+
+**2. Define Event in UiEvent:**
+```kotlin
+// Add to ui/game/state/GameUiEvent.kt
+sealed class GameUiEvent {
+    data object NewAction : GameUiEvent()
+    data class UpdateField(val value: String) : GameUiEvent()
+}
+```
+
+**3. Handle in ViewModel:**
+```kotlin
+// In viewmodel/GameViewModel.kt
+fun onEvent(event: GameUiEvent) {
+    when (event) {
+        is GameUiEvent.NewAction -> {
+            _uiState.update { it.copy(
+                newField = "updated"
+            )}
+        }
+    }
+}
+```
+
+**4. Create Pure Component:**
+```kotlin
+// In ui/game/components/
+@Composable
+fun NewComponent(
+    data: String,
+    onEvent: (GameUiEvent) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Button(onClick = { onEvent(GameUiEvent.NewAction) }) {
+        Text(data)
+    }
+}
+```
+
+## Evidence
+- Major refactor completed in commit 946eed3: "[refactor] 使用 Claude 重构所有"
+- Refactor documented in REFACTOR_SUMMARY.md
+- Old 1129-line Screen.kt replaced with 15+ modular components
+- Legacy DefaultViewModel.kt (976 lines) marked for deprecation
+- Project strictly follows Google's official UDF best practices
+
+## Anti-Patterns to Avoid
+
+❌ **DO NOT** pass ViewModels to UI components:
+```kotlin
+// WRONG
+@Composable
+fun BadComponent(viewModel: GameViewModel) { }
+```
+
+✅ **DO** pass pure data and event handlers:
+```kotlin
+// CORRECT
+@Composable
+fun GoodComponent(
+    data: String,
+    onEvent: (GameUiEvent) -> Unit
+) { }
+```
+
+❌ **DO NOT** create multiple StateFlows:
+```kotlin
+// WRONG
+private val _state1 = MutableStateFlow(...)
+private val _state2 = MutableStateFlow(...)
+```
+
+✅ **DO** use single state source:
+```kotlin
+// CORRECT
+data class UiState(
+    val state1: Type1,
+    val state2: Type2
+)
+private val _uiState = MutableStateFlow(UiState())
+```
+
+## Legacy Files to Avoid
+- `ui/compose/Screen.kt` - Old monolithic screen (1129 lines)
+- `model/DefaultViewModel.kt` - Old ViewModel without UDF (976 lines)
+
+## When to Use
+- Every new UI feature
+- Every modification to existing UI logic
+- Every state management change

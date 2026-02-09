@@ -1,0 +1,81 @@
+---
+id: reopen-android-component-organization
+trigger: "when creating new UI components"
+confidence: 0.85
+domain: code-organization
+source: local-repo-analysis
+---
+
+# Organize UI Components by Function
+
+## Action
+Place new UI components in appropriate subdirectories under `ui/game/components/` based on their function.
+
+## Directory Structure
+
+```
+ui/game/components/
+├── common/          # Reusable general-purpose components
+├── input/           # User input controls (buttons, text fields)
+├── layout/          # Layout structure (sections, containers)
+├── strategy/        # Strategy display components
+└── table/           # Tables and charts
+```
+
+## Component Placement Guide
+
+**common/** - General-purpose, reusable components:
+- `TextItem.kt` - Text display items
+- `CounterDisplay.kt` - Counter displays
+- `CurrentTimeDisplay.kt` - Time displays
+- `NotificationSoundEffect.kt` - Sound effects
+
+**input/** - User input controls:
+- `InputButtons.kt` - Button groups
+- Any text inputs, switches, or interactive elements
+
+**layout/** - Structural layout components:
+- `LeftSideSection.kt` - Left panel layout
+- `RightSideSection.kt` - Right panel layout
+- Any sections, panels, or structural containers
+
+**strategy/** - Strategy-specific displays:
+- `Strategy3WaysDisplay.kt` - Three-way strategy
+- `StrategyGridDisplay.kt` - Grid strategy
+- Any strategy visualization components
+
+**table/** - Data tables and charts:
+- `GameTable.kt` - Game data tables
+- `VerticalBarChart.kt` - Bar charts
+- Any tabular data or chart visualizations
+
+## File Naming Conventions
+
+- **Display components**: `*Display.kt` (e.g., `CounterDisplay.kt`)
+- **Button groups**: `*Buttons.kt` (e.g., `InputButtons.kt`)
+- **Layout sections**: `*Section.kt` (e.g., `LeftSideSection.kt`)
+- **Screens**: `*Screen.kt` (e.g., `GameScreen.kt`)
+- **Strategy components**: `Strategy*Display.kt` or `Strategy*.kt`
+
+## Evidence
+- Refactor created 15+ modular components from single 1129-line file
+- Clear functional separation documented in REFACTOR_SUMMARY.md
+- Components organized by purpose, not by UI similarity
+- Each component is 50-200 lines (focused and maintainable)
+
+## Anti-Patterns
+
+❌ **DO NOT** create large monolithic files (>400 lines)
+❌ **DO NOT** put all components in one directory
+❌ **DO NOT** mix concerns (e.g., display + layout + input in one file)
+❌ **DO NOT** create components that can't be reused
+
+✅ **DO** keep components focused (single responsibility)
+✅ **DO** organize by function/purpose
+✅ **DO** make components stateless and reusable
+✅ **DO** pass data via parameters, not ViewModels
+
+## When to Use
+- Every new UI component
+- When extracting components from large files
+- When refactoring existing UI code

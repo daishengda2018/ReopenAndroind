@@ -1,0 +1,51 @@
+---
+id: reopen-android-commit-convention
+trigger: "when writing a commit message"
+confidence: 0.75
+domain: git
+source: local-repo-analysis
+---
+
+# Use Conventional Commits with Chinese Support
+
+## Action
+When committing changes to this project, use conventional commit prefixes. The team accepts both English and Chinese commit messages.
+
+## Valid Commit Types
+
+**English prefixes:**
+- `feat:` - New features (e.g., "feat: add grid strategy display")
+- `fix:` - Bug fixes (e.g., "fix: incorrect counter calculation")
+- `refactor:` - Code refactoring (e.g., "refactor: extract duplicate code")
+- `chore:` - Maintenance tasks
+- `docs:` - Documentation changes
+- `test:` - Test additions/changes
+- `perf:` - Performance improvements
+
+**Chinese patterns:**
+- `[feat]` - New features (e.g., "[feat] 九宫格策略")
+- `fix:` - Bug fixes (e.g., "fix: 九宫格策略")
+- `[refactor]` - Major refactoring (e.g., "[refactor] 使用 Claude 重构所有")
+- Feature descriptions in Chinese are accepted
+
+## Evidence
+- Analyzed 200 commits from ReopenAndroid repository
+- ~40% follow conventional commit format (feat:, fix:, refactor:)
+- ~30% use bracketed format ([feat], [refactor])
+- ~30% use simple descriptive messages
+- Mixed language usage (English/Chinese) is common and accepted
+
+## Examples
+
+```bash
+# English conventional
+feat: add three-way strategy prediction
+fix: resolve timer memory leak
+refactor: extract common UI components
+
+# Chinese conventional
+[feat] 三路策略的预测
+fix: 九宫格策略
+[refactor] 使用 Claude 重构所有
+refactor: remove dead code and improve constants usage
+```

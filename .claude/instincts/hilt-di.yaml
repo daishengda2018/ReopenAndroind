@@ -1,0 +1,132 @@
+---
+id: reopen-android-hilt-di
+trigger: "when adding dependencies or creating new classes"
+confidence: 0.90
+domain: dependency-injection
+source: local-repo-analysis
+---
+
+# Use Hilt for Dependency Injection
+
+## Action
+Use Hilt annotations for all dependency injection. Do not manually instantiate dependencies or pass contexts unnecessarily.
+
+## Provide Dependencies
+
+**In AppModule.kt:**
+```kotlin
+@Module
+@InstallIn(SingletonComponent::class)
+object AppModule {
+
+    @Provides
+    @Singleton
+    fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
+        return Room.databaseBuilder(
+            context,
+            AppDatabase::class.java,
+            "baccarat_database"
+        ).build()
+    }
+
+    @Provides
+    fun provideInputDao(database: AppDatabase): InputDataDao =
+        database.inputDataDao()
+
+    @Provides
+    @Singleton
+    fun provideRepository(
+        dao: InputDataDao,
+        dataStore: DataStore<Preferences>
+    ): TemporaryStorageRepository {
+        return TemporaryStorageRepository(dao, dataStore)
+    }
+}
+```
+
+## Inject Dependencies
+
+**In ViewModels:**
+```kotlin
+@HiltViewModel
+class GameViewModel @Inject constructor(
+    private val repository: TemporaryStorageRepository,
+    private val dao: InputDataDao
+) : ViewModel()
+```
+
+**In Activities:**
+```kotlin
+@AndroidEntryPoint
+class MainActivity : ComponentActivity() {
+    private val viewModel: GameViewModel by viewModels()
+}
+```
+
+**In Repositories or other classes:**
+```kotlin
+@Singleton
+class TemporaryStorageRepository @Inject constructor(
+    private val inputDataDao: InputDataDao,
+    private val dataStore: DataStore<Preferences>
+)
+```
+
+## Scopes
+
+- `@Singleton`: Application scope (created once, lives forever)
+- `@ActivityRetainedScoped`: Survive activity recreation
+- `@ViewModelScoped`: One per ViewModel instance
+- No scope = New instance each time
+
+## Qualifiers
+
+Use qualifiers when multiple implementations of same type:
+
+```kotlin
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class InputDao
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class BetDao
+```
+
+## Evidence
+- Hilt configured in app/build.gradle.kts (lines 8, 78-79)
+- AppModule.kt provides all dependencies
+- All ViewModels use @HiltViewModel and @Inject
+- MainActivity uses @AndroidEntryPoint
+- Repository pattern with DI throughout project
+
+## Anti-Patterns
+
+❌ **DO NOT** manually instantiate dependencies:
+```kotlin
+// WRONG
+class MyViewModel : ViewModel() {
+    private val db = Room.databaseBuilder(/*...*/).build()
+}
+```
+
+❌ **DO NOT** pass Context through constructors unless needed:
+```kotlin
+// AVOID
+class MyRepository(@ApplicationContext context: Context)
+```
+
+✅ **DO** use Hilt to provide and inject:
+```kotlin
+// CORRECT
+@HiltViewModel
+class MyViewModel @Inject constructor(
+    private val repository: MyRepository
+) : ViewModel()
+```
+
+## When to Use
+- Creating new ViewModels
+- Creating new repositories
+- Adding dependencies to existing classes
+- Providing application-level singletons

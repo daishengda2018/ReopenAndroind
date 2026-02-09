@@ -1,0 +1,102 @@
+---
+id: reopen-android-immutable-state
+trigger: "when updating UI state in ViewModel"
+confidence: 0.95
+domain: state-management
+source: local-repo-analysis
+---
+
+# Use Immutable State Updates
+
+## Action
+Always use immutable updates when modifying StateFlow state in ViewModels. Never mutate state directly.
+
+## Correct Pattern
+
+```kotlin
+// CORRECT: Immutable update with copy()
+_uiState.update { currentState ->
+    currentState.copy(
+        bppcCounter = currentState.bppcCounter.copy(
+            value1 = newValue,
+            value2 = updatedValue2
+        ),
+        timerState = currentState.timerState.copy(
+            isRunning = true
+        )
+    )
+}
+```
+
+## Incorrect Patterns
+
+❌ **WRONG**: Direct mutation
+```kotlin
+// DON'T DO THIS
+_uiState.value.bppcCounter.value1 = newValue
+_uiState.value.timerState.isRunning = true
+```
+
+❌ **WRONG**: Partial updates without copy()
+```kotlin
+// DON'T DO THIS
+_uiState.value.bppcCounter.value1 = newValue  // Mutation!
+```
+
+## Nested State Updates
+
+For nested data classes, chain copy() calls:
+
+```kotlin
+// Deep nested update
+_uiState.update { it.copy(
+    nestedObject = it.nestedObject.copy(
+        deepNested = it.nestedObject.deepNested.copy(
+            field = newValue
+        )
+    )
+)}
+```
+
+## Collection Updates
+
+```kotlin
+// Add to list
+_uiState.update { it.copy(
+    items = it.items + newItem
+)}
+
+// Remove from list
+_uiState.update { it.copy(
+    items = it.items.filter { item -> item.id != idToRemove }
+)}
+
+// Update item in list
+_uiState.update { it.copy(
+    items = it.items.map { item ->
+        if (item.id == targetId) item.copy(name = newName)
+        else item
+    }
+)}
+```
+
+## Evidence
+- Project uses UDF architecture which requires immutability
+- StateFlow<GameUiState> is single source of truth
+- All state classes are data classes (immutable by design)
+- Documented in REFACTOR_SUMMARY.md as core architectural principle
+- Compose recomposition depends on immutable state
+
+## Benefits
+
+1. **Thread-safe**: No concurrent modification issues
+2. **Predictable**: Easy to track state changes
+3. **Debuggable**: State history can be logged
+4. **Compose-friendly**: Triggers recomposition correctly
+5. **Testable**: Easy to verify state transitions
+
+## When to Use
+- Every state update in ViewModel
+- Every StateFlow modification
+- Every data class update
+- Every collection modification

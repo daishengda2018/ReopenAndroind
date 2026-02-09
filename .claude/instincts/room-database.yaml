@@ -1,0 +1,86 @@
+---
+id: reopen-android-room-workflow
+trigger: "when modifying database schema or entities"
+confidence: 0.90
+domain: database
+source: local-repo-analysis
+---
+
+# Room Database Schema Change Workflow
+
+## Action
+Follow this strict sequence when making database changes to ensure proper migration and schema generation.
+
+## Workflow Steps
+
+**1. Modify Entity:**
+```kotlin
+// In data/room/entity/
+@Entity(tableName = "game_sessions")
+data class GameSessionEntity(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+    val newField: String  // Add new field
+)
+```
+
+**2. Update DAO if needed:**
+```kotlin
+// In data/room/dao/
+@Dao
+interface GameSessionDao {
+    @Query("SELECT * FROM game_sessions")
+    fun getAll(): Flow<List<GameSessionEntity>>
+}
+```
+
+**3. Increment Database Version:**
+```kotlin
+// In data/room/AppDatabase.kt
+@Database(
+    entities = [/* entities */],
+    version = 2,  // INCREMENT THIS
+    exportSchema = true
+)
+abstract class AppDatabase : RoomDatabase()
+```
+
+**4. Add Migration if needed:**
+```kotlin
+val MIGRATION_1_2 = object : Migration(1, 2) {
+    override fun migrate(database: SupportSQLiteDatabase) {
+        database.execSQL("ALTER TABLE game_sessions ADD COLUMN newField TEXT")
+    }
+}
+```
+
+**5. Build to Generate Schema:**
+```bash
+./gradlew assembleDebug
+```
+
+Schema JSON will be auto-generated to: `app/schemas/com.dsd.baccarat.data.room.AppDatabase/[version].json`
+
+## Evidence
+- Room schema configuration in app/build.gradle.kts:41-43
+- Schema directory set to `app/schemas/`
+- Multiple schema versions exist: `app/schemas/com.dsd.baccarat.data.room.AppDatabase/1.json`
+- Database changes appear frequently in commit history (8+ database-related commits)
+- KSP annotation processor configured for Room
+
+## Common Mistakes
+
+❌ **FORGET** to increment version → Build error or runtime crash
+❌ **FORGET** to add migration → Data loss on app update
+❌ **FORGET** to build after changes → Schema not generated
+
+✅ **ALWAYS** increment version when entities change
+✅ **ALWAYS** provide migration for production data
+✅ **ALWAYS** build to generate schema JSON
+✅ **ALWAYS** commit schema JSON files
+
+## When to Use
+- Adding new entity fields
+- Creating new entities
+- Modifying table structure
+- Changing column types or constraints
