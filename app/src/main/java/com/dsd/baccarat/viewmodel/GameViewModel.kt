@@ -480,7 +480,7 @@ class GameViewModel @Inject constructor(
         }
     }
 
-    // ==================== 业务逻辑（从 DefaultViewModel 迁移） ====================
+    // ==================== 业务逻辑 ====================
 
     private fun updateCompareResultList(
         firstInputType: InputType,
@@ -1011,8 +1011,6 @@ class GameViewModel @Inject constructor(
         val DEFAULT_BPCOUNTER = Counter()
         val DEFAULT_TABLE_DISPLAY_LIST = List(MIN_TABLE_COLUMN_COUNT) { TableDisplayItem.Empty }
         private val DEFAULT_STRANTYGE_GRID = StrategyGridInfo()
-        private val DEFAULT_STRATEGY_3WAYS = Strategy3WaysData()
-        private val DEFAULT_PREDICTED_3WAYS = PredictedStrategy3WaysValue()
 
         const val MAX_COLUMN_COUNT = 3
         const val MIN_TABLE_COLUMN_COUNT = 30

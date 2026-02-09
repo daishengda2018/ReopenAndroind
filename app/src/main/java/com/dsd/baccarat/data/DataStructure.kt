@@ -68,12 +68,6 @@ data class Strategy3WyasItem(
     val second: Int? = null
 )
 
-// UI 显示项的基类
-@Immutable
-sealed class DisplayItem {
-    @Immutable object Empty : DisplayItem()
-}
-
 // Bppc 的显示项
 @Immutable
 sealed class TableDisplayItem() {

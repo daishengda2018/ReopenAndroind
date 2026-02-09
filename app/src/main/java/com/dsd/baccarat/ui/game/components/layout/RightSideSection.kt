@@ -260,12 +260,13 @@ private fun HandleSideEffects(
             when (sideEffect) {
                 is GameSideEffect.NavigateToHistory -> {
                     val intent = Intent(context, HistoryActivity::class.java).apply {
-                        putExtra("key_game_id", sideEffect.gameId)
-                        putExtra("key_start_time", sideEffect.startTime)
-                        putExtra("key_end_time", sideEffect.endTime)
+                        putExtra(HistoryActivity.KEY_GAME_ID, sideEffect.gameId)
+                        putExtra(HistoryActivity.KEY_START_TIME, sideEffect.startTime)
+                        putExtra(HistoryActivity.KEY_END_TIME, sideEffect.endTime)
                     }
                     context.startActivity(intent)
                 }
+
                 else -> {} // 其他副作用在主屏幕处理
             }
         }

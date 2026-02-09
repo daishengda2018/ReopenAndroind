@@ -3,8 +3,6 @@ package com.dsd.baccarat
 import androidx.activity.viewModels
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import com.dsd.baccarat.model.DefaultViewModel.Companion.KEY_GAME_ID
-import com.dsd.baccarat.model.DefaultViewModel.Companion.KEY_START_TIME
 import com.dsd.baccarat.ui.game.GameScreen
 import com.dsd.baccarat.ui.game.state.GameUiEvent
 import com.dsd.baccarat.viewmodel.GameViewModel
@@ -18,6 +16,12 @@ import dagger.hilt.android.AndroidEntryPoint
  */
 @AndroidEntryPoint
 class HistoryActivity : BaseActivity() {
+
+    companion object {
+        const val KEY_GAME_ID = "key_game_id"
+        const val KEY_START_TIME = "key_start_time"
+        const val KEY_END_TIME = "key_end_time"
+    }
 
     private val viewModel: GameViewModel by viewModels()
 
