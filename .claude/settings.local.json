@@ -6,7 +6,24 @@
       "Bash(./gradlew assembleDebug:*)",
       "Bash(export:*)",
       "Bash(tee:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(./gradlew:*)",
+      "Bash(find:*)",
+      "Bash(mkdir:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(ls:*)",
+      "Bash(python3:*)",
+      "Skill(everything-claude-code:instinct-import)",
+      "Bash(for:*)",
+      "Bash(do)",
+      "Bash(echo:*)",
+      "Bash(done)",
+      "Bash(git push:*)",
+      "Bash(open:*)",
+      "Skill(docx)",
+      "Bash(pandoc:*)",
+      "Bash(pip3 install:*)"
     ]
   }
 }
