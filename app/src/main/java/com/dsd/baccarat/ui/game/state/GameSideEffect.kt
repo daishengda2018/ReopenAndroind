@@ -1,7 +1,5 @@
 package com.dsd.baccarat.ui.game.state
 
-import android.content.Context
-
 /**
  * 游戏主屏幕的副作用（一次性事件）
  * 这些事件需要由 UI 层处理，例如：导航、Toast、声音播放等
@@ -24,7 +22,6 @@ sealed interface GameSideEffect {
      * @param gameId 游戏 ID
      * @param startTime 开始时间
      * @param endTime 结束时间
-     * @param context Android Context（用于启动 Activity）
      */
     data class NavigateToHistory(
         val gameId: String,
