@@ -63,12 +63,26 @@ enum class WLSymbol { WIN, LOSS }
 @Immutable
 data class Counter(val count1: Int = 0, val count2: Int = 0)
 
+// Display marks for V2 features
+@Immutable
+data class DisplayMarks(
+    val circleA: CircleType? = null,
+    val circleB: CircleType? = null,
+    val circleC: CircleType? = null,
+    val wlSymbolA: WLSymbol? = null,
+    val wlSymbolB: WLSymbol? = null,
+    val wlSymbolC: WLSymbol? = null,
+    val isLightBackground: Boolean = false
+)
+
 // 主列表项 (使用可空类型)
 @Immutable
 data class TableItem(
     val dataA: Pair<Boolean, Int?>? = null,
     val dataB: Pair<Boolean, Int?>? = null,
-    val dataC: Pair<Boolean, Int?>? = null
+    val dataC: Pair<Boolean, Int?>? = null,
+    // V2: Display marks for circles and symbols
+    val displayMarks: DisplayMarks? = null
 )
 
 @Immutable
