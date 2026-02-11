@@ -1,6 +1,7 @@
 package com.dsd.baccarat.ui.game.state
 
 import androidx.compose.runtime.Immutable
+import com.dsd.baccarat.data.CircleMarkType
 import com.dsd.baccarat.data.ColumnType
 import com.dsd.baccarat.data.Counter
 import com.dsd.baccarat.data.InputType
@@ -8,9 +9,23 @@ import com.dsd.baccarat.data.PredictedStrategy3WaysValue
 import com.dsd.baccarat.data.Strategy3WaysData
 import com.dsd.baccarat.data.StrategyGridInfo
 import com.dsd.baccarat.data.TableDisplayItem
+import com.dsd.baccarat.data.TableType
 import com.dsd.baccarat.data.TimerStatus
 import com.dsd.baccarat.data.room.entity.GameSessionEntity
 import com.dsd.baccarat.data.room.entity.InputEntity
+
+/**
+ * 表格元数据（V2功能）
+ */
+@Immutable
+data class TableMetadata(
+    val tableNumber: Int = 1,              // 表格编号 (1-99999)
+    val currentColumnCount: Int = 0,       // 当前列数
+    val maxColumnsPerTable: Int = 25       // 每张表最大列数（W/L表用）
+) {
+    val displayNumber: String
+        get() = tableNumber.toString().padStart(5, '0')
+}
 
 /**
  * 游戏主屏幕的 UI 状态
@@ -61,7 +76,18 @@ data class GameUiState(
     // ========== 历史模式标记 ==========
     val isHistoryMode: Boolean = false,
     val historyStartTime: Long = 0L,
-    val historyEndTime: Long = 0L
+    val historyEndTime: Long = 0L,
+
+    // ========== V2: 表格元数据 ==========
+    val bpTableMeta: TableMetadata = TableMetadata(),
+    val wlTableMeta: TableMetadata = TableMetadata(),
+
+    // ========== V2: W/L表格专用 ==========
+    val wlPreviousTableData: List<TableDisplayItem> = emptyList(),
+
+    // ========== V2: 套圈状态 ==========
+    val bpCircleMarkType: CircleMarkType? = null,
+    val wlCircleMarkEnabled: Boolean = false
 ) {
     /**
      * 获取指定列的 3 路策略数据
