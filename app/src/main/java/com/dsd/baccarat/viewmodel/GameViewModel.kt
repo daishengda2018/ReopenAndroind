@@ -7,8 +7,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dsd.baccarat.HistoryActivity
 import com.dsd.baccarat.data.BetResultType
+import com.dsd.baccarat.data.CircleMarkType
+import com.dsd.baccarat.data.CircleType
 import com.dsd.baccarat.data.ColumnType
 import com.dsd.baccarat.data.Counter
+import com.dsd.baccarat.data.DisplayMarks
 import com.dsd.baccarat.data.InputType
 import com.dsd.baccarat.data.OperationType
 import com.dsd.baccarat.data.PredictedStrategy3WaysValue
@@ -21,6 +24,7 @@ import com.dsd.baccarat.data.TableDisplayItem
 import com.dsd.baccarat.data.TableItem
 import com.dsd.baccarat.data.TableType
 import com.dsd.baccarat.data.TemporaryStorageRepository
+import com.dsd.baccarat.ui.game.state.AlarmType
 import com.dsd.baccarat.data.TimerStatus
 import com.dsd.baccarat.data.room.dao.BetDataDao
 import com.dsd.baccarat.data.room.dao.GameSessionDao
@@ -1069,5 +1073,17 @@ class GameViewModel @Inject constructor(
             ColumnType.B to ColumnType.C,
             ColumnType.C to ColumnType.A
         )
+
+        // V2: 正反形态映射
+        private val oppositePairs = mapOf(
+            1 to 2, 2 to 1,
+            3 to 4, 4 to 3,
+            5 to 6, 6 to 5,
+            7 to 8, 8 to 7
+        )
+    }
+
+    private fun isOppositePair(num1: Int, num2: Int): Boolean {
+        return oppositePairs[num1] == num2
     }
 }
