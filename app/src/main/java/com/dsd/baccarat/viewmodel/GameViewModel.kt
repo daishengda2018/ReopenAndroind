@@ -1139,11 +1139,7 @@ class GameViewModel @Inject constructor(
         )
 
         // V2: 正反形态映射
-<<<<<<< HEAD
-        val oppositePairs = mapOf(
-=======
         private val oppositePairs = mapOf(
->>>>>>> 3d3d2b0 (feat(viewmodel): implement BP circle mark logic (ZF and ZF_SEP))
             1 to 2, 2 to 1,
             3 to 4, 4 to 3,
             5 to 6, 6 to 5,
@@ -1151,11 +1147,8 @@ class GameViewModel @Inject constructor(
         )
     }
 
-<<<<<<< HEAD
-    fun isOppositePair(num1: Int, num2: Int): Boolean {
-=======
+
     private fun isOppositePair(num1: Int, num2: Int): Boolean {
->>>>>>> 3d3d2b0 (feat(viewmodel): implement BP circle mark logic (ZF and ZF_SEP))
         return oppositePairs[num1] == num2
     }
 }
