@@ -34,6 +34,30 @@ enum class OperationType {
 @Immutable
 enum class ColumnType(val value: Int) { A(0), B(1), C(2) }
 
+// Table type for rendering differentiation
+@Immutable
+enum class TableType { BP, WL }
+
+// Circle mark type for different marking scenarios
+@Immutable
+enum class CircleMarkType {
+    ZF,         // Adjacent opposite patterns
+    ZF_SEP,     // Skip-one opposite patterns
+    CIRCLE_12,  // BP pattern betting table specific
+    CIRCLE_34,
+    CIRCLE_56,
+    CIRCLE_78,
+    WL_ALARM    // W/L table blue circle for numbers 2 and 7
+}
+
+// Circle type for overlay rendering
+@Immutable
+enum class CircleType { RED, BLUE, BOTH }
+
+// W/L symbol for sync display
+@Immutable
+enum class WLSymbol { WIN, LOSS }
+
 
 // BP 计数器
 @Immutable
