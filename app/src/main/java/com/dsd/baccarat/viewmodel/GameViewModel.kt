@@ -19,6 +19,7 @@ import com.dsd.baccarat.data.StrategyGridInfo
 import com.dsd.baccarat.data.StrategyGridItem
 import com.dsd.baccarat.data.TableDisplayItem
 import com.dsd.baccarat.data.TableItem
+import com.dsd.baccarat.data.TableType
 import com.dsd.baccarat.data.TemporaryStorageRepository
 import com.dsd.baccarat.data.TimerStatus
 import com.dsd.baccarat.data.room.dao.BetDataDao
@@ -176,6 +177,10 @@ class GameViewModel @Inject constructor(
 
             // 历史记录事件
             is GameUiEvent.LoadHistory -> handleLoadHistory(event.gameId, event.startTime)
+
+            // V2: 套圈事件
+            is GameUiEvent.ToggleCircleZF -> handleToggleCircleZF(event.tableType)
+            is GameUiEvent.ToggleCircleZFSep -> handleToggleCircleZFSep(event.tableType)
         }
     }
 
@@ -478,6 +483,22 @@ class GameViewModel @Inject constructor(
                 Log.e("GameViewModel", "Failed to load history", e)
             }
         }
+    }
+
+    // ==================== V2: 套圈事件处理 ====================
+
+    /**
+     * 处理正反套圈（相邻）切换
+     */
+    private fun handleToggleCircleZF(tableType: TableType) {
+        // TODO: Implement in Task 17
+    }
+
+    /**
+     * 处理正反套圈（间隔）切换
+     */
+    private fun handleToggleCircleZFSep(tableType: TableType) {
+        // TODO: Implement in Task 17
     }
 
     // ==================== 业务逻辑 ====================

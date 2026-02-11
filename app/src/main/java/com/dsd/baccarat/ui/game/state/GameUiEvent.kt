@@ -1,5 +1,6 @@
 package com.dsd.baccarat.ui.game.state
 
+import com.dsd.baccarat.data.TableType
 import com.dsd.baccarat.data.room.entity.GameSessionEntity
 
 /**
@@ -112,4 +113,18 @@ sealed interface GameUiEvent {
      * @param startTime 开始时间
      */
     data class LoadHistory(val gameId: String, val startTime: Long) : GameUiEvent
+
+    // ========== V2: 套圈事件 ==========
+
+    /**
+     * 切换正反套圈（相邻）
+     * @param tableType 表格类型（BP 或 WL）
+     */
+    data class ToggleCircleZF(val tableType: TableType) : GameUiEvent
+
+    /**
+     * 切换正反套圈（间隔）
+     * @param tableType 表格类型（BP 或 WL）
+     */
+    data class ToggleCircleZFSep(val tableType: TableType) : GameUiEvent
 }
