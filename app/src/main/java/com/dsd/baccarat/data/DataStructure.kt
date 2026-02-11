@@ -34,17 +34,55 @@ enum class OperationType {
 @Immutable
 enum class ColumnType(val value: Int) { A(0), B(1), C(2) }
 
+// Table type for rendering differentiation
+@Immutable
+enum class TableType { BP, WL }
+
+// Circle mark type for different marking scenarios
+@Immutable
+enum class CircleMarkType {
+    ZF,         // Adjacent opposite patterns
+    ZF_SEP,     // Skip-one opposite patterns
+    CIRCLE_12,  // BP pattern betting table specific
+    CIRCLE_34,
+    CIRCLE_56,
+    CIRCLE_78,
+    WL_ALARM    // W/L table blue circle for numbers 2 and 7
+}
+
+// Circle type for overlay rendering
+@Immutable
+enum class CircleType { RED, BLUE, BOTH }
+
+// W/L symbol for sync display
+@Immutable
+enum class WLSymbol { WIN, LOSS }
+
 
 // BP 计数器
 @Immutable
 data class Counter(val count1: Int = 0, val count2: Int = 0)
+
+// Display marks for V2 features
+@Immutable
+data class DisplayMarks(
+    val circleA: CircleType? = null,
+    val circleB: CircleType? = null,
+    val circleC: CircleType? = null,
+    val wlSymbolA: WLSymbol? = null,
+    val wlSymbolB: WLSymbol? = null,
+    val wlSymbolC: WLSymbol? = null,
+    val isLightBackground: Boolean = false
+)
 
 // 主列表项 (使用可空类型)
 @Immutable
 data class TableItem(
     val dataA: Pair<Boolean, Int?>? = null,
     val dataB: Pair<Boolean, Int?>? = null,
-    val dataC: Pair<Boolean, Int?>? = null
+    val dataC: Pair<Boolean, Int?>? = null,
+    // V2: Display marks for circles and symbols
+    val displayMarks: DisplayMarks? = null
 )
 
 @Immutable

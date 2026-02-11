@@ -26,7 +26,11 @@ fun VerticalBarChart(
     value: Pair<Boolean, Int?>?,
     modifier: Modifier = Modifier
 ) {
-    val color = determineColorBarChart(value?.second)
+    val color = when (value?.second) {
+        1, 2, 5, 6 -> Color.Red      // 12/56红色
+        3, 4, 7, 8 -> Color.Blue     // 34/78蓝色
+        else -> Color.Gray
+    }
 
     Box(
         modifier
@@ -40,11 +44,17 @@ fun VerticalBarChart(
 
             // 绘制网格线和边框
             for (i in 0..MAX_VALUE) {
+                val strokeWidth = when {
+                    i == 4 -> gridWidth
+                    value?.second in listOf(2, 4, 6, 8) -> gridWidth * 1.8f  // 粗线条
+                    else -> gridWidth
+                }
+
                 drawLine(
                     color = if (i == 4) Color.Black else gridColor,
                     start = Offset(0f, i * interval),
                     end = Offset(size.width, i * interval),
-                    strokeWidth = gridWidth
+                    strokeWidth = strokeWidth
                 )
             }
 
