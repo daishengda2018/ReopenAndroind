@@ -36,4 +36,17 @@ sealed interface GameSideEffect {
      * 显示错误消息
      */
     data class ShowError(val error: Throwable) : GameSideEffect
+
+    /**
+     * 触发报警
+     * @param alarmType 报警类型
+     */
+    data class TriggerAlarm(val alarmType: AlarmType) : GameSideEffect
+}
+
+/**
+ * 报警类型
+ */
+enum class AlarmType {
+    NUMBER_2  // 数字2报警
 }
