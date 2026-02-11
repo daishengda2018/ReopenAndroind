@@ -492,17 +492,81 @@ class GameViewModel @Inject constructor(
     // ==================== V2: 套圈事件处理 ====================
 
     /**
+     * 应用BP表格套圈标记
+     */
+    private fun applyBpCircleMarks(
+        tableData: List<TableDisplayItem>,
+        markType: CircleMarkType
+    ): List<TableDisplayItem> {
+        return tableData.mapIndexed { index, item ->
+            val realItem = item as? TableDisplayItem.Real ?: return@mapIndexed item
+            val currentNum = realItem.data.dataA?.second ?: return@mapIndexed item
+
+            val circleType = when (markType) {
+                CircleMarkType.ZF -> {
+                    // Check adjacent positions
+                    val prevNum = if (index > 0)
+                        (tableData[index - 1] as? TableDisplayItem.Real)?.data?.dataA?.second
+                    else null
+                    val nextNum = if (index < tableData.size - 1)
+                        (tableData[index + 1] as? TableDisplayItem.Real)?.data?.dataA?.second
+                    else null
+
+                    when {
+                        prevNum != null && isOppositePair(currentNum, prevNum) -> CircleType.RED
+                        nextNum != null && isOppositePair(currentNum, nextNum) -> CircleType.BLUE
+                        else -> null
+                    }
+                }
+                CircleMarkType.ZF_SEP -> {
+                    // Check skip-one positions
+                    val prev2Num = if (index > 1)
+                        (tableData[index - 2] as? TableDisplayItem.Real)?.data?.dataA?.second
+                    else null
+                    val next2Num = if (index < tableData.size - 2)
+                        (tableData[index + 2] as? TableDisplayItem.Real)?.data?.dataA?.second
+                    else null
+
+                    when {
+                        prev2Num != null && isOppositePair(currentNum, prev2Num) -> CircleType.RED
+                        next2Num != null && isOppositePair(currentNum, next2Num) -> CircleType.BLUE
+                        else -> null
+                    }
+                }
+                else -> null
+            }
+
+            if (circleType != null) {
+                TableDisplayItem.Real(
+                    realItem.data.copy(
+                        displayMarks = realItem.data.displayMarks?.copy(circleA = circleType)
+                            ?: DisplayMarks(circleA = circleType)
+                    )
+                )
+            } else {
+                item
+            }
+        }
+    }
+
+    /**
      * 处理正反套圈（相邻）切换
+     *
+     * 功能计划：识别相邻的正反形态并应用套圈标记
+     * 相关文档：docs/plans/2026-02-11-phase1-implementation-plan.md Task 17
      */
     private fun handleToggleCircleZF(tableType: TableType) {
-        // TODO: Implement in Task 17
+        // Implementation planned in Phase 1 Task 17
     }
 
     /**
      * 处理正反套圈（间隔）切换
+     *
+     * 功能计划：识别隔一的正反形态并应用套圈标记
+     * 相关文档：docs/plans/2026-02-11-phase1-implementation-plan.md Task 17
      */
     private fun handleToggleCircleZFSep(tableType: TableType) {
-        // TODO: Implement in Task 17
+        // Implementation planned in Phase 1 Task 17
     }
 
     // ==================== 业务逻辑 ====================
@@ -1075,7 +1139,7 @@ class GameViewModel @Inject constructor(
         )
 
         // V2: 正反形态映射
-        private val oppositePairs = mapOf(
+        val oppositePairs = mapOf(
             1 to 2, 2 to 1,
             3 to 4, 4 to 3,
             5 to 6, 6 to 5,
@@ -1083,7 +1147,7 @@ class GameViewModel @Inject constructor(
         )
     }
 
-    private fun isOppositePair(num1: Int, num2: Int): Boolean {
+    fun isOppositePair(num1: Int, num2: Int): Boolean {
         return oppositePairs[num1] == num2
     }
 }
