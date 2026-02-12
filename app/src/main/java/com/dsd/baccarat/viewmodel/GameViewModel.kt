@@ -1139,7 +1139,7 @@ class GameViewModel @Inject constructor(
         )
 
         // V2: 正反形态映射
-        val oppositePairs = mapOf(
+        private val oppositePairs = mapOf(
             1 to 2, 2 to 1,
             3 to 4, 4 to 3,
             5 to 6, 6 to 5,
@@ -1147,7 +1147,8 @@ class GameViewModel @Inject constructor(
         )
     }
 
-    fun isOppositePair(num1: Int, num2: Int): Boolean {
+
+    private fun isOppositePair(num1: Int, num2: Int): Boolean {
         return oppositePairs[num1] == num2
     }
 }
