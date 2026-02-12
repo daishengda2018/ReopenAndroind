@@ -550,19 +550,23 @@ class GameViewModel @Inject constructor(
     }
 
     /**
-
-    /**
      * 处理正反套圈（相邻）切换
+     *
+     * 功能计划：识别相邻的正反形态并应用套圈标记
+     * 相关文档：docs/plans/2026-02-11-phase1-implementation-plan.md Task 17
      */
     private fun handleToggleCircleZF(tableType: TableType) {
-        // TODO: Implement in Task 17
+        // Implementation planned in Phase 1 Task 17
     }
 
     /**
      * 处理正反套圈（间隔）切换
+     *
+     * 功能计划：识别隔一的正反形态并应用套圈标记
+     * 相关文档：docs/plans/2026-02-11-phase1-implementation-plan.md Task 17
      */
     private fun handleToggleCircleZFSep(tableType: TableType) {
-        // TODO: Implement in Task 17
+        // Implementation planned in Phase 1 Task 17
     }
 
     // ==================== 业务逻辑 ====================
