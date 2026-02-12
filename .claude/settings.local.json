@@ -23,7 +23,13 @@
       "Bash(open:*)",
       "Skill(docx)",
       "Bash(pandoc:*)",
-      "Bash(pip3 install:*)"
+      "Bash(pip3 install:*)",
+      "Bash(git restore:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr diff:*)",
+      "Bash(gh pr view:*)",
+      "Bash(/Users/im_dsd/Documents/work_room/ReopenAndroid/.worktrees/phase1-table-upgrades/gradlew:*)",
+      "Bash(git checkout:*)"
     ]
   }
 }
